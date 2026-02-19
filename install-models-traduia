@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+SHARED_HF="/usr/lib/ai/traduia_models"
+TRADUIA_DIR="/usr/lib/traduia"
+TRADUIA_VENV="$TRADUIA_DIR/venv"
+
+mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
+
+echo "[setup] Creando venv $TRADUIA_VENV/venv"
+python3 -m venv $TRADUIA_VENV > /dev/null 2>&1
+
+echo "[setup] Activando venv"
+echo $TRADUIA_DIR > $TRADUIA_VENV/lib/python3.12/site-packages/extra_paths.pth
+source $TRADUIA_VENV/bin/activate
+
+echo "[setup] Actualizando pip/setuptools/wheel"
+python -m pip install --upgrade pip setuptools wheel  > /dev/null 2>&1
+
+echo "[setup] Instalando dependencias Python"
+pip install fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub > /dev/null 2>&1
+
+echo "[setup] Exportando variables de cache compartida (para este proceso)"
+export HF_HOME="$SHARED_HF"
+export HF_HUB_CACHE="$SHARED_HF/hub"
+export TRANSFORMERS_CACHE="$SHARED_HF/transformers"
+export HF_DATASETS_CACHE="$SHARED_HF/datasets"
+export ALICIA_MODEL_CACHE="$SHARED_HF/hub"
+
+# Durante la precarga NO ponemos offline=1 (si falta algo, debe descargar).
+unset HF_HUB_OFFLINE || true
+unset TRANSFORMERS_OFFLINE || true
+
+echo "[setup] Precargando modelos en cache compartida..."
+python - <<'PY' &>/dev/null
+import os
+from huggingface_hub import snapshot_download
+
+print("[preload] HF_HOME:", os.environ.get("HF_HOME"))
+print("[preload] HF_HUB_CACHE:", os.environ.get("HF_HUB_CACHE"))
+
+# faster-whisper small => repo
+repos = [
+    "Systran/faster-whisper-small",
+
+    # MarianMT (Helsinki-NLP) - ajusta esta lista si usas otros pares
+    "Helsinki-NLP/opus-mt-es-en",
+    "Helsinki-NLP/opus-mt-es-fr",
+    "Helsinki-NLP/opus-mt-es-de",
+    "Helsinki-NLP/opus-mt-es-ru",
+    "Helsinki-NLP/opus-mt-es-ar",
+    "Helsinki-NLP/opus-mt-es-uk",
+    "Helsinki-NLP/opus-mt-ca-en",
+    "Helsinki-NLP/opus-mt-ca-es",
+]
+
+for repo in repos:
+    print(f"[preload] Descargando/cacheando: {repo}")
+    snapshot_download(
+        repo_id=repo,
+        cache_dir=os.environ.get("HF_HUB_CACHE"),
+        local_dir=None,
+        local_dir_use_symlinks=False,
+        resume_download=True,
+    )
+
+print("[preload] OK. Modelos en cache.")
+PY
+
+pip install --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
+pip install sacremoses  > /dev/null 2>&1
+
+echo ""
+echo "[setup] Listo."
+echo ""
+echo "Ejecución offline (el launcher ya lo exporta):"
+echo "  HF_HUB_OFFLINE=1"
+echo "  TRANSFORMERS_OFFLINE=1"
+
+

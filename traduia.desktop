@@ -1,0 +1,26 @@
+[Desktop Entry]
+Version=1.0
+Encoding=UTF-8
+Name=TraduIA
+Name[en]=TraduIA
+Name[es]=TraduIA
+Name[qcv]=TraduIA
+Name[ca_ES]=TraduIA
+Name[ca_ES.UTF-8@valencia]=TraduIA
+Name[ca_ES@valencia]=TraduIA
+Name[ca]=TraduIA
+Comment=Realtime translation for classroom
+Comment[en]=Realtime translation for classroom
+Comment[es]=Traducción en tiempo real para aulas
+Comment[qcv]=Traducció en temps real per a les aules
+Comment[ca_ES]=Traducció en temps real per a les aules
+Comment[ca]=Traducció en temps real per a les aules
+Comment[ca_ES.UTF-8@valencia]=Traducció en temps real per a les aules
+Comment[ca_ES@valencia]=Traducció en temps real per a les aules
+Exec=xdg-open http://localhost:8000
+Terminal=false
+Icon=traduia
+Type=Application
+GenericName=Traduia
+NoDisplay=false
+Categories=Education;

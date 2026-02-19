@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_NAME="AlicIA Transcriptor (LliureX)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TRADUIA_DIR="/usr/lib/traduia"
+TRADUIA_VENV="$TRADUIA_DIR/venv"
+TRADUIA_MODELS="/usr/lib/ai/traduia_models"
+
+export GDK_BACKEND="${GDK_BACKEND:-x11}"
+export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::DeprecationWarning}"
+
+# === Activar venv ===
+if [[ -f "$TRADUIA_VENV/bin/activate" ]]; then
+  source "$TRADUIA_VENV/bin/activate"
+else
+  yad --error --title="$APP_NAME" --text="No se encuentra el entorno virtual venv en:\n$TRADUIA_VENV"
+  exit 1
+fi
+
+PY_BIN="$TRADUIA_VENV/bin/python3"
+TRANSCRIPTOR_PY="$TRADUIA_DIR/traduia_server.py"
+
+if [[ ! -x "$PY_BIN" ]]; then
+  yad --error --title="$APP_NAME" --text="No existe Python en venv:\n$PY_BIN"
+  exit 1
+fi
+
+if [[ ! -f "$TRANSCRIPTOR_PY" ]]; then
+  yad --error --title="$APP_NAME" --text="No se encuentra el transcriptor:\n$TRANSCRIPTOR_PY"
+  exit 1
+fi
+
+# === Chequeos deps ===
+if ! "$PY_BIN" -c "import sounddevice" >/dev/null 2>&1; then
+  yad --error --title="$APP_NAME" --text="Falta 'sounddevice' en el venv."
+  exit 1
+fi
+if ! "$PY_BIN" -c "import uvicorn" >/dev/null 2>&1; then
+  yad --error --title="$APP_NAME" --text="Falta 'uvicorn' en el venv.\n\npip install uvicorn"
+  exit 1
+fi
+
+# =========================================================
+# Forzar caché HF compartida (SIN fallback a home)
+# =========================================================
+HF_ROOT=$TRADUIA_MODELS
+if [[ ! -d "$HF_ROOT" ]]; then
+  yad --error --title="$APP_NAME" --text="No existe la caché compartida:\n$HF_ROOT\n\nEjecuta install-models-traduia."
+  exit 1
+fi
+
+export HF_HOME="$HF_ROOT"
+export HF_HUB_CACHE="$HF_ROOT/hub"
+export TRANSFORMERS_CACHE="$HF_ROOT"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+
+
+# =========================================================
+# Selector de idioma de entrada (profesor)
+# =========================================================
+LANG_CHOICE="$(yad --title="$APP_NAME" \
+  --form \
+  --field="Idioma de entrada:CB" "Castellano!Valencià" \
+  --button=gtk-ok:0 --button=gtk-cancel:1 \
+  --center --width=420 \
+  2>/dev/null || true)"
+
+if [[ -z "${LANG_CHOICE:-}" ]]; then
+  echo "[launcher] Cancelado (idioma)."
+  exit 0
+fi
+
+LANG_LABEL="${LANG_CHOICE%%|*}"
+if [[ "${LANG_LABEL}" == "Valencià" ]]; then
+  export ALICIA_INPUT_LANG="ca"
+  INPUT_LANG="ca"
+else
+  export ALICIA_INPUT_LANG="es"
+  INPUT_LANG="es"
+fi
+
+
+CONFIG_DIR="$HOME/.config/alicia-transcriptor"
+CONFIG_FILE="$CONFIG_DIR/config.env"
+mkdir -p "$CONFIG_DIR"
+
+get_conf() {
+  local key="$1"
+  local def="${2:-}"
+  local val=""
+  if [[ -f "$CONFIG_FILE" ]]; then
+    val="$(grep -E "^[[:space:]]*${key}=" "$CONFIG_FILE" | tail -n 1 | sed -E "s/^[[:space:]]*${key}=//")" || true
+  fi
+  [[ -z "$val" ]] && echo "$def" || echo "$val"
+}
+
+# Defaults UI
+CONF_INPUT_LANG="$(get_conf ALICIA_INPUT_LANG "es")"
+CONF_GATE_MODE="$(get_conf ALICIA_GATE_MODE "aula")"
+CONF_AUTO_CALIBRATE="$(get_conf ALICIA_AUTO_CALIBRATE "1")"
+CONF_CALIBRATE_SECONDS="$(get_conf ALICIA_CALIBRATE_SECONDS "2.0")"
+
+# =========================================================
+# UI 1: Fuente de audio
+# - Micro interno
+# - Micro externo
+# - Altavoces (audio del sistema) -> se autoselecciona el sink.monitor por defecto
+# =========================================================
+# =========================================================
+# Selector único: micrófono o altavoces (Pulse/PipeWire) estilo LliureX
+# (Se elimina la pantalla 1; solo aparece una lista)
+# =========================================================
+if ! command -v pactl >/dev/null 2>&1; then
+  yad --error --title="$APP_NAME" --text="No se encuentra 'pactl'. No puedo listar dispositivos de audio del sistema."
+  exit 1
+fi
+if ! command -v parec >/dev/null 2>&1; then
+  yad --error --title="$APP_NAME" --text="No se encuentra 'parec'.\n\nInstala: pulseaudio-utils (o equivalente)."
+  exit 1
+fi
+
+DEFAULT_SOURCE="$(pactl get-default-source 2>/dev/null || true)"
+DEFAULT_SINK="$(pactl get-default-sink 2>/dev/null || true)"
+DEFAULT_MONITOR="${DEFAULT_SINK}.monitor"
+
+PACTL_SOURCES="$(pactl list short sources 2>/dev/null || true)"
+if [[ -z "${PACTL_SOURCES:-}" ]]; then
+  yad --error --title="$APP_NAME" --text="No se han detectado sources vía pactl."
+  exit 1
+fi
+
+YAD_DATA=()
+
+# Opción 1 (V8: "Auriculares USB" / micrófonos): aquí usamos SIEMPRE la ENTRADA por defecto del sistema
+if [[ -z "${DEFAULT_SOURCE:-}" ]]; then
+  yad --error --title="$APP_NAME" --text="No se ha podido detectar la entrada (micrófono) por defecto vía pactl."
+  exit 1
+fi
+YAD_DATA+=("$DEFAULT_SOURCE" "Transcribe la entrada (micrófono) que haya configurada en el sistema por defecto")
+
+# Opción 2 (V8: "Altavoces (audio del sistema)"): usamos la SALIDA por defecto del sistema (monitor)
+MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk -v d="$DEFAULT_MONITOR" '$2==d {print $2}' | head -n1)"
+if [[ -z "${MON_SRC:-}" ]]; then
+  MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk '$2 ~ /\.monitor$/ {print $2}' | head -n1)"
+fi
+if [[ -z "${MON_SRC:-}" ]]; then
+  yad --error --title="$APP_NAME" --text="No se ha podido detectar la salida (altavoces) por defecto (monitor) vía pactl."
+  exit 1
+fi
+YAD_DATA+=("$MON_SRC" "Transcribe la salida (altavoces) que haya configurada en el sistema por defecto")
+
+SEL_SOURCE="$(
+  yad --title="$APP_NAME" --width=980 --height=520 \
+    --list \
+    --text="Elige la fuente de audio:" \
+    --column="Source:HD" --column="Nombre" \
+    "${YAD_DATA[@]}" \
+    --print-column=1 \
+    --button=gtk-cancel:1 --button=gtk-ok:0 \
+    2>/dev/null || true
+)"
+[[ -z "${SEL_SOURCE:-}" ]] && exit 0
+
+# Normalizar salida de yad (puede traer separadores '|' o saltos de línea)
+SEL_SOURCE="${SEL_SOURCE%%|*}"
+SEL_SOURCE="$(printf "%s" "$SEL_SOURCE" | head -n 1 | tr -d '\r')"
+SEL_SOURCE="$(printf "%s" "$SEL_SOURCE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+[[ -z "${SEL_SOURCE:-}" ]] && exit 0
+
+# Aplicar selección
+ALICIA_PULSE_SOURCE=""
+ALICIA_PULSE_MONITOR=""
+SEL_ID=""
+SEL_NAME=""
+
+if [[ "$SEL_SOURCE" == *.monitor ]]; then
+  ALICIA_PULSE_MONITOR="$SEL_SOURCE"
+  SEL_NAME="Salida (altavoces) por defecto: $SEL_SOURCE"
+else
+  ALICIA_PULSE_SOURCE="$SEL_SOURCE"
+  SEL_NAME="Entrada (micrófono) por defecto: $SEL_SOURCE"
+fi
+
+AUDIO_CHOICE="$SEL_NAME"
+
+# Guardar config (HOME solo config)
+
+# Defaults (por si el script se ejecuta sin pasar por el selector de idioma u otros flags)
+: "${INPUT_LANG:=${ALICIA_INPUT_LANG:-es}}"
+: "${GATE_MODE:=0}"
+: "${AUTO_CALIBRATE:=1}"
+: "${CALIBRATE_SECONDS:=3}"
+
+# =========================================================
+{
+  echo "# Autogenerado por launcher YAD"
+  echo "ALICIA_AUDIO_CHOICE=${AUDIO_CHOICE}"
+  echo "ALICIA_AUDIO_DEVICE=${SEL_ID}"
+  printf "ALICIA_AUDIO_DEVICE_NAME=%q\n" "$SEL_NAME"
+  echo "ALICIA_PULSE_MONITOR=${ALICIA_PULSE_MONITOR}"
+  echo "ALICIA_INPUT_LANG=${INPUT_LANG}"
+  echo "ALICIA_GATE_MODE=${GATE_MODE}"
+  echo "ALICIA_AUTO_CALIBRATE=${AUTO_CALIBRATE}"
+  echo "ALICIA_CALIBRATE_SECONDS=${CALIBRATE_SECONDS}"
+} > "$CONFIG_FILE"
+
+# Export para app
+export ALICIA_INPUT_LANG="$INPUT_LANG"
+export ALICIA_GATE_MODE="$GATE_MODE"
+export ALICIA_AUTO_CALIBRATE="$AUTO_CALIBRATE"
+export ALICIA_CALIBRATE_SECONDS="$CALIBRATE_SECONDS"
+
+# Si es micro, pasamos el ID PortAudio. Si es altavoces, pasamos ALICIA_PULSE_MONITOR.
+if [[ -n "$SEL_ID" ]]; then
+  export ALICIA_AUDIO_DEVICE="$SEL_ID"
+else
+  unset ALICIA_AUDIO_DEVICE || true
+fi
+
+if [[ -n "$ALICIA_PULSE_MONITOR" ]]; then
+  export ALICIA_PULSE_MONITOR="$ALICIA_PULSE_MONITOR"
+else
+  unset ALICIA_PULSE_MONITOR || true
+fi
+
+if [[ -n "${ALICIA_PULSE_SOURCE:-}" ]]; then
+  export ALICIA_PULSE_SOURCE="$ALICIA_PULSE_SOURCE"
+else
+  unset ALICIA_PULSE_SOURCE || true
+fi
+
+exec "$PY_BIN" -B -m uvicorn traduia_server:app --host 0.0.0.0 --port 8000

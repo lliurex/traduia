@@ -1,0 +1,26 @@
+[Desktop Entry]
+Version=1.0
+Encoding=UTF-8
+Name=TraduIA Server
+Name[en]=TraduIA Server
+Name[es]=TraduIA Server
+Name[qcv]=TraduIA Server
+Name[ca_ES]=TraduIA Server
+Name[ca_ES.UTF-8@valencia]=TraduIA Server
+Name[ca_ES@valencia]=TraduIA Server
+Name[ca]=TraduIA Server
+Comment=Realtime translation for classroom server
+Comment[en]=Realtime translation for classroom server
+Comment[es]=Traducción en tiempo real para aulas servidor
+Comment[qcv]=Traducció en temps real per a les aules servidor
+Comment[ca_ES]=Traducció en temps real per a les aules servidor
+Comment[ca]=Traducció en temps real per a les aules servidor
+Comment[ca_ES.UTF-8@valencia]=Traducció en temps real per a les aules servidor
+Comment[ca_ES@valencia]=Traducció en temps real per a les aules servidor
+Exec=/usr/bin/traduia
+Terminal=false
+Icon=traduia
+Type=Application
+GenericName=Traduia
+NoDisplay=false
+Categories=Education;
