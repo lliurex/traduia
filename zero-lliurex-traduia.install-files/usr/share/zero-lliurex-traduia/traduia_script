@@ -23,6 +23,14 @@ case $ACTION in
 	    if [ -e "$models" ]; then
 		rm -rf "$models"
 	    fi
+	    venv='/usr/lib/traduia/venv'
+	    if [ -e "$venv" ]; then
+		rm -rf "$venv"
+	    fi
+	    d='/usr/lib/traduia'
+	    if [ -d "$d" ]; then
+		rmdir "$d" || true
+	    fi
 	fi
     ;;	
 esac
