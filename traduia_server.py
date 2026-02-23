@@ -1,15 +1,17 @@
 #!/usr/bin/python3 -B
-import os
+import os,sys
 import json
 import queue
 import threading
 import time
 import subprocess
+import signal
 from typing import Iterator, List, Tuple, Optional
 
 import numpy as np
 import sounddevice as sd
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from starlette.responses import (
@@ -21,6 +23,13 @@ from starlette.responses import (
 from faster_whisper import WhisperModel
 from transformers import MarianMTModel, MarianTokenizer
 from pathlib import Path
+
+sys.path.extend(['/usr/local/lib/python3.12/dist-packages', '/usr/lib/python3/dist-packages', '/usr/lib/python3.12/dist-packages'])
+
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import QThread, Signal
+import uvicorn
 
 # =========================================================
 # CONFIG GENERAL
@@ -572,29 +581,12 @@ HTML_CLIENT = r"""<!doctype html>
 # FASTAPI + SSE
 # =========================================================
 
-app = FastAPI(title="LliureX STT/Traducción en tiempo real")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-_subscribers: List["queue.Queue[bytes]"] = []
-_sub_lock = threading.Lock()
-_stt_started = False
-
-# ==== Ctrl+C fix: parada limpia del hilo STT ====
-_stop_event = threading.Event()
-_stt_thread: Optional[threading.Thread] = None
-
-import signal
 
 # Ctrl+C fix (SSE): marcar _stop_event ANTES de que Uvicorn espere a cerrar conexiones.
 # Uvicorn instala sus propios handlers; encadenamos para no romper su shutdown.
 def _install_signal_hooks():
     def _chain(sig, frame, prev):
+        global _subscribers,_stop_event
         try:
             _stop_event.set()
             # Forzar cierre de SSE: enviamos un último mensaje para que el cliente cierre y el generador salga.
@@ -627,14 +619,32 @@ def _install_signal_hooks():
 
         signal.signal(sig, _alicia_sig_handler)
 
-_install_signal_hooks()
+def init_app():
+    global app,_stt_started,_stop_event,_sub_lock,_stt_started
+    app = FastAPI(title="LliureX STT/Traducción en tiempo real",lifespan=lifespan)
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    _subscribers: List["queue.Queue[bytes]"] = []
+    _sub_lock = threading.Lock()
+    _stt_started = False
+
+    # ==== Ctrl+C fix: parada limpia del hilo STT ====
+    _stop_event = threading.Event()
+    _stt_thread: Optional[threading.Thread] = None
+    _install_signal_hooks()
+    return app,_stt_thread,_subscribers
 
 def sse_pack(obj: dict) -> bytes:
     return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n".encode("utf-8")
 
-
 def broadcast_line(text: str) -> None:
+    global _subscribers
     payload = {"type": "line", "text": text, "src_lang": INPUT_LANG}
     data = sse_pack(payload)
     with _sub_lock:
@@ -643,29 +653,6 @@ def broadcast_line(text: str) -> None:
                 q.put_nowait(data)
             except Exception:
                 pass
-
-
-@app.get("/health")
-def health():
-    return {"ok": True, "input_lang": INPUT_LANG}
-
-
-@app.get("/", include_in_schema=False)
-def root():
-    return HTMLResponse(HTML_CLIENT)
-
-
-@app.get("/alicia.png", include_in_schema=False)
-def alicia_png():
-    """
-    Sirve alicia.png desde el mismo directorio que este .py
-    """
-    path = BASE_DIR / "alicia.png"
-    if not path.exists():
-        return JSONResponse(
-            status_code=404, content={"error": "alicia.png no encontrada"}
-        )
-    return FileResponse(path, media_type="image/png")
 
 
 # =========================================================
@@ -978,19 +965,52 @@ def start_stt_if_needed():
     _stt_thread.start()
     _stt_started = True
 
+def start_system_tray():
+    tray = TrayIcon()
+    tray.show()
 
-@app.on_event("startup")
-def on_startup():
+    sys.exit(app.exec())
+
+@asynccontextmanager
+async def lifespan(app:FastAPI):
     start_stt_if_needed()
-
-
-@app.on_event("shutdown")
-def on_shutdown():
-    # Ctrl+C fix: señalamos parada para que el hilo STT cierre el InputStream
+    yield
     _stop_event.set()
     # Espera corta (no bloqueante) para salida limpia
     if _stt_thread and _stt_thread.is_alive():
         _stt_thread.join(timeout=2.0)
+
+app,_stt_thread,_subscribers = init_app()
+
+# DEPRECATED
+# @app.on_event("startup")
+# def on_startup():
+    
+# @app.on_event("shutdown")
+# def on_shutdown():
+#     # Ctrl+C fix: señalamos parada para que el hilo STT cierre el InputStream
+
+@app.get("/health")
+def health():
+    return {"ok": True, "input_lang": INPUT_LANG}
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return HTMLResponse(HTML_CLIENT)
+
+
+@app.get("/alicia.png", include_in_schema=False)
+def alicia_png():
+    """
+    Sirve alicia.png desde el mismo directorio que este .py
+    """
+    path = BASE_DIR / "alicia.png"
+    if not path.exists():
+        return JSONResponse(
+            status_code=404, content={"error": "alicia.png no encontrada"}
+        )
+    return FileResponse(path, media_type="image/png")
 
 
 # =========================================================
@@ -999,11 +1019,13 @@ def on_shutdown():
 
 @app.get("/stream")
 def stream():
+    global _subscribers
     client_q: "queue.Queue[bytes]" = queue.Queue()
     with _sub_lock:
         _subscribers.append(client_q)
 
     def gen() -> Iterator[bytes]:
+        global _subscribers,_stop_event,_sub_lock
         try:
             while not _stop_event.is_set():
                 try:
@@ -1021,7 +1043,6 @@ def stream():
                     _subscribers.remove(client_q)
 
     return StreamingResponse(gen(), media_type="text/event-stream")
-
 
 # =========================================================
 # /translate
@@ -1050,13 +1071,93 @@ def translate(req: TranslateRequest):
     out = translate_text(txt, target)
     return TranslateResponse(text=out)
 
-
 # =========================================================
 # PUNTO DE ENTRADA
 # =========================================================
+class FastApiThread(QThread):
+  def __init__(self):
+    super().__init__()
+    self.server = None
+  def run(self):
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, reload=False)
+    self.server = uvicorn.Server(config)
+    self.server.run()
+  def stop(self):
+    if self.server:
+      self.server.should_exit = True
+
+class TrayIcon(QSystemTrayIcon):
+    def __init__(self):
+        super().__init__()
+        self._setup_icon()
+        self._setup_menu()
+        self.activated.connect(self._on_tray_activated)
+        self.api_thread = FastApiThread()
+        self.api_thread.start()
+        
+    def _setup_icon(self):
+        image_path = '/usr/share/icons/hicolor/128x128/apps/traduia.png'
+
+        if image_path and os.path.exists(image_path):
+            icon = QIcon(image_path)
+        else:
+            icon = QIcon.fromTheme("application-x-executable")
+
+        self.setIcon(icon)
+        self.setToolTip("TraduIA Server")
+
+    def _setup_menu(self):
+        menu = QMenu()
+        exit_action = menu.addAction("Salir")
+        exit_action.triggered.connect(self._on_exit)
+        self.setContextMenu(menu)
+
+    def _on_tray_activated(self, reason):
+        # if reason == QSystemTrayIcon.ActivationReason.Trigger:
+        #     pos = QCursor.pos()
+        #     menu = self.contextMenu()
+        #     if menu:
+        #         menu_size = menu.sizeHint()
+        #         print(f"Widget position: x={pos.x()} y={pos.y()} | Menu size: x={menu_size.width()} y={menu_size.height()}")
+        #         if menu.isVisible():
+        #             menu.hide()
+        #         else:
+        #             screen = QApplication.primaryScreen()
+        #             screen_geometry = screen.geometry()
+        #             popup_pos = QPoint(
+        #                 screen_geometry.x() + (screen_geometry.width() - menu_size.width()) // 2,
+        #                 screen_geometry.y() + (screen_geometry.height() - menu_size.height()) // 2
+        #             )
+        #             popup_pos = QPoint(
+        #                 pos.x()+35,
+        #                 pos.y()-menu_size.height()+25
+        #             )
+        #             print(f"Popup position: x={popup_pos.x()} y={popup_pos.y()}")
+        #             QTimer.singleShot(0, lambda p=popup_pos, m=menu: m.popup(p))
+        # el
+        if reason == QSystemTrayIcon.ActivationReason.Context:
+            menu = self.contextMenu()
+            if menu:
+                menu.hide()
+                QTimer.singleShot(0, lambda: menu.popup(QCursor.pos()))
+
+    def _on_exit(self):
+        self.api_thread.stop()
+        self.api_thread.wait(2000)
+        self.hide()
+        app = QApplication.instance()
+        if app:
+            app.quit()
 
 if __name__ == "__main__":
-    import uvicorn
-    # Si cambias el nombre del archivo, ajusta "lliurex_transcriptor:app"
-    uvicorn.run("traduia-server:app", host="0.0.0.0", port=8000, reload=False)
+    qt_tray = QApplication(sys.argv)
+    qt_tray.setQuitOnLastWindowClosed(False)
+
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+    tray = TrayIcon()
+    tray.show()
+
+    sys.exit(qt_tray.exec())
 
