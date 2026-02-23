@@ -2,6 +2,6 @@
     "type":"apt",
     "pkg_list": [{"name":"traduia","key_store":"zero-lliurex-traduia","custom_icon":"traduia.png","custom_name":"TraduIA: Realtime transcription system"}], 
     "script": {"name":"/usr/share/zero-lliurex-traduia/traduia_script", "remove":true},
-    "custom_icon_path":"/usr/share/icons/lliurex/apps/128/",
+    "custom_icon_path":"/usr/share/zero-lliurex-traduia/",
     "zomando":"zero-lliurex-traduia"
 }
