@@ -1,0 +1,28 @@
+#!/bin/bash
+
+
+ACTION="$1"
+
+case $ACTION in
+
+    preInstall)
+    ;;
+
+    postInstall)
+
+	echo "Downloading models..."
+	/usr/sbin/install-models-traduia
+    ;;
+    remove)
+	apt-get remove -y traduia
+	TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
+	if [ "$TEST" == 'installed' ];then
+	    exit 1
+	else
+	    models='/usr/lib/ai/traduia_models'
+	    if [ -e "$models" ]; then
+		rm -rf "$models"
+	    fi
+	fi
+    ;;	
+esac

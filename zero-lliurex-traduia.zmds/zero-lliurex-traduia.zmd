@@ -1,0 +1,4 @@
+#!/bin/bash
+
+epi-gtk /usr/share/zero-lliurex-traduia/traduia.epi
+exit 0
