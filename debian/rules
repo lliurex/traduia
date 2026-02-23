@@ -16,7 +16,7 @@
 
 
 %:
-	dh $@
+	dh $@ --with llxsrc,zero,i18n
 
 
 # dh_make generated override targets.

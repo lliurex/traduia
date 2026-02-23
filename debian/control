@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: M.Angel Juan <m.angel.juan@gmail.com>
 Rules-Requires-Root: no
 Build-Depends:
- debhelper-compat (= 13),
+ debhelper-compat (= 13), zero-dev, llxsrchelper, inkscape
 Standards-Version: 4.6.2
 Homepage: <insert the upstream URL, if relevant>
 Vcs-Browser: https://github.com/lliurex/traduia
@@ -25,3 +25,14 @@ Depends:
  pulseaudio-utils
 Description: Realtime transcription system
  Transcription system intended to be used in multilingual classrooms or special education schools.
+
+Package: zero-lliurex-traduia
+Architecture: any
+Multi-Arch: foreign
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ zero-center,
+ epi-gtk
+Description: TraduIA installer
+ Easy installer for TraduIA built for zero-center.
