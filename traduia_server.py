@@ -201,6 +201,9 @@ HTML_CLIENT = r"""<!doctype html>
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
       padding: 18px 18px 16px 18px;
       color: #e5e7eb;
+      height: 80vh;
+      display: flex;
+      flex-direction: column;
     }
     .header {
       display: flex;
@@ -302,6 +305,10 @@ HTML_CLIENT = r"""<!doctype html>
       line-height: 1.5;
       white-space: pre-wrap;
       box-sizing: border-box;
+      flex: 1;
+      min-height: 0;
+      height: 100%;
+      resize: none;
     }
     textarea::placeholder {
       color: #6b7280;
@@ -338,7 +345,7 @@ HTML_CLIENT = r"""<!doctype html>
           </select>
         </div>
 
-        <div class="field">
+        <div class="field" id="lang-field">
           <span class="field-label" id="label-language">Idioma</span>
           <select id="target"></select>
         </div>
@@ -364,6 +371,7 @@ HTML_CLIENT = r"""<!doctype html>
 
     const modeSel   = document.getElementById("mode");
     const targetSel = document.getElementById("target");
+    const langField = document.getElementById("lang-field");
     const out       = document.getElementById("out");
     const pill      = document.getElementById("status-pill");
     const pillDot   = document.getElementById("status-dot");
@@ -381,14 +389,14 @@ HTML_CLIENT = r"""<!doctype html>
       desconectado: "desconectado",
       conectando: "conectando…",
       conectado: "conectado",
-      error: "error",
+      error: "desconectado",
     };
 
     const STATUS_TEXT_CA = {
       desconectado: "desconnectat",
       conectando: "connectant…",
       conectado: "connectat",
-      error: "error",
+      error: "desconnectat",
     };
 
     function setStatus(state) {
@@ -452,6 +460,11 @@ HTML_CLIENT = r"""<!doctype html>
     function configureTargetSelect() {
       const mode = modeSel.value;
       clearTargetOptions();
+
+      // Mostrar selector de idioma solo cuando el modo es "ver traducido"
+      if (langField) {
+        langField.style.display = (mode === "original") ? "none" : "";
+      }
 
       if (mode === "original") {
         if (INPUT_LANG === "ca") {
@@ -713,7 +726,33 @@ def stt_worker():
         "zdf",
         "closed captions",
         "cc by",
+        # ES: frases/patrones típicos por ruido
+        "este es el canal de subtítulos en español de la iglesia de jesucristo de los últimos días",
+        "este es el canal de subtitulos en espanol de la iglesia de jesucristo de los ultimos dias",
+        "este es el canal de subtítulos en español de la iglesia de jesucristo de los santos de los últimos días",
+        "este es el canal de subtitulos en espanol de la iglesia de jesucristo de los santos de los ultimos dias",
+        "subtítulos por la comunidad de amara.org",
+        "subtitulos por la comunidad de amara.org",
+        "subtítulos realizados por la comunidad de amara.org",
+        "subtitulos realizados por la comunidad de amara.org",
+        "subtitulado por la comunidad de amara.org",
+        "subtítulos creados por la comunidad de amara.org",
+        "subtitulos creados por la comunidad de amara.org",
+        "subtítulos hechos por la comunidad de amara.org",
+        "subtitulos hechos por la comunidad de amara.org",
+        "subtítulos en español de amara.org",
+        "subtitulos en espanol de amara.org",
+        "gracias por ver el video",
+        "gracias por ver el vídeo",
+        "suscríbete a mi canal",
+        "suscribete a mi canal",
+        "más información",
+        "mas informacion",
+        # URLs concretas
+        "www.alimmenta.com",
+        "www.mooji.org",
     ]
+
 
     # Si llevamos muchos chunks sin voz, reseteamos el buffer de "contexto"
     # (en nuestro caso, al no arrastrar contexto, simplemente sirve para estadísticas/log).
@@ -736,12 +775,20 @@ def stt_worker():
         t = (s or "").strip().lower()
         if not t:
             return True
-        # Filtrar líneas muy cortas o repetitivas (típico de ruido)
-        if len(t) < 2:
+
+        # Normalizar espacios y puntuación final para evitar variantes triviales
+        t = " ".join(t.split())
+        t_cmp = t.rstrip(" .!?,;:")
+
+        # Filtrar líneas muy cortas (típico de ruido)
+        if len(t_cmp) < 2:
             return True
+
+        # Coincidencia por substring contra lista de patrones
         for p in HALLUCINATION_PATTERNS:
-            if p in t:
+            if p in t_cmp:
                 return True
+
         return False
 
 
