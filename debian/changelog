@@ -1,3 +1,9 @@
+traduia (0.3) jammy; urgency=medium
+
+  * Fix layout & msg filter
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 10 Mar 2026 12:38:54 +0100
+
 traduia (0.2) jammy; urgency=medium
 
   * Fix banner
