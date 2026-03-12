@@ -22,7 +22,8 @@ Depends:
  gawk,
  python3-venv,
  yad,
- pulseaudio-utils
+ pulseaudio-utils,
+ share-ai-server
 Description: Realtime transcription system
  Transcription system intended to be used in multilingual classrooms or special education schools.
 
