@@ -1,7 +1,7 @@
 traduia (0.3) noble; urgency=medium
 
-  * Layout fix
-  * Filter fix
+  * Layout & filter fix
+  * Conditional install
 
  -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 10 Mar 2026 12:33:27 +0100
 
