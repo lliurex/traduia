@@ -21,13 +21,23 @@ function remove_models(){
 case $ACTION in
 
     preInstall)
+        if [ -f "/tmp/.traduia_install_mode" ]; then
+	    mode=$(cat /tmp/.traduia_install_mode)
+        else
+	    mode=""
+        fi
+        while [ ! -n "$mode" ]; do
+            mode=$(kdialog --title "Mode selector" --combobox "Install mode:" "Client" "Server")
+            ret=$?
+            if [ $ret -eq 1 ]; then
+                exit 1
+            fi
+        done
+        echo "$mode" > /tmp/.traduia_install_mode
     ;;
 
     postInstall)
-        mode=""
-        while [ ! -n "$mode" ]; do
-            mode=$(kdialog --title "Mode selector" --combobox "Install mode:" "Client" "Server")
-        done
+        mode=$(cat /tmp/.traduia_install_mode)
         if [ -n "$mode" ]; then
             if [ "$mode" == "Server" ]; then
                 echo "Downloading models..."
@@ -36,8 +46,10 @@ case $ACTION in
                remove_models
             fi
         fi
+	rm -f /tmp/.traduia_install_mode || true
     ;;
     remove)
+	rm -f /tmp/.traduia_install_mode || true
 	apt-get remove -y traduia
 	TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
 	if [ "$TEST" == 'installed' ];then
