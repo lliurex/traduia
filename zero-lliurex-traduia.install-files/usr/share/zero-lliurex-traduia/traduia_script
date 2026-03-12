@@ -22,9 +22,10 @@ case $ACTION in
 
     preInstall)
         if [ -f "/tmp/.traduia_install_mode" ]; then
-	    mode=$(cat /tmp/.traduia_install_mode)
+            mode=$(cat /tmp/.traduia_install_mode )
+            chown root:root /tmp/.traduia_install_mode
         else
-	    mode=""
+            mode=""
         fi
         while [ ! -n "$mode" ]; do
             mode=$(kdialog --title "Mode selector" --combobox "Install mode:" "Client" "Server")
