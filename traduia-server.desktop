@@ -22,5 +22,5 @@ Terminal=false
 Icon=traduia
 Type=Application
 GenericName=Traduia
-NoDisplay=false
+NoDisplay=true
 Categories=Education;
