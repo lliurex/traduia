@@ -9,9 +9,14 @@ case $ACTION in
     ;;
 
     postInstall)
-
-	echo "Downloading models..."
-	/usr/sbin/install-models-traduia
+        mode=""
+        while [ ! -n "$mode" ]; do
+            mode=$(kdialog --title "Mode selector" --combobox "Install mode:" "Client" "Server")
+        done
+        if [ -n "$mode" -a "$mode" == "Server" ]; then
+            echo "Downloading models..."
+            /usr/sbin/install-models-traduia
+        fi
     ;;
     remove)
 	apt-get remove -y traduia
