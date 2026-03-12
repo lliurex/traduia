@@ -5,3 +5,5 @@ traduia.desktop /usr/share/applications
 traduia-server.desktop /usr/share/applications
 alicia.png /usr/lib/traduia/
 traduia.png /usr/share/icons/hicolor/128x128/apps/
+check-traduia-server /usr/bin/
+not-available /usr/share/doc/traduia/
