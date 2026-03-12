@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Status</title>
+    <style>
+        /* Reseteo básico y centrado perfecto usando Flexbox */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #333;
+            text-align: center;
+        }
+
+        /* Estilo de la caja del mensaje */
+        .message-container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #d32f2f; /* Rojo suave para indicar alerta/error */
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+
+        p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="message-container">
+        <h1 id="status-title"></h1>
+        <p id="status-message"></p>
+    </div>
+
+    <script>
+        // Diccionario con los tres idiomas solicitados
+        const messages = {
+            'es': {
+                title: 'Servidor no disponible',
+                text: 'El servidor no está disponible en el ordenador local ni en "server". Debe iniciar un servidor primero.'
+            },
+            'ca': { // 'ca' abarca la etiqueta del navegador para Valenciano/Catalán
+                title: 'Servidor no disponible',
+                text: 'El servidor no està disponible en l\'ordinador local ni en "server". Per favor, inicie un servidor primer.'
+            },
+            'en': {
+                title: 'Server Unavailable',
+                text: 'The server is not available on the local computer or on "server". You must start a server first.'
+            }
+        };
+
+        // Función para detectar el idioma y aplicar los textos
+        function applyLanguage() {
+            // Obtener el idioma del navegador (ej: 'es-ES', 'en-US', 'ca-ES-valencia')
+            let userLang = navigator.language || navigator.userLanguage;
+            
+            // Extraer solo los dos primeros caracteres para identificar el idioma base
+            let baseLang = userLang.toLowerCase().substring(0, 2);
+
+            // Si el idioma detectado no está en nuestro diccionario, usar inglés por defecto
+            if (!messages[baseLang]) {
+                baseLang = 'en';
+            }
+
+            // Inyectar el texto en el HTML
+            document.getElementById('status-title').textContent = messages[baseLang].title;
+            document.getElementById('status-message').textContent = messages[baseLang].text;
+            
+            // Actualizar la etiqueta lang del HTML por accesibilidad
+            document.documentElement.lang = baseLang;
+        }
+
+        // Ejecutar la función en cuanto la página cargue
+        window.onload = applyLanguage;
+    </script>
+
+</body>
+</html>

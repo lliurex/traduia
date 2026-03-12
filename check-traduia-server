@@ -46,8 +46,12 @@ def check_json_4141(host, timeout=2):
 
 def main():
     target_host = "server"
+    target_codename = "remote"
     local_ips = get_local_ips()
-    
+    return_host = ""
+    default_host = "/usr/share/doc/traduia/not-available.html" 
+    return_codename = ""
+    default_codename = "not-available"
     try:
         remote_ip = socket.gethostbyname(target_host)
         is_resolvable = True
@@ -55,18 +59,28 @@ def main():
         is_resolvable = False
         remote_ip = None
 
-    if is_resolvable and remote_ip not in local_ips:
-        if is_port_open(target_host, 8000):
-            if is_port_open(target_host, 4141) and check_json_4141(target_host):
-                sys.stdout.write(f"http://{target_host}:8000\n")
-                sys.stderr.write(f"{target_host}+http\n")
-            else:
-                sys.stdout.write(f"https://{target_host}:8000\n")
-                sys.stderr.write(f"{target_host}\n")
-            return
+    if is_resolvable and remote_ip:
+        if remote_ip in local_ips:
+            return_host = "localhost"
+            return_codename = "local"
+        else:
+            return_host = target_host
+            return_codename = target_codename
+        
+        if is_port_open(return_host, 4141) and check_json_4141(return_host):
+            return_codename = f"{return_codename}+http"
+        
+        if not is_port_open(return_host, 8000):
+            return_host = default_host
 
-    sys.stdout.write("http://localhost:8000\n")
-    sys.stderr.write("local\n")
+    if not return_host or "not-available" in return_host:
+        return_host = f"file://{return_host}"
+        return_codename = f"{return_codename}+{default_codename}"
+    else:
+        return_host = f"http://{return_host}"
+
+    sys.stdout.write(f"{return_host}\n")
+    sys.stderr.write(f"{return_codename}\n")
 
 if __name__ == "__main__":
     main()
