@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>IP + QR</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    #container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    #ip {
+      font-size: 8vw;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 3vh;
+      word-break: break-all;
+    }
+
+    canvas {
+      width: 32vw !important;
+      height: 32vw !important;
+      max-width: 450px;
+      max-height: 450px;
+      background: white;
+      padding: 12px;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="ip">Detectando IP...</div>
+    <canvas id="qr"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+  <script>
+    function getQueryParam(name) {
+      return new URLSearchParams(window.location.search).get(name);
+    }
+
+    function getParam() {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      return params.get("server");
+    }
+
+    function generateQR(ip) {
+      const url = "http://" + ip;
+      const canvas = document.getElementById("qr");
+
+      QRCode.toCanvas(canvas, url, { width: 450 }, function (error) {
+        if (error) console.error(error);
+      });
+    }
+
+    function setIP(ip) {
+      document.getElementById("ip").textContent = ip;
+      generateQR(ip);
+    }
+
+    function isLocalIP(ip) {
+      return (
+        ip.startsWith("192.168.") ||
+        ip.startsWith("10.") ||
+        ip.startsWith("172.")
+      );
+    }
+
+    function detectLocalIP(callback) {
+      const ips = new Set();
+
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" } // ayuda a generar candidatos
+        ]
+      });
+
+      pc.createDataChannel("");
+
+      pc.createOffer()
+        .then(offer => pc.setLocalDescription(offer))
+        .catch(() => {});
+
+      pc.onicecandidate = (event) => {
+        if (!event || !event.candidate) return;
+
+        const candidate = event.candidate.candidate;
+        const match = candidate.match(/(\d{1,3}(\.\d{1,3}){3})/);
+
+        if (match) {
+          const ip = match[1];
+          ips.add(ip);
+        }
+      };
+
+      setTimeout(() => {
+        pc.close();
+
+        // Filtrar IPs locales válidas
+        const localIPs = Array.from(ips).filter(ip => isLocalIP(ip));
+
+        if (localIPs.length > 0) {
+          callback(localIPs[0]); // primera IP válida
+        } else if (ips.size > 0) {
+          callback(Array.from(ips)[0]); // fallback
+        } else {
+          callback(null);
+        }
+      }, 1500);
+    }
+
+    const paramIP = getQueryParam("server") || getParam();
+
+    if (paramIP) {
+      setIP(paramIP);
+    } else {
+      detectLocalIP((ip) => {
+        if (ip) {
+          setIP(ip);
+        } else {
+          document.getElementById("ip").textContent = "IP no disponible";
+        }
+      });
+    }
+
+
+  </script>
+</body>
+</html>
