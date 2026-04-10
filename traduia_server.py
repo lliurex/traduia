@@ -1056,7 +1056,7 @@ def start_system_tray():
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     start_stt_if_needed()
-    open_web_with_ip("show-server.html", port=8000)
+    open_web_with_ip("/usr/share/doc/traduia/show-server.html", port=8000)
     yield
     _stop_event.set()
     # Espera corta (no bloqueante) para salida limpia
