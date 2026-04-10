@@ -1,3 +1,10 @@
++traduia (0.4) jammy; urgency=medium
+ 
+  * Fix server detection
+  * Show server ip page on launch
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 10 Apr 2026 12:52:41 +0200
+
 traduia (0.3) jammy; urgency=medium
 
   * Fix layout & msg filter
