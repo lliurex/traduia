@@ -1,5 +1,40 @@
 #!/usr/bin/python3 -B
 import os,sys
+
+import socket
+import webbrowser
+import urllib.parse
+
+def get_local_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))  # no envía datos realmente
+            ip = s.getsockname()[0]
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def open_web_with_ip(html_path, port=None):
+    ip = get_local_ip()
+
+    if port:
+        url_ip = f"{ip}:{port}"
+    else:
+        url_ip = ip
+
+    full_path = os.path.abspath(html_path)
+
+    #params = urllib.parse.urlencode({"server": ip})
+    #url = f"file://{full_path}?{params}"
+
+    # Use '#' for use with xdg-open
+    url = f"file://{full_path}#server={url_ip}"
+
+    print(f"[INFO] Abriendo: {url}")
+
+    webbrowser.open(url)
+
 import json
 import queue
 import threading
@@ -1021,6 +1056,7 @@ def start_system_tray():
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     start_stt_if_needed()
+    open_web_with_ip("/usr/share/doc/traduia/show-server.html", port=8000)
     yield
     _stop_event.set()
     # Espera corta (no bloqueante) para salida limpia

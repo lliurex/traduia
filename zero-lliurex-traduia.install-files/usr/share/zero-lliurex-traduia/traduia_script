@@ -6,15 +6,15 @@ ACTION="$1"
 function remove_models(){
     models='/usr/lib/ai/traduia_models'
     if [ -e "$models" ]; then
-	rm -rf "$models"
+        rm -rf "$models"
     fi
     venv='/usr/lib/traduia/venv'
     if [ -e "$venv" ]; then
-	rm -rf "$venv"
+        rm -rf "$venv"
     fi
     d='/usr/lib/traduia'
     if [ -d "$d" ]; then
-	rmdir "$d" || true
+        rmdir "$d" || true
     fi
 }
 
@@ -43,20 +43,22 @@ case $ACTION in
             if [ "$mode" == "Server" ]; then
                 echo "Downloading models..."
                 /usr/sbin/install-models-traduia
+                echo "Setting server desktop"
+                sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
             else
                remove_models
             fi
         fi
-	rm -f /tmp/.traduia_install_mode || true
+        rm -f /tmp/.traduia_install_mode || true
     ;;
     remove)
-	rm -f /tmp/.traduia_install_mode || true
-	apt-get remove -y traduia
-	TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
-	if [ "$TEST" == 'installed' ];then
-	    exit 1
-	else
+        rm -f /tmp/.traduia_install_mode || true
+        apt-get remove -y traduia
+        TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
+        if [ "$TEST" == 'installed' ];then
+            exit 1
+        else
             remove_models
-	fi
+        fi
     ;;	
 esac
