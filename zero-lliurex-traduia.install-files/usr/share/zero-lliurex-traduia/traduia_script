@@ -44,7 +44,7 @@ case $ACTION in
                 echo "Downloading models..."
                 /usr/sbin/install-models-traduia
                 echo "Setting server desktop"
-                sed -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
+                sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
             else
                remove_models
             fi
