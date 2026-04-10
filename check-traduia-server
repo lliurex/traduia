@@ -15,10 +15,9 @@ def get_local_ips():
 
     # Another way to get common local IP
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ips.add(s.getsockname()[0])
-        s.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            ips.add(s.getsockname()[0])
     except:
         pass
     return ips
@@ -53,9 +52,11 @@ def main():
     return_codename = ""
     default_codename = "not-available"
     try:
+        # check "server"
         remote_ip = socket.gethostbyname(target_host)
         is_resolvable = True
     except socket.gaierror:
+        # "server" is not available
         is_resolvable = False
         remote_ip = None
 
@@ -66,16 +67,23 @@ def main():
         else:
             return_host = target_host
             return_codename = target_codename
-        
+
         if is_port_open(return_host, 4141) and check_json_4141(return_host):
             return_codename = f"{return_codename}+http"
-        
+
         if not is_port_open(return_host, 8000):
             return_host = default_host
+        else:
+            return_host = f"{return_host}:8000"
 
     if not return_host or "not-available" in return_host:
+        if not return_host:
+            return_host = default_host
         return_host = f"file://{return_host}"
-        return_codename = f"{return_codename}+{default_codename}"
+        if return_codename:
+            return_codename = f"{return_codename}+{default_codename}"
+        else:
+            return_codename = default_codename
     else:
         return_host = f"http://{return_host}"
 
