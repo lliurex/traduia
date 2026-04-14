@@ -1,4 +1,10 @@
-unknown (0.5) jammy; urgency=medium
+traduia (0.5.1) jammy; urgency=medium
+
+  * Dummy bump version
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 14 Apr 2026 14:04:05 +0200
+
+traduia (0.5) jammy; urgency=medium
 
   * Dummy bump version
 
