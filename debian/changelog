@@ -1,3 +1,9 @@
+traduia (0.6.1) jammy; urgency=medium
+
+  * Fix resize card
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Wed, 29 Apr 2026 13:41:42 +0200
+
 traduia (0.6) jammy; urgency=medium
 
   * Fix fixed paths
