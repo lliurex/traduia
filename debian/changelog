@@ -1,4 +1,13 @@
-unknown (0.5) jammy; urgency=medium
+traduia (0.6) jammy; urgency=medium
+
+  * Fix fixed paths
+  * Increased installer verbosity
+  * Fix PySide imports
+  * Updated package dependencies
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Wed, 29 Apr 2026 11:22:26 +0200
+
+traduia (0.5) jammy; urgency=medium
 
   * Dummy bump version
 
