@@ -337,6 +337,10 @@ HTML_CLIENT = r"""<!doctype html>
     }
     .text-area-row {
       margin-top: 6px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
     textarea {
       width: 100%;
