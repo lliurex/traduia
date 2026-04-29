@@ -58,12 +58,26 @@ from starlette.responses import (
 from faster_whisper import WhisperModel
 from transformers import MarianMTModel, MarianTokenizer
 from pathlib import Path
+dist_packages_paths=set()
+for path in Path('/usr/lib').glob('python*/dist-packages'):
+    if path.is_dir():
+        dist_packages_paths.add(str(path))
+for path in Path('/usr/local').rglob('dist-packages'):
+    if path.is_dir():
+        dist_packages_paths.add(str(path))
 
-sys.path.extend(['/usr/local/lib/python3.12/dist-packages', '/usr/lib/python3/dist-packages', '/usr/lib/python3.12/dist-packages'])
+for path in list(dist_packages_paths):
+    if path not in sys.path:
+        sys.path.append(path)
+try:
+    from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+    from PySide6.QtGui import QIcon
+    from PySide6.QtCore import QThread, Signal
+except:
+    from PySide2.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+    from PySide2.QtGui import QIcon
+    from PySide2.QtCore import QThread, Signal
 
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import QThread, Signal
 import uvicorn
 
 # =========================================================
@@ -1241,6 +1255,8 @@ if __name__ == "__main__":
 
     tray = TrayIcon()
     tray.show()
-
-    sys.exit(qt_tray.exec())
+    try:
+        sys.exit(qt_tray.exec())
+    except:
+        sys.exit(qt_tray.exec_())
 

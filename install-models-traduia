@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
 
 SHARED_HF="/usr/lib/ai/traduia_models"
@@ -10,11 +11,11 @@ TRADUIA_VENV="$TRADUIA_DIR/venv"
 
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
-echo "[setup] Creando venv $TRADUIA_VENV/venv"
+echo "[setup] Creando venv $TRADUIA_VENV"
 python3 -m venv $TRADUIA_VENV > /dev/null 2>&1
 
 echo "[setup] Activando venv"
-echo $TRADUIA_DIR > $TRADUIA_VENV/lib/python3.12/site-packages/extra_paths.pth
+echo $TRADUIA_DIR > $TRADUIA_VENV/lib/python${PYTHON_VER}/site-packages/extra_paths.pth
 source $TRADUIA_VENV/bin/activate
 
 echo "[setup] Actualizando pip/setuptools/wheel"
@@ -36,9 +37,11 @@ unset TRANSFORMERS_OFFLINE || true
 
 function download_inet_models(){
     echo "[setup] Precargando modelos en cache compartida..."
-    python - <<'PY' &>/dev/null
+    python - <<'PY'
 import os
 from huggingface_hub import snapshot_download
+from huggingface_hub.utils import disable_progress_bars
+disable_progress_bars()
 
 print("[preload] HF_HOME:", os.environ.get("HF_HOME"))
 print("[preload] HF_HUB_CACHE:", os.environ.get("HF_HUB_CACHE"))
@@ -64,8 +67,6 @@ for repo in repos:
         repo_id=repo,
         cache_dir=os.environ.get("HF_HUB_CACHE"),
         local_dir=None,
-        local_dir_use_symlinks=False,
-        resume_download=True,
     )
 
 print("[preload] OK. Modelos en cache.")
@@ -115,14 +116,19 @@ for item in data:
 }
 
 check_code=$(check-traduia-server 2>&1 >/dev/null)
-echo $check_code|grep -q http &>/dev/null
-has_http_available=$?
+if echo $check_code|grep -q http &>/dev/null;then
+    has_http_available=0
+else
+    has_http_available=1
+fi
 
+echo "Downloading models"
 if [ $has_http_available -eq 0 ]; then
     download_lan_models
 else
     download_inet_models
 fi
+echo "Models downloaded!"
 
 checked_size=$(du -ms "$SHARED_HF" |awk '{print $1}')
 
@@ -130,8 +136,10 @@ if [ -n "$checked_size" -a "$checked_size" -gt 5000 ]; then
     sed -ri 's|NoDisplay=true|NoDisplay=false|g' /usr/share/applications/traduia.desktop
 fi
 
+echo "Downloading torch"
 pip install --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
 pip install sacremoses  > /dev/null 2>&1
+echo "Torch downloaded!"
 
 echo ""
 echo "[setup] Listo."
