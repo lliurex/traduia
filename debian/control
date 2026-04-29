@@ -6,7 +6,7 @@ Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13), zero-dev, llxsrchelper, inkscape
 Standards-Version: 4.6.2
-Homepage: <insert the upstream URL, if relevant>
+Homepage: http://lliurex.net
 Vcs-Browser: https://github.com/lliurex/traduia
 Vcs-Git: https://github.com/lliurex/traduia
 
@@ -23,7 +23,10 @@ Depends:
  python3-venv,
  yad,
  pulseaudio-utils,
- share-ai-server
+ share-ai-server,
+ python3-pyside6.qtwidgets,
+ python3-pyside6.qtcore,
+ python3-pyside6.qtgui
 Description: Realtime transcription system
  Transcription system intended to be used in multilingual classrooms or special education schools.
 
