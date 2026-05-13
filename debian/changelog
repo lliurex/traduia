@@ -1,3 +1,15 @@
+traduia (0.7.0) jammy; urgency=medium
+
+  * Replaces yad with kdialog
+  * Ensures only one running instance
+  * Added i18n + manage_i18n devscript
+  * Ensures safe exit and prevent multiple tray icons
+  * Include Romanian language
+  * Add link for quick open server page
+  * Epi with i18n
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Wed, 13 May 2026 12:03:25 +0200
+
 traduia (0.6.2) jammy; urgency=medium
 
   * Dummy bump version

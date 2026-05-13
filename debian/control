@@ -21,12 +21,12 @@ Depends:
  sed,
  gawk,
  python3-venv,
- yad,
  pulseaudio-utils,
  share-ai-server,
  python3-pyside2.qtwidgets,
  python3-pyside2.qtcore,
  python3-pyside2.qtgui
+ kdialog
 Description: Realtime transcription system
  Transcription system intended to be used in multilingual classrooms or special education schools.
 

@@ -18,6 +18,16 @@
 %:
 	dh $@ --with llxsrc,zero
 
+override_dh_install:
+	dh_install
+	mkdir -p debian/zero-lliurex-traduia/usr/share/locale/es/LC_MESSAGES
+	mkdir -p debian/zero-lliurex-traduia/usr/share/locale/en/LC_MESSAGES
+	mkdir -p debian/zero-lliurex-traduia/usr/share/locale/ca/LC_MESSAGES
+	mkdir -p debian/zero-lliurex-traduia/usr/share/locale/ca_ES@valencia/LC_MESSAGES
+	cp i18n/locale/es/LC_MESSAGES/traduia.mo debian/zero-lliurex-traduia/usr/share/locale/es/LC_MESSAGES/zero-lliurex-traduia.mo
+	cp i18n/locale/en/LC_MESSAGES/traduia.mo debian/zero-lliurex-traduia/usr/share/locale/en/LC_MESSAGES/zero-lliurex-traduia.mo
+	cp i18n/locale/ca/LC_MESSAGES/traduia.mo debian/zero-lliurex-traduia/usr/share/locale/ca/LC_MESSAGES/zero-lliurex-traduia.mo
+	cp i18n/locale/ca/LC_MESSAGES/traduia.mo debian/zero-lliurex-traduia/usr/share/locale/ca_ES@valencia/LC_MESSAGES/zero-lliurex-traduia.mo
 
 # dh_make generated override targets.
 # This is an example for Cmake (see <https://bugs.debian.org/641051>).
