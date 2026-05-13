@@ -1,0 +1,318 @@
+# TraduIA Localization.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-13 12:53+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: traduia_server.py:39
+msgid "[INFO] Opening: {}"
+msgstr ""
+
+#: traduia_server.py:230
+msgid "LliureX - Real-time Transcription / Translation System"
+msgstr ""
+
+#: traduia_server.py:231
+msgid "LliureX - TraduIA"
+msgstr ""
+
+#: traduia_server.py:232
+msgid "AlicIA"
+msgstr ""
+
+#: traduia_server.py:233
+msgid "Connected to teacher's classroom · Text in your language"
+msgstr ""
+
+#: traduia_server.py:234
+msgid "Display Mode"
+msgstr ""
+
+#: traduia_server.py:235
+msgid "Language"
+msgstr ""
+
+#: traduia_server.py:236
+msgid "View original (teacher's language)"
+msgstr ""
+
+#: traduia_server.py:237
+msgid "View translated"
+msgstr ""
+
+#: traduia_server.py:238
+msgid "Here you will see the teacher's speech in your chosen language…"
+msgstr ""
+
+#: traduia_server.py:240 traduia_server.py:243
+msgid "disconnected"
+msgstr ""
+
+#: traduia_server.py:241
+msgid "connecting..."
+msgstr ""
+
+#: traduia_server.py:242
+msgid "connected"
+msgstr ""
+
+#: traduia_server.py:245
+msgid "[TRANSLATION ERROR]"
+msgstr ""
+
+#: traduia_server.py:246
+msgid "[ERROR] Could not connect to the server."
+msgstr ""
+
+#: traduia_server.py:248
+msgid "English"
+msgstr ""
+
+#: traduia_server.py:248
+msgid "French"
+msgstr ""
+
+#: traduia_server.py:248
+msgid "German"
+msgstr ""
+
+#: traduia_server.py:249
+msgid "Russian"
+msgstr ""
+
+#: traduia_server.py:249
+msgid "Arabic"
+msgstr ""
+
+#: traduia_server.py:249
+msgid "Ukrainian"
+msgstr ""
+
+#: traduia_server.py:250
+msgid "Romanian"
+msgstr ""
+
+#: traduia_server.py:250 traduia:71
+msgid "Spanish"
+msgstr ""
+
+#: traduia_server.py:250 traduia:71 traduia:80
+msgid "Valencian"
+msgstr ""
+
+#: traduia_server.py:720
+msgid "LliureX STT/Real-time translation"
+msgstr ""
+
+#: traduia_server.py:759
+msgid "[STT] Starting Whisper ({}) for input language: {}"
+msgstr ""
+
+#: traduia_server.py:919
+msgid "[STT] Audio source: {} -> {}"
+msgstr ""
+
+#: traduia_server.py:921
+msgid "[STT] Capturing audio (Pulse). Ctrl+C to stop."
+msgstr ""
+
+#: traduia_server.py:1010
+msgid "[STT] Microphone open. Ctrl+C to stop."
+msgstr ""
+
+#: traduia_server.py:1147
+msgid "alicia.png not found"
+msgstr ""
+
+#: traduia_server.py:1202
+msgid "Supported languages: en, fr, de, ru, ar, uk, ro"
+msgstr ""
+
+#: traduia_server.py:1248
+msgid "TraduIA Server"
+msgstr ""
+
+#: traduia_server.py:1252
+msgid "Exit"
+msgstr ""
+
+#: traduia_server.py:1316
+msgid "[INFO] Stopping previous instance (PID {})..."
+msgstr ""
+
+#: traduia_server.py:1321
+msgid "[INFO] Forcing stop (KILL) of PID {}..."
+msgstr ""
+
+#: traduia_server.py:1369
+msgid "[INFO] Cleaning up..."
+msgstr ""
+
+#: traduia:24
+msgid "Could not find the virtual environment venv in:"
+msgstr ""
+
+#: traduia:32
+msgid "Python does not exist in venv:"
+msgstr ""
+
+#: traduia:37
+msgid "Could not find the transcriber:"
+msgstr ""
+
+#: traduia:43
+msgid "'sounddevice' is missing in the venv."
+msgstr ""
+
+#: traduia:47
+msgid "'uvicorn' is missing in the venv.\\n\\npip install uvicorn"
+msgstr ""
+
+#: traduia:56
+msgid "Shared cache does not exist:"
+msgstr ""
+
+#: traduia:56
+msgid "Run install-models-traduia."
+msgstr ""
+
+#: traduia:71
+msgid "Input language:"
+msgstr ""
+
+#: traduia:75
+msgid "Cancelled (language)."
+msgstr ""
+
+#: traduia:120
+msgid "'pactl' not found. Cannot list system audio devices."
+msgstr ""
+
+#: traduia:124
+msgid "'parec' not found.\\n\\nInstall: pulseaudio-utils (or equivalent)."
+msgstr ""
+
+#: traduia:134
+msgid "No sources detected via pactl."
+msgstr ""
+
+#: traduia:142
+msgid "Could not detect the default input (microphone) via pactl."
+msgstr ""
+
+#: traduia:145
+msgid "Transcribes the input (microphone) configured as system default"
+msgstr ""
+
+#: traduia:153
+msgid "Could not detect the default output (speakers/monitor) via pactl."
+msgstr ""
+
+#: traduia:156
+msgid "Transcribes the output (speakers) configured as system default"
+msgstr ""
+
+#: traduia:160
+msgid "Choose the audio source:"
+msgstr ""
+
+#: traduia:180
+msgid "Default output (speakers):"
+msgstr ""
+
+#: traduia:183
+msgid "Default input (microphone):"
+msgstr ""
+
+#: install-models-traduia:21
+msgid "Creating venv"
+msgstr ""
+
+#: install-models-traduia:24
+msgid "Activating venv"
+msgstr ""
+
+#: install-models-traduia:28
+msgid "Updating pip/setuptools/wheel"
+msgstr ""
+
+#: install-models-traduia:31
+msgid "Installing Python dependencies"
+msgstr ""
+
+#: install-models-traduia:34
+msgid "Exporting shared cache variables (for this process)"
+msgstr ""
+
+#: install-models-traduia:46
+msgid "Preloading models into shared cache..."
+msgstr ""
+
+#: install-models-traduia:89
+msgid "Getting structure and downloading files from LAN..."
+msgstr ""
+
+#: install-models-traduia:123
+msgid "LAN download finished."
+msgstr ""
+
+#: install-models-traduia:133
+msgid "Downloading models"
+msgstr ""
+
+#: install-models-traduia:139
+msgid "Models downloaded!"
+msgstr ""
+
+#: install-models-traduia:147
+msgid "Downloading torch"
+msgstr ""
+
+#: install-models-traduia:150
+msgid "Torch downloaded!"
+msgstr ""
+
+#: install-models-traduia:153
+msgid "Ready."
+msgstr ""
+
+#: install-models-traduia:155
+msgid "Offline execution (the launcher already exports it):"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:40
+msgid "Client"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:41
+msgid "Server"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:44
+msgid "Mode selector"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:44
+msgid "Install mode:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:66
+msgid "Downloading models..."
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:68
+msgid "Setting server desktop"
+msgstr ""

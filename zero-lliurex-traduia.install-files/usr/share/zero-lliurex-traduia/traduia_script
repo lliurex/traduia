@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Configuración de gettext
+export TEXTDOMAIN="zero-lliurex-traduia"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+# Función para simplificar la llamada a gettext
+_() {
+    gettext "$1"
+}
 
 ACTION="$1"
 
@@ -28,12 +36,25 @@ case $ACTION in
             mode=""
         fi
         while [ ! -n "$mode" ]; do
-            mode=$(kdialog --title "Mode selector" --combobox "Install mode:" "Client" "Server")
+            # Definimos las etiquetas traducidas para el UI
+            CLIENT_LABEL=$(_ "Client")
+            SERVER_LABEL=$(_ "Server")
+            
+            # kdialog muestra las etiquetas traducidas
+            selected=$(kdialog --title "$(_ "Mode selector")" --combobox "$(_ "Install mode:")" "$CLIENT_LABEL" "$SERVER_LABEL")
             ret=$?
             if [ $ret -eq 1 ]; then
                 exit 1
             fi
+            
+            # Mapeamos la selección a un valor interno neutro (en inglés)
+            if [ "$selected" == "$SERVER_LABEL" ]; then
+                mode="Server"
+            else
+                mode="Client"
+            fi
         done
+        # Guardamos el valor interno, no el traducido
         echo "$mode" > /tmp/.traduia_install_mode
     ;;
 
@@ -41,9 +62,10 @@ case $ACTION in
         mode=$(cat /tmp/.traduia_install_mode)
         if [ -n "$mode" ]; then
             if [ "$mode" == "Server" ]; then
-                echo "Downloading models..."
+                # Aquí la comparación con "Server" sigue funcionando
+                echo "$(_ "Downloading models...")"
                 /usr/sbin/install-models-traduia
-                echo "Setting server desktop"
+                echo "$(_ "Setting server desktop")"
                 sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
             else
                remove_models

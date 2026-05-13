@@ -1,7 +1,21 @@
 {
-    "type":"apt",
-    "pkg_list": [{"name":"traduia","key_store":"zero-lliurex-traduia","custom_icon":"traduia.png","custom_name":"TraduIA: Realtime transcription system"}], 
-    "script": {"name":"/usr/share/zero-lliurex-traduia/traduia_script", "remove":true},
-    "custom_icon_path":"/usr/share/zero-lliurex-traduia/",
-    "zomando":"zero-lliurex-traduia"
+  "type": "apt",
+  "pkg_list": [
+    {
+      "name": "traduia",
+      "key_store": "zero-lliurex-traduia",
+      "custom_icon": "traduia.png",
+      "custom_name": {
+        "en": "TraduIA: Realtime transcription system",
+        "es": "TraduIA: Sistema de traducción en tiempo real",
+        "ca@valencia": "TraduIA: Sistema de traducció en temps real"
+      }
+    }
+  ],
+  "script": {
+    "name": "/usr/share/zero-lliurex-traduia/traduia_script",
+    "remove": true
+  },
+  "custom_icon_path": "/usr/share/zero-lliurex-traduia/",
+  "zomando": "zero-lliurex-traduia"
 }
