@@ -21,7 +21,7 @@ Depends:
  sed,
  gawk,
  python3-venv,
- yad,
+ kdialog,
  pulseaudio-utils,
  share-ai-server,
  python3-pyside6.qtwidgets,
