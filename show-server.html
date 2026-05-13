@@ -31,6 +31,16 @@
       word-break: break-all;
     }
 
+    #ip a {
+      color: #fff;
+      text-decoration: none;
+    }
+
+    #ip a:hover {
+      text-decoration: underline;
+      color: #38bdf8;
+    }
+
     canvas {
       width: 32vw !important;
       height: 32vw !important;
@@ -44,7 +54,7 @@
 </head>
 <body>
   <div id="container">
-    <div id="ip">Detectando IP...</div>
+    <div id="ip"><a href="#" target="_blank">Detectando IP...</a></div>
     <canvas id="qr"></canvas>
   </div>
 
@@ -71,7 +81,9 @@
     }
 
     function setIP(ip) {
-      document.getElementById("ip").textContent = ip;
+      const ipLink = document.querySelector("#ip a");
+      ipLink.textContent = ip;
+      ipLink.href = "http://" + ip;
       generateQR(ip);
     }
 
