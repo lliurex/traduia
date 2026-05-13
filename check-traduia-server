@@ -3,6 +3,7 @@ import socket
 import sys
 import urllib.request
 import json
+import os
 
 def get_local_ips():
     ips = set(['127.0.0.1', '::1'])
@@ -48,9 +49,13 @@ def main():
     target_codename = "remote"
     local_ips = get_local_ips()
     return_host = ""
-    default_host = "/usr/share/doc/traduia/not-available.html" 
+    default_host = "/usr/share/doc/traduia/not-available.html"
     return_codename = ""
     default_codename = "not-available"
+
+    # Detect system language
+    sys_lang = os.environ.get("LANG", "en").split("_")[0].split(".")[0].split("-")[0].lower()
+
     try:
         # check "server"
         remote_ip = socket.gethostbyname(target_host)
@@ -79,7 +84,7 @@ def main():
     if not return_host or "not-available" in return_host:
         if not return_host:
             return_host = default_host
-        return_host = f"file://{return_host}"
+        return_host = f"file://{return_host}#lang={sys_lang}"
         if return_codename:
             return_codename = f"{return_codename}+{default_codename}"
         else:

@@ -7,6 +7,13 @@ TRADUIA_DIR="/usr/lib/traduia"
 TRADUIA_VENV="$TRADUIA_DIR/venv"
 TRADUIA_MODELS="/usr/lib/ai/traduia_models"
 
+export TEXTDOMAIN="traduia"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+_() {
+    gettext "$1"
+}
+
 export GDK_BACKEND="${GDK_BACKEND:-x11}"
 export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::DeprecationWarning}"
 
@@ -14,7 +21,7 @@ export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::DeprecationWarning}"
 if [[ -f "$TRADUIA_VENV/bin/activate" ]]; then
   source "$TRADUIA_VENV/bin/activate"
 else
-  yad --error --title="$APP_NAME" --text="No se encuentra el entorno virtual venv en:\n$TRADUIA_VENV"
+  kdialog --title "$APP_NAME" --error "$(_ "Could not find the virtual environment venv in:")\n$TRADUIA_VENV"
   exit 1
 fi
 
@@ -22,22 +29,22 @@ PY_BIN="$TRADUIA_VENV/bin/python3"
 TRANSCRIPTOR_PY="$TRADUIA_DIR/traduia_server.py"
 
 if [[ ! -x "$PY_BIN" ]]; then
-  yad --error --title="$APP_NAME" --text="No existe Python en venv:\n$PY_BIN"
+  kdialog --title "$APP_NAME" --error "$(_ "Python does not exist in venv:")\n$PY_BIN"
   exit 1
 fi
 
 if [[ ! -f "$TRANSCRIPTOR_PY" ]]; then
-  yad --error --title="$APP_NAME" --text="No se encuentra el transcriptor:\n$TRANSCRIPTOR_PY"
+  kdialog --title "$APP_NAME" --error "$(_ "Could not find the transcriber:")\n$TRANSCRIPTOR_PY"
   exit 1
 fi
 
 # === Chequeos deps ===
 if ! "$PY_BIN" -c "import sounddevice" >/dev/null 2>&1; then
-  yad --error --title="$APP_NAME" --text="Falta 'sounddevice' en el venv."
+  kdialog --title "$APP_NAME" --error "$(_ "'sounddevice' is missing in the venv.")"
   exit 1
 fi
 if ! "$PY_BIN" -c "import uvicorn" >/dev/null 2>&1; then
-  yad --error --title="$APP_NAME" --text="Falta 'uvicorn' en el venv.\n\npip install uvicorn"
+  kdialog --title "$APP_NAME" --error "$(_ "'uvicorn' is missing in the venv.\n\npip install uvicorn")"
   exit 1
 fi
 
@@ -46,7 +53,7 @@ fi
 # =========================================================
 HF_ROOT=$TRADUIA_MODELS
 if [[ ! -d "$HF_ROOT" ]]; then
-  yad --error --title="$APP_NAME" --text="No existe la caché compartida:\n$HF_ROOT\n\nEjecuta install-models-traduia."
+  kdialog --title "$APP_NAME" --error "$(_ "Shared cache does not exist:")\n$HF_ROOT\n\n$(_ "Run install-models-traduia.")"
   exit 1
 fi
 
@@ -60,20 +67,17 @@ export TRANSFORMERS_OFFLINE=1
 # =========================================================
 # Selector de idioma de entrada (profesor)
 # =========================================================
-LANG_CHOICE="$(yad --title="$APP_NAME" \
-  --form \
-  --field="Idioma de entrada:CB" "Castellano!Valencià" \
-  --button=gtk-ok:0 --button=gtk-cancel:1 \
-  --center --width=420 \
+LANG_CHOICE="$(kdialog --title "$APP_NAME" \
+  --combobox "$(_ "Input language:")" "$(_ "Spanish")" "$(_ "Valencian")" \
   2>/dev/null || true)"
 
 if [[ -z "${LANG_CHOICE:-}" ]]; then
-  echo "[launcher] Cancelado (idioma)."
+  echo "[launcher] $(_ "Cancelled (language).")"
   exit 0
 fi
 
 LANG_LABEL="${LANG_CHOICE%%|*}"
-if [[ "${LANG_LABEL}" == "Valencià" ]]; then
+if [[ "${LANG_LABEL}" == "$(_ "Valencian")" ]]; then
   export ALICIA_INPUT_LANG="ca"
   INPUT_LANG="ca"
 else
@@ -113,11 +117,11 @@ CONF_CALIBRATE_SECONDS="$(get_conf ALICIA_CALIBRATE_SECONDS "2.0")"
 # (Se elimina la pantalla 1; solo aparece una lista)
 # =========================================================
 if ! command -v pactl >/dev/null 2>&1; then
-  yad --error --title="$APP_NAME" --text="No se encuentra 'pactl'. No puedo listar dispositivos de audio del sistema."
+  kdialog --title "$APP_NAME" --error "$(_ "'pactl' not found. Cannot list system audio devices.")"
   exit 1
 fi
 if ! command -v parec >/dev/null 2>&1; then
-  yad --error --title="$APP_NAME" --text="No se encuentra 'parec'.\n\nInstala: pulseaudio-utils (o equivalente)."
+  kdialog --title "$APP_NAME" --error "$(_ "'parec' not found.\n\nInstall: pulseaudio-utils (or equivalent).")"
   exit 1
 fi
 
@@ -127,18 +131,18 @@ DEFAULT_MONITOR="${DEFAULT_SINK}.monitor"
 
 PACTL_SOURCES="$(pactl list short sources 2>/dev/null || true)"
 if [[ -z "${PACTL_SOURCES:-}" ]]; then
-  yad --error --title="$APP_NAME" --text="No se han detectado sources vía pactl."
+  kdialog --title "$APP_NAME" --error "$(_ "No sources detected via pactl.")"
   exit 1
 fi
 
-YAD_DATA=()
+KDIALOG_DATA=()
 
 # Opción 1 (V8: "Auriculares USB" / micrófonos): aquí usamos SIEMPRE la ENTRADA por defecto del sistema
 if [[ -z "${DEFAULT_SOURCE:-}" ]]; then
-  yad --error --title="$APP_NAME" --text="No se ha podido detectar la entrada (micrófono) por defecto vía pactl."
+  kdialog --title "$APP_NAME" --error "$(_ "Could not detect the default input (microphone) via pactl.")"
   exit 1
 fi
-YAD_DATA+=("$DEFAULT_SOURCE" "Transcribe la entrada (micrófono) que haya configurada en el sistema por defecto")
+KDIALOG_DATA+=("$DEFAULT_SOURCE" "$(_ "Transcribes the input (microphone) configured as system default")")
 
 # Opción 2 (V8: "Altavoces (audio del sistema)"): usamos la SALIDA por defecto del sistema (monitor)
 MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk -v d="$DEFAULT_MONITOR" '$2==d {print $2}' | head -n1)"
@@ -146,24 +150,20 @@ if [[ -z "${MON_SRC:-}" ]]; then
   MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk '$2 ~ /\.monitor$/ {print $2}' | head -n1)"
 fi
 if [[ -z "${MON_SRC:-}" ]]; then
-  yad --error --title="$APP_NAME" --text="No se ha podido detectar la salida (altavoces) por defecto (monitor) vía pactl."
+  kdialog --title "$APP_NAME" --error "$(_ "Could not detect the default output (speakers/monitor) via pactl.")"
   exit 1
 fi
-YAD_DATA+=("$MON_SRC" "Transcribe la salida (altavoces) que haya configurada en el sistema por defecto")
+KDIALOG_DATA+=("$MON_SRC" "$(_ "Transcribes the output (speakers) configured as system default")")
 
 SEL_SOURCE="$(
-  yad --title="$APP_NAME" --width=980 --height=520 \
-    --list \
-    --text="Elige la fuente de audio:" \
-    --column="Source:HD" --column="Nombre" \
-    "${YAD_DATA[@]}" \
-    --print-column=1 \
-    --button=gtk-cancel:1 --button=gtk-ok:0 \
+  kdialog --title "$APP_NAME" \
+    --menu "$(_ "Choose the audio source:")" \
+    "${KDIALOG_DATA[@]}" \
     2>/dev/null || true
 )"
 [[ -z "${SEL_SOURCE:-}" ]] && exit 0
 
-# Normalizar salida de yad (puede traer separadores '|' o saltos de línea)
+# Normalizar salida de kdialog
 SEL_SOURCE="${SEL_SOURCE%%|*}"
 SEL_SOURCE="$(printf "%s" "$SEL_SOURCE" | head -n 1 | tr -d '\r')"
 SEL_SOURCE="$(printf "%s" "$SEL_SOURCE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -177,10 +177,10 @@ SEL_NAME=""
 
 if [[ "$SEL_SOURCE" == *.monitor ]]; then
   ALICIA_PULSE_MONITOR="$SEL_SOURCE"
-  SEL_NAME="Salida (altavoces) por defecto: $SEL_SOURCE"
+  SEL_NAME="$(_ "Default output (speakers):") $SEL_SOURCE"
 else
   ALICIA_PULSE_SOURCE="$SEL_SOURCE"
-  SEL_NAME="Entrada (micrófono) por defecto: $SEL_SOURCE"
+  SEL_NAME="$(_ "Default input (microphone):") $SEL_SOURCE"
 fi
 
 AUDIO_CHOICE="$SEL_NAME"
@@ -195,7 +195,7 @@ AUDIO_CHOICE="$SEL_NAME"
 
 # =========================================================
 {
-  echo "# Autogenerado por launcher YAD"
+  echo "# Autogenerated by kdialog launcher"
   echo "ALICIA_AUDIO_CHOICE=${AUDIO_CHOICE}"
   echo "ALICIA_AUDIO_DEVICE=${SEL_ID}"
   printf "ALICIA_AUDIO_DEVICE_NAME=%q\n" "$SEL_NAME"
@@ -232,5 +232,3 @@ else
 fi
 
 exec "$PY_BIN" -B /usr/lib/traduia/traduia_server.py
-
-#-B -m uvicorn traduia_server:app --host 0.0.0.0 --port 8000

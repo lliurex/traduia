@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export TEXTDOMAIN="traduia"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+_() {
+    gettext "$1"
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
@@ -11,20 +18,20 @@ TRADUIA_VENV="$TRADUIA_DIR/venv"
 
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
-echo "[setup] Creando venv $TRADUIA_VENV"
+echo "[setup] $(_ "Creating venv") $TRADUIA_VENV"
 python3 -m venv $TRADUIA_VENV > /dev/null 2>&1
 
-echo "[setup] Activando venv"
+echo "[setup] $(_ "Activating venv")"
 echo $TRADUIA_DIR > $TRADUIA_VENV/lib/python${PYTHON_VER}/site-packages/extra_paths.pth
 source $TRADUIA_VENV/bin/activate
 
-echo "[setup] Actualizando pip/setuptools/wheel"
+echo "[setup] $(_ "Updating pip/setuptools/wheel")"
 python -m pip install --upgrade pip setuptools wheel  > /dev/null 2>&1
 
-echo "[setup] Instalando dependencias Python"
-pip install fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub > /dev/null 2>&1
+echo "[setup] $(_ "Installing Python dependencies")"
+pip install fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil > /dev/null 2>&1
 
-echo "[setup] Exportando variables de cache compartida (para este proceso)"
+echo "[setup] $(_ "Exporting shared cache variables (for this process)")"
 export HF_HOME="$SHARED_HF"
 export HF_HUB_CACHE="$SHARED_HF/hub"
 export TRANSFORMERS_CACHE="$SHARED_HF/transformers"
@@ -36,7 +43,7 @@ unset HF_HUB_OFFLINE || true
 unset TRANSFORMERS_OFFLINE || true
 
 function download_inet_models(){
-    echo "[setup] Precargando modelos en cache compartida..."
+    echo "[setup] $(_ "Preloading models into shared cache...")"
     python - <<'PY'
 import os
 from huggingface_hub import snapshot_download
@@ -56,20 +63,21 @@ repos = [
     "Helsinki-NLP/opus-mt-es-de",
     "Helsinki-NLP/opus-mt-es-ru",
     "Helsinki-NLP/opus-mt-es-ar",
+    "Helsinki-NLP/opus-mt-es-ro",
     "Helsinki-NLP/opus-mt-es-uk",
     "Helsinki-NLP/opus-mt-ca-en",
     "Helsinki-NLP/opus-mt-ca-es",
 ]
 
 for repo in repos:
-    print(f"[preload] Descargando/cacheando: {repo}")
+    print(f"[preload] Downloading/caching: {repo}")
     snapshot_download(
         repo_id=repo,
         cache_dir=os.environ.get("HF_HUB_CACHE"),
         local_dir=None,
     )
 
-print("[preload] OK. Modelos en cache.")
+print("[preload] OK. Models cached.")
 PY
 }
 
@@ -78,7 +86,7 @@ LOCALDIR="/usr/lib/ai/traduia_models"
 
 function download_lan_models(){
     mkdir -p "$LOCALDIR"
-    echo "[setup] Obteniendo estructura y descargando archivos desde LAN..."
+    echo "[setup] $(_ "Getting structure and downloading files from LAN...")"
 
     curl -sSL "$URL_BASE" | python3 -c '
 import sys, json, os, urllib.request
@@ -89,7 +97,7 @@ local_base = sys.argv[2]
 try:
     data = json.load(sys.stdin)
 except json.JSONDecodeError:
-    print("Error: No se pudo parsear el JSON. Verifica la respuesta del servidor.", file=sys.stderr)
+    print("Error: Could not parse JSON. Check server response.", file=sys.stderr)
     sys.exit(1)
 
 for item in data:
@@ -98,21 +106,21 @@ for item in data:
 
     if item["type"] == "dir":
         os.makedirs(local_path, exist_ok=True)
-        print(f"[ DIR ] Creado: {local_path}")
+        print(f"[ DIR ] Created: {local_path}")
 
     elif item["type"] == "file":
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
 
         remote_url = f"{base_url}/{rel_path}"
 
-        print(f"[FILE ] Descargando: {remote_url}")
+        print(f"[FILE ] Downloading: {remote_url}")
         try:
             urllib.request.urlretrieve(remote_url, local_path)
         except Exception as e:
-            print(f"[ERROR] Fallo al descargar {remote_url}: {e}", file=sys.stderr)
+            print(f"[ERROR] Failed to download {remote_url}: {e}", file=sys.stderr)
 ' "$URL_BASE" "$LOCALDIR"
 
-    echo "[setup] Descarga LAN finalizada."
+    echo "[setup] $(_ "LAN download finished.")"
 }
 
 check_code=$(check-traduia-server 2>&1 >/dev/null)
@@ -122,13 +130,13 @@ else
     has_http_available=1
 fi
 
-echo "Downloading models"
+echo "$(_ "Downloading models")"
 if [ $has_http_available -eq 0 ]; then
     download_lan_models
 else
     download_inet_models
 fi
-echo "Models downloaded!"
+echo "$(_ "Models downloaded!")"
 
 checked_size=$(du -ms "$SHARED_HF" |awk '{print $1}')
 
@@ -136,16 +144,14 @@ if [ -n "$checked_size" -a "$checked_size" -gt 5000 ]; then
     sed -ri 's|NoDisplay=true|NoDisplay=false|g' /usr/share/applications/traduia.desktop
 fi
 
-echo "Downloading torch"
+echo "$(_ "Downloading torch")"
 pip install --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
 pip install sacremoses  > /dev/null 2>&1
-echo "Torch downloaded!"
+echo "$(_ "Torch downloaded!")"
 
 echo ""
-echo "[setup] Listo."
+echo "[setup] $(_ "Ready.")"
 echo ""
-echo "Ejecución offline (el launcher ya lo exporta):"
+echo "$(_ "Offline execution (the launcher already exports it):")"
 echo "  HF_HUB_OFFLINE=1"
 echo "  TRANSFORMERS_OFFLINE=1"
-
-

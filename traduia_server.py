@@ -1,5 +1,10 @@
 #!/usr/bin/python3 -B
 import os,sys
+import gettext
+
+gettext.bindtextdomain('traduia', '/usr/share/locale')
+gettext.textdomain('traduia')
+_ = gettext.gettext
 
 import socket
 import webbrowser
@@ -31,7 +36,7 @@ def open_web_with_ip(html_path, port=None):
     # Use '#' for use with xdg-open
     url = f"file://{full_path}#server={url_ip}"
 
-    print(f"[INFO] Abriendo: {url}")
+    print(_("[INFO] Opening: {}").format(url))
 
     webbrowser.open(url)
 
@@ -41,6 +46,8 @@ import threading
 import time
 import subprocess
 import signal
+import fcntl
+import psutil
 from typing import Iterator, List, Tuple, Optional
 
 import numpy as np
@@ -71,12 +78,12 @@ for path in list(dist_packages_paths):
         sys.path.append(path)
 try:
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-    from PySide6.QtGui import QIcon
-    from PySide6.QtCore import QThread, Signal
+    from PySide6.QtGui import QIcon, QCursor
+    from PySide6.QtCore import QThread, Signal, QTimer, QPoint
 except:
     from PySide2.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-    from PySide2.QtGui import QIcon
-    from PySide2.QtCore import QThread, Signal
+    from PySide2.QtGui import QIcon, QCursor
+    from PySide2.QtCore import QThread, Signal, QTimer, QPoint
 
 import uvicorn
 
@@ -118,6 +125,7 @@ MARIAN_ES_DE = "Helsinki-NLP/opus-mt-es-de"
 MARIAN_ES_RU = "Helsinki-NLP/opus-mt-es-ru"
 MARIAN_ES_AR = "Helsinki-NLP/opus-mt-es-ar"
 MARIAN_ES_UK = "Helsinki-NLP/opus-mt-es-uk"
+MARIAN_ES_RO = "Helsinki-NLP/opus-mt-es-ro"
 
 # CA -> EN/ES
 MARIAN_CA_EN = "Helsinki-NLP/opus-mt-ca-en"
@@ -149,6 +157,7 @@ def translate_from_es(text: str, target: str) -> str:
         "ru": MARIAN_ES_RU,
         "ar": MARIAN_ES_AR,
         "uk": MARIAN_ES_UK,
+        "ro": MARIAN_ES_RO,
     }
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
@@ -163,7 +172,7 @@ def translate_from_es(text: str, target: str) -> str:
 def translate_from_ca(text: str, target: str) -> str:
     """
     CA -> EN directo con opus-mt-ca-en.
-    CA -> X (fr,de,ru,ar,uk) vía CA->ES + ES->X.
+    CA -> X (fr,de,ru,ar,uk,ro) vía CA->ES + ES->X.
     """
     txt = text.strip()
     if not txt:
@@ -192,12 +201,57 @@ def translate_from_ca(text: str, target: str) -> str:
 
 def translate_text(text: str, target: str) -> str:
     target = target.lower()
-    if target not in ("en", "fr", "de", "ru", "ar", "uk"):
+    if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro"):
         return f"[NO SOPORTADO -> {target}]"
     if INPUT_LANG == "es":
         return translate_from_es(text, target)
     else:
         return translate_from_ca(text, target)
+
+
+# =========================================================
+# I18N FOR WEB CLIENT
+# =========================================================
+
+def get_i18n_data():
+    languages = ['en', 'es', 'ca']
+    data = {}
+    locale_dir = '/usr/share/locale'
+    for lang in languages:
+        try:
+            if lang == 'en':
+                _t = lambda x: x
+            else:
+                t = gettext.translation('traduia', locale_dir, languages=[lang])
+                _t = t.gettext
+        except Exception:
+            _t = lambda x: x
+        data[lang] = {
+            'title': _t("LliureX - Real-time Transcription / Translation System"),
+            'mainTitle': _t("LliureX - TraduIA"),
+            'aliciaName': _t("AlicIA"),
+            'subtitle': _t("Connected to teacher's classroom · Text in your language"),
+            'labelMode': _t("Display Mode"),
+            'labelLang': _t("Language"),
+            'optOriginal': _t("View original (teacher's language)"),
+            'optTranslate': _t("View translated"),
+            'placeholder': _t("Here you will see the teacher's speech in your chosen language…"),
+            'status': {
+                'desconectado': _t("disconnected"),
+                'conectando': _t("connecting..."),
+                'conectado': _t("connected"),
+                'error': _t("disconnected")
+            },
+            'errorTranslation': _t("[TRANSLATION ERROR]"),
+            'errorConnection': _t("[ERROR] Could not connect to the server."),
+            'langs': {
+                'en': _t("English"), 'fr': _t("French"), 'de': _t("German"),
+                'ru': _t("Russian"), 'ar': _t("Arabic"), 'uk': _t("Ukrainian"),
+                'ro': _t("Romanian"), 'es': _t("Spanish"), 'ca': _t("Valencian")
+            }
+        }
+    data['va'] = data['ca']
+    return data
 
 
 # =========================================================
@@ -217,10 +271,10 @@ def clean_spanish_line(text: str) -> str:
 # =========================================================
 
 HTML_CLIENT = r"""<!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>LliureX - Sistema de Transcripción / Traducción en Tiempo Real</title>
+  <title>LliureX - TraduIA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="/alicia.png">
   <style>
@@ -383,36 +437,36 @@ HTML_CLIENT = r"""<!doctype html>
     <div class="card">
       <div class="header">
         <div class="header-title">
-          <h1 id="title-main">LliureX - Sistema de Transcripción / Traducción en Tiempo Real</h1>
-          <span id="subtitle">Conectado al aula del profesor · Texto en tu idioma</span>
+          <h1 id="title-main">...</h1>
+          <span id="subtitle">...</span>
         </div>
-        <img src="/alicia.png" alt="AlicIA" class="logo">
+        <img src="/alicia.png" alt="..." id="alicia-logo" class="logo">
       </div>
 
       <div class="row">
         <div class="field">
-          <span class="field-label" id="label-mode">Modo de visualización</span>
+          <span class="field-label" id="label-mode">...</span>
           <select id="mode">
-            <option value="original">Ver original (idioma del profesor)</option>
-            <option value="translate">Ver traducido</option>
+            <option value="original">...</option>
+            <option value="translate">...</option>
           </select>
         </div>
 
         <div class="field" id="lang-field">
-          <span class="field-label" id="label-language">Idioma</span>
+          <span class="field-label" id="label-language">...</span>
           <select id="target"></select>
         </div>
 
         <div class="pill" id="status-pill">
           <span class="pill-dot" id="status-dot"></span>
-          <span id="status-text">desconectado</span>
+          <span id="status-text">...</span>
         </div>
       </div>
 
       <div class="text-area-row">
         <textarea
           id="out"
-          placeholder="Aquí verás el texto que dice el profesor, en el idioma que elijas…"
+          placeholder="..."
           spellcheck="false"
         ></textarea>
       </div>
@@ -434,26 +488,19 @@ HTML_CLIENT = r"""<!doctype html>
     const subtitle  = document.getElementById("subtitle");
     const labelMode = document.getElementById("label-mode");
     const labelLang = document.getElementById("label-language");
+    const aliciaLogo= document.getElementById("alicia-logo");
 
     let es = null;
     let INPUT_LANG = "es";
+    let UI_LANG = "en";
 
-    const STATUS_TEXT_ES = {
-      desconectado: "desconectado",
-      conectando: "conectando…",
-      conectado: "conectado",
-      error: "desconectado",
-    };
+    const i18n = {{I18N_DATA}};
 
-    const STATUS_TEXT_CA = {
-      desconectado: "desconnectat",
-      conectando: "connectant…",
-      conectado: "connectat",
-      error: "desconnectat",
-    };
+    function getI18n() { return i18n[UI_LANG] || i18n['en']; }
 
     function setStatus(state) {
-      const map = (INPUT_LANG === "ca") ? STATUS_TEXT_CA : STATUS_TEXT_ES;
+      const data = getI18n();
+      const map = data.status;
       let key = state;
       if (!map[key]) key = "desconectado";
       pillText.textContent = map[key];
@@ -487,12 +534,12 @@ HTML_CLIENT = r"""<!doctype html>
           body: JSON.stringify({ text: text, target_lang: target }),
         });
         if (!res.ok) {
-          return "[ERROR TRADUCCIÓN] " + (await res.text());
+          return getI18n().errorTranslation + " " + (await res.text());
         }
         const data = await res.json();
         return data.text || "";
       } catch (e) {
-        return "[ERROR TRADUCCIÓN] " + e;
+        return getI18n().errorTranslation + " " + e;
       }
     }
 
@@ -512,6 +559,7 @@ HTML_CLIENT = r"""<!doctype html>
 
     function configureTargetSelect() {
       const mode = modeSel.value;
+      const data = getI18n();
       clearTargetOptions();
 
       // Mostrar selector de idioma solo cuando el modo es "ver traducido"
@@ -520,49 +568,31 @@ HTML_CLIENT = r"""<!doctype html>
       }
 
       if (mode === "original") {
-        if (INPUT_LANG === "ca") {
-          addOption("", "Valencià", true);
-        } else {
-          addOption("", "Castellano", true);
-        }
+        addOption("", data.langs[INPUT_LANG] || INPUT_LANG, true);
         targetSel.disabled = true;
       } else {
-        addOption("en", "Inglés", true);
-        addOption("fr", "Francés");
-        addOption("de", "Alemán");
-        addOption("ru", "Ruso");
-        addOption("ar", "Árabe");
-        addOption("uk", "Ucraniano");
+        ["en", "fr", "de", "ru", "ar", "uk", "ro"].forEach(t => {
+          addOption(t, data.langs[t] || t, t === "en");
+        });
         targetSel.disabled = false;
       }
     }
 
     function applyLocalization() {
-      if (INPUT_LANG === "ca") {
-        document.title = "LliureX - Sistema de transcripció / traducció en temps real";
-        titleMain.textContent = "LliureX - Sistema de transcripció / traducció en temps real";
-        subtitle.textContent = "Connectat al PC del professor · Text al teu idioma";
+      UI_LANG = (navigator.language || navigator.userLanguage || 'en').toLowerCase().substring(0,2);
+      if(!i18n[UI_LANG]) UI_LANG='en';
+      const d = i18n[UI_LANG];
 
-        labelMode.textContent = "Mode de visualització";
-        labelLang.textContent = "Idioma";
-
-        modeSel.options[0].textContent = "Veure original (idioma del professor)";
-        modeSel.options[1].textContent = "Veure traduït";
-
-        out.placeholder = "Ací veuràs el text que diu el professor, en l'idioma que tries…";
-      } else {
-        document.title = "LliureX - Sistema de Transcripción / Traducción en Tiempo Real";
-        titleMain.textContent = "LliureX - Sistema de Transcripción / Traducción en Tiempo Real";
-        subtitle.textContent = "Conectado al aula del profesor · Texto en tu idioma";
-
-        labelMode.textContent = "Modo de visualización";
-        labelLang.textContent = "Idioma";
-
-        modeSel.options[0].textContent = "Ver original (idioma del profesor)";
-        modeSel.options[1].textContent = "Ver traducido";
-
-        out.placeholder = "Aquí verás el texto que dice el profesor, en el idioma que elijas…";
-      }
+      document.title = d.title;
+      titleMain.textContent = d.mainTitle;
+      aliciaLogo.alt = d.aliciaName;
+      subtitle.textContent = d.subtitle;
+      labelMode.textContent = d.labelMode;
+      labelLang.textContent = d.labelLang;
+      out.placeholder = d.placeholder;
+      modeSel.options[0].textContent = d.optOriginal;
+      modeSel.options[1].textContent = d.optTranslate;
+      document.documentElement.lang = UI_LANG;
     }
 
     function connect() {
@@ -576,7 +606,7 @@ HTML_CLIENT = r"""<!doctype html>
       try {
         es = new EventSource(SERVER + "/stream");
       } catch (e) {
-        appendLine("[ERROR] No se ha podido conectar al servidor.");
+        appendLine(getI18n().errorConnection);
         setStatus("error");
         return;
       }
@@ -617,6 +647,7 @@ HTML_CLIENT = r"""<!doctype html>
     }
 
     async function init() {
+      applyLocalization();
       setStatus("desconectado");
       try {
         const res = await fetch(SERVER + "/health");
@@ -631,8 +662,7 @@ HTML_CLIENT = r"""<!doctype html>
       }
 
       configureTargetSelect();
-      applyLocalization();
-      modeSel.addEventListener("change", configureTargetSelect);
+      modeSel.onchange = configureTargetSelect;
 
       connect();
     }
@@ -687,7 +717,7 @@ def _install_signal_hooks():
 
 def init_app():
     global app,_stt_started,_stop_event,_sub_lock,_stt_started
-    app = FastAPI(title="LliureX STT/Traducción en tiempo real",lifespan=lifespan)
+    app = FastAPI(title=_("LliureX STT/Real-time translation"),lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -726,7 +756,7 @@ def broadcast_line(text: str) -> None:
 # =========================================================
 
 def stt_worker():
-    print(f"[STT] Arrancando Whisper ({WHISPER_MODEL_NAME}) para idioma de entrada: {INPUT_LANG}")
+    print(_("[STT] Starting Whisper ({}) for input language: {}").format(WHISPER_MODEL_NAME, INPUT_LANG))
     model = WhisperModel(
         WHISPER_MODEL_NAME,
         device=WHISPER_DEVICE,
@@ -886,9 +916,9 @@ def stt_worker():
         return proc
 
     def _run_pulse_loop(label: str, pulse_dev: str, beam_size: int):
-        print(f"[STT] Fuente de audio: {label} -> {pulse_dev}")
+        print(_("[STT] Audio source: {} -> {}").format(label, pulse_dev))
         proc = start_pulse_producer(pulse_dev)
-        print("[STT] Capturando audio (Pulse). Ctrl+C para detener.")
+        print(_("[STT] Capturing audio (Pulse). Ctrl+C to stop."))
 
         try:
             while not _stop_event.is_set():
@@ -898,6 +928,10 @@ def stt_worker():
                     if _stop_event.is_set():
                         break
                     if proc.poll() is not None:
+                        # If the process finished with code 0 and we are stopping, it's normal.
+                        if _stop_event.is_set() or proc.returncode == 0:
+                            break
+                        
                         err = b""
                         if proc.stderr is not None:
                             try:
@@ -922,7 +956,7 @@ def stt_worker():
                     continue
 
                 try:
-                    segments, _ = model.transcribe(
+                    segments, info = model.transcribe(
                         chunk,
                         language=INPUT_LANG,
                         task="transcribe",
@@ -973,7 +1007,7 @@ def stt_worker():
         callback=audio_cb,
         blocksize=BLOCK,
     ):
-        print("[STT] Micrófono abierto. Ctrl+C para detener.")
+        print(_("[STT] Microphone open. Ctrl+C to stop."))
         while True:
             try:
                 data = audio_q.get(timeout=0.5)
@@ -1008,7 +1042,7 @@ def stt_worker():
 
 
             try:
-                segments, _ = model.transcribe(
+                segments, info = model.transcribe(
                     chunk,
                     language=INPUT_LANG,
                     task="transcribe",
@@ -1098,7 +1132,8 @@ def health():
 
 @app.get("/", include_in_schema=False)
 def root():
-    return HTMLResponse(HTML_CLIENT)
+    i18n_json = json.dumps(get_i18n_data(), ensure_ascii=False)
+    return HTMLResponse(HTML_CLIENT.replace("{{I18N_DATA}}", i18n_json))
 
 
 @app.get("/alicia.png", include_in_schema=False)
@@ -1109,7 +1144,7 @@ def alicia_png():
     path = BASE_DIR / "alicia.png"
     if not path.exists():
         return JSONResponse(
-            status_code=404, content={"error": "alicia.png no encontrada"}
+            status_code=404, content={"error": _("alicia.png not found")}
         )
     return FileResponse(path, media_type="image/png")
 
@@ -1161,10 +1196,10 @@ class TranslateResponse(BaseModel):
 @app.post("/translate", response_model=TranslateResponse)
 def translate(req: TranslateRequest):
     target = req.target_lang.lower()
-    if target not in ("en", "fr", "de", "ru", "ar", "uk"):
+    if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro"):
         return JSONResponse(
             status_code=400,
-            content={"error": "Idiomas soportados: en, fr, de, ru, ar, uk"},
+            content={"error": _("Supported languages: en, fr, de, ru, ar, uk, ro")},
         )
     txt = req.text.strip()
     if not txt:
@@ -1175,17 +1210,23 @@ def translate(req: TranslateRequest):
 # =========================================================
 # PUNTO DE ENTRADA
 # =========================================================
-class FastApiThread(QThread):
-  def __init__(self):
-    super().__init__()
-    self.server = None
-  def run(self):
-    config = uvicorn.Config(app, host="0.0.0.0", port=8000, reload=False)
-    self.server = uvicorn.Server(config)
-    self.server.run()
-  def stop(self):
-    if self.server:
-      self.server.should_exit = True
+class FastApiThread(threading.Thread):
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.server = None
+
+    def run(self):
+        try:
+            config = uvicorn.Config(app, host="0.0.0.0", port=8000, reload=False)
+            self.server = uvicorn.Server(config)
+            self.server.install_signal_handlers = lambda: None  # Override to prevent installing signal handlers
+            self.server.run()
+        except Exception as e:
+            print(f"[API][ERROR] {e}")
+
+    def stop(self):
+        if self.server:
+            self.server.should_exit = True
 
 class TrayIcon(QSystemTrayIcon):
     def __init__(self):
@@ -1194,7 +1235,6 @@ class TrayIcon(QSystemTrayIcon):
         self._setup_menu()
         self.activated.connect(self._on_tray_activated)
         self.api_thread = FastApiThread()
-        self.api_thread.start()
         
     def _setup_icon(self):
         image_path = '/usr/share/icons/hicolor/128x128/apps/traduia.png'
@@ -1205,11 +1245,11 @@ class TrayIcon(QSystemTrayIcon):
             icon = QIcon.fromTheme("application-x-executable")
 
         self.setIcon(icon)
-        self.setToolTip("TraduIA Server")
+        self.setToolTip(_("TraduIA Server"))
 
     def _setup_menu(self):
         menu = QMenu()
-        exit_action = menu.addAction("Salir")
+        exit_action = menu.addAction(_("Exit"))
         exit_action.triggered.connect(self._on_exit)
         self.setContextMenu(menu)
 
@@ -1243,24 +1283,92 @@ class TrayIcon(QSystemTrayIcon):
                 QTimer.singleShot(0, lambda: menu.popup(QCursor.pos()))
 
     def _on_exit(self):
-        self.api_thread.stop()
-        self.api_thread.wait(2000)
-        self.hide()
-        app = QApplication.instance()
-        if app:
-            app.quit()
+        QApplication.quit()
+
+def _ensure_single_instance():
+    lock_file = "/tmp/traduia_server.lock"
+    port = 8000
+    current_pid = os.getpid()
+
+    # 1. Kill any process that looks like traduia_server.py or is using port 8000
+    for proc in psutil.process_iter(['pid', 'cmdline']):
+        try:
+            if proc.pid == current_pid:
+                continue
+            
+            should_kill = False
+            # Check cmdline
+            cmdline = proc.info.get('cmdline')
+            if cmdline and any("traduia_server.py" in arg for arg in cmdline):
+                should_kill = True
+            
+            # Check port (if possible)
+            if not should_kill:
+                try:
+                    for conn in proc.connections(kind='inet'):
+                        if conn.laddr.port == port:
+                            should_kill = True
+                            break
+                except (psutil.AccessDenied, psutil.NoSuchProcess):
+                    pass
+            
+            if should_kill:
+                print(_("[INFO] Stopping previous instance (PID {})...").format(proc.pid))
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except psutil.TimeoutExpired:
+                    print(_("[INFO] Forcing stop (KILL) of PID {}...").format(proc.pid))
+                    proc.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    # 2. Manage lock file to be extra safe
+    try:
+        f = open(lock_file, "a+")
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        f.seek(0)
+        f.truncate()
+        f.write(str(current_pid))
+        f.flush()
+        return f
+    except Exception as e:
+        print(f"[WARNING] Lock file check failed: {e}")
+        return None
 
 if __name__ == "__main__":
+    _lock_f = _ensure_single_instance()
+
     qt_tray = QApplication(sys.argv)
     qt_tray.setQuitOnLastWindowClosed(False)
 
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    def signal_handler(sig, frame):
+        QApplication.quit()
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Timer to allow processing signals in the Qt event loop
+    _sig_timer = QTimer()
+    _sig_timer.start(500)
+    _sig_timer.timeout.connect(lambda: None)
 
     tray = TrayIcon()
     tray.show()
+    
+    # Small delay to ensure the previous instance has fully released the port
+    # before we attempt to bind to it in the background thread.
+    QTimer.singleShot(500, tray.api_thread.start)
+
     try:
-        sys.exit(qt_tray.exec())
+        res = qt_tray.exec()
     except:
-        sys.exit(qt_tray.exec_())
+        res = qt_tray.exec_()
+    
+    # Clean shutdown
+    print(_("[INFO] Cleaning up..."))
+    tray.hide()
+    tray.api_thread.stop()
+    tray.api_thread.join(timeout=3.0)
+    sys.exit(res)
 
