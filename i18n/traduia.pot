@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-13 12:53+0200\n"
+"POT-Creation-Date: 2026-05-19 12:32+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -21,143 +21,147 @@ msgstr ""
 msgid "[INFO] Opening: {}"
 msgstr ""
 
-#: traduia_server.py:230
+#: traduia_server.py:232
 msgid "LliureX - Real-time Transcription / Translation System"
 msgstr ""
 
-#: traduia_server.py:231
+#: traduia_server.py:233
 msgid "LliureX - TraduIA"
 msgstr ""
 
-#: traduia_server.py:232
+#: traduia_server.py:234
 msgid "AlicIA"
 msgstr ""
 
-#: traduia_server.py:233
+#: traduia_server.py:235
 msgid "Connected to teacher's classroom · Text in your language"
 msgstr ""
 
-#: traduia_server.py:234
+#: traduia_server.py:236
 msgid "Display Mode"
 msgstr ""
 
-#: traduia_server.py:235
+#: traduia_server.py:237
 msgid "Language"
 msgstr ""
 
-#: traduia_server.py:236
+#: traduia_server.py:238
 msgid "View original (teacher's language)"
 msgstr ""
 
-#: traduia_server.py:237
+#: traduia_server.py:239
 msgid "View translated"
 msgstr ""
 
-#: traduia_server.py:238
+#: traduia_server.py:240
 msgid "Here you will see the teacher's speech in your chosen language…"
 msgstr ""
 
-#: traduia_server.py:240 traduia_server.py:243
+#: traduia_server.py:242 traduia_server.py:245
 msgid "disconnected"
 msgstr ""
 
-#: traduia_server.py:241
+#: traduia_server.py:243
 msgid "connecting..."
 msgstr ""
 
-#: traduia_server.py:242
+#: traduia_server.py:244
 msgid "connected"
 msgstr ""
 
-#: traduia_server.py:245
+#: traduia_server.py:247
 msgid "[TRANSLATION ERROR]"
 msgstr ""
 
-#: traduia_server.py:246
+#: traduia_server.py:248
 msgid "[ERROR] Could not connect to the server."
 msgstr ""
 
-#: traduia_server.py:248
+#: traduia_server.py:250
 msgid "English"
 msgstr ""
 
-#: traduia_server.py:248
+#: traduia_server.py:250
 msgid "French"
 msgstr ""
 
-#: traduia_server.py:248
+#: traduia_server.py:250
 msgid "German"
 msgstr ""
 
-#: traduia_server.py:249
+#: traduia_server.py:251
 msgid "Russian"
 msgstr ""
 
-#: traduia_server.py:249
+#: traduia_server.py:251
 msgid "Arabic"
 msgstr ""
 
-#: traduia_server.py:249
+#: traduia_server.py:251
 msgid "Ukrainian"
 msgstr ""
 
-#: traduia_server.py:250
+#: traduia_server.py:252
 msgid "Romanian"
 msgstr ""
 
-#: traduia_server.py:250 traduia:71
+#: traduia_server.py:252 traduia:71
 msgid "Spanish"
 msgstr ""
 
-#: traduia_server.py:250 traduia:71 traduia:80
+#: traduia_server.py:252 traduia:71 traduia:80
 msgid "Valencian"
 msgstr ""
 
-#: traduia_server.py:720
+#: traduia_server.py:253
+msgid "Italian"
+msgstr ""
+
+#: traduia_server.py:723
 msgid "LliureX STT/Real-time translation"
 msgstr ""
 
-#: traduia_server.py:759
+#: traduia_server.py:762
 msgid "[STT] Starting Whisper ({}) for input language: {}"
 msgstr ""
 
-#: traduia_server.py:919
+#: traduia_server.py:922
 msgid "[STT] Audio source: {} -> {}"
 msgstr ""
 
-#: traduia_server.py:921
+#: traduia_server.py:924
 msgid "[STT] Capturing audio (Pulse). Ctrl+C to stop."
 msgstr ""
 
-#: traduia_server.py:1010
+#: traduia_server.py:1013
 msgid "[STT] Microphone open. Ctrl+C to stop."
 msgstr ""
 
-#: traduia_server.py:1147
+#: traduia_server.py:1150
 msgid "alicia.png not found"
 msgstr ""
 
-#: traduia_server.py:1202
-msgid "Supported languages: en, fr, de, ru, ar, uk, ro"
+#: traduia_server.py:1205
+msgid "Supported languages: en, fr, de, ru, ar, uk, ro, it"
 msgstr ""
 
-#: traduia_server.py:1248
+#: traduia_server.py:1251
 msgid "TraduIA Server"
 msgstr ""
 
-#: traduia_server.py:1252
+#: traduia_server.py:1255
 msgid "Exit"
 msgstr ""
 
-#: traduia_server.py:1316
+#: traduia_server.py:1319
 msgid "[INFO] Stopping previous instance (PID {})..."
 msgstr ""
 
-#: traduia_server.py:1321
+#: traduia_server.py:1324
 msgid "[INFO] Forcing stop (KILL) of PID {}..."
 msgstr ""
 
-#: traduia_server.py:1369
+#: traduia_server.py:1372
 msgid "[INFO] Cleaning up..."
 msgstr ""
 
@@ -261,35 +265,35 @@ msgstr ""
 msgid "Preloading models into shared cache..."
 msgstr ""
 
-#: install-models-traduia:89
+#: install-models-traduia:90
 msgid "Getting structure and downloading files from LAN..."
 msgstr ""
 
-#: install-models-traduia:123
+#: install-models-traduia:124
 msgid "LAN download finished."
 msgstr ""
 
-#: install-models-traduia:133
+#: install-models-traduia:134
 msgid "Downloading models"
 msgstr ""
 
-#: install-models-traduia:139
+#: install-models-traduia:140
 msgid "Models downloaded!"
 msgstr ""
 
-#: install-models-traduia:147
+#: install-models-traduia:148
 msgid "Downloading torch"
 msgstr ""
 
-#: install-models-traduia:150
+#: install-models-traduia:151
 msgid "Torch downloaded!"
 msgstr ""
 
-#: install-models-traduia:153
+#: install-models-traduia:154
 msgid "Ready."
 msgstr ""
 
-#: install-models-traduia:155
+#: install-models-traduia:156
 msgid "Offline execution (the launcher already exports it):"
 msgstr ""
 

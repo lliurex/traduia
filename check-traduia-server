@@ -52,6 +52,7 @@ def main():
     default_host = "/usr/share/doc/traduia/not-available.html"
     return_codename = ""
     default_codename = "not-available"
+    default_port = 8000
 
     # Detect system language
     sys_lang = os.environ.get("LANG", "en").split("_")[0].split(".")[0].split("-")[0].lower()
@@ -64,22 +65,23 @@ def main():
         # "server" is not available
         is_resolvable = False
         remote_ip = None
+    if is_resolvable and remote_ip in local_ips:
+        return_host = "localhost"
+        return_codename = "local"
+    if not is_resolvable:
+        return_host = "localhost"
+        return_codename = "local"
 
-    if is_resolvable and remote_ip:
-        if remote_ip in local_ips:
-            return_host = "localhost"
-            return_codename = "local"
-        else:
-            return_host = target_host
-            return_codename = target_codename
+    if is_port_open(return_host,8000):
+        return_host = f"{return_host}"
+    else:
+        # here goes to default (local static error page)
+        return_host = default_host
+        return_codename = default_codename
+        default_port = ''
 
-        if is_port_open(return_host, 4141) and check_json_4141(return_host):
+    if is_port_open(return_host, 4141) and check_json_4141(return_host):
             return_codename = f"{return_codename}+http"
-
-        if not is_port_open(return_host, 8000):
-            return_host = default_host
-        else:
-            return_host = f"{return_host}:8000"
 
     if not return_host or "not-available" in return_host:
         if not return_host:
@@ -90,7 +92,9 @@ def main():
         else:
             return_codename = default_codename
     else:
-        return_host = f"http://{return_host}"
+        if default_port:
+            default_port = f":{default_port}"
+        return_host = f"http://{return_host}{default_port}"
 
     sys.stdout.write(f"{return_host}\n")
     sys.stderr.write(f"{return_codename}\n")
