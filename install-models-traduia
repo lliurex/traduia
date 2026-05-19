@@ -64,6 +64,7 @@ repos = [
     "Helsinki-NLP/opus-mt-es-ru",
     "Helsinki-NLP/opus-mt-es-ar",
     "Helsinki-NLP/opus-mt-es-ro",
+    "Helsinki-NLP/opus-mt-es-it",
     "Helsinki-NLP/opus-mt-es-uk",
     "Helsinki-NLP/opus-mt-ca-en",
     "Helsinki-NLP/opus-mt-ca-es",
