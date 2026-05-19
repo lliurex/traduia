@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-19 12:32+0200\n"
-"PO-Revision-Date: 2026-05-19 12:36+0200\n"
+"PO-Revision-Date: 2026-05-19 12:48+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Spanish\n"
 "Language: es\n"
@@ -108,7 +108,7 @@ msgstr "Rumano"
 
 #: traduia_server.py:252 traduia:71
 msgid "Spanish"
-msgstr "Español"
+msgstr "Castellano"
 
 #: traduia_server.py:252 traduia:71 traduia:80
 msgid "Valencian"
