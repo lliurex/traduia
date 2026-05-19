@@ -126,6 +126,7 @@ MARIAN_ES_RU = "Helsinki-NLP/opus-mt-es-ru"
 MARIAN_ES_AR = "Helsinki-NLP/opus-mt-es-ar"
 MARIAN_ES_UK = "Helsinki-NLP/opus-mt-es-uk"
 MARIAN_ES_RO = "Helsinki-NLP/opus-mt-es-ro"
+MARIAN_ES_IT = "Helsinki-NLP/opus-mt-es-it"
 
 # CA -> EN/ES
 MARIAN_CA_EN = "Helsinki-NLP/opus-mt-ca-en"
@@ -158,6 +159,7 @@ def translate_from_es(text: str, target: str) -> str:
         "ar": MARIAN_ES_AR,
         "uk": MARIAN_ES_UK,
         "ro": MARIAN_ES_RO,
+        "it": MARIAN_ES_IT,
     }
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
@@ -172,7 +174,7 @@ def translate_from_es(text: str, target: str) -> str:
 def translate_from_ca(text: str, target: str) -> str:
     """
     CA -> EN directo con opus-mt-ca-en.
-    CA -> X (fr,de,ru,ar,uk,ro) vía CA->ES + ES->X.
+    CA -> X (fr,de,ru,ar,uk,ro,it) vía CA->ES + ES->X.
     """
     txt = text.strip()
     if not txt:
@@ -201,7 +203,7 @@ def translate_from_ca(text: str, target: str) -> str:
 
 def translate_text(text: str, target: str) -> str:
     target = target.lower()
-    if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro"):
+    if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro", "it"):
         return f"[NO SOPORTADO -> {target}]"
     if INPUT_LANG == "es":
         return translate_from_es(text, target)
@@ -247,7 +249,8 @@ def get_i18n_data():
             'langs': {
                 'en': _t("English"), 'fr': _t("French"), 'de': _t("German"),
                 'ru': _t("Russian"), 'ar': _t("Arabic"), 'uk': _t("Ukrainian"),
-                'ro': _t("Romanian"), 'es': _t("Spanish"), 'ca': _t("Valencian")
+                'ro': _t("Romanian"), 'es': _t("Spanish"), 'ca': _t("Valencian"),
+                'it': _("Italian")
             }
         }
     data['va'] = data['ca']
@@ -571,7 +574,7 @@ HTML_CLIENT = r"""<!doctype html>
         addOption("", data.langs[INPUT_LANG] || INPUT_LANG, true);
         targetSel.disabled = true;
       } else {
-        ["en", "fr", "de", "ru", "ar", "uk", "ro"].forEach(t => {
+        ["en", "fr", "de", "ru", "ar", "uk", "ro", "it"].forEach(t => {
           addOption(t, data.langs[t] || t, t === "en");
         });
         targetSel.disabled = false;
@@ -1196,10 +1199,10 @@ class TranslateResponse(BaseModel):
 @app.post("/translate", response_model=TranslateResponse)
 def translate(req: TranslateRequest):
     target = req.target_lang.lower()
-    if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro"):
+    if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro", "it"):
         return JSONResponse(
             status_code=400,
-            content={"error": _("Supported languages: en, fr, de, ru, ar, uk, ro")},
+            content={"error": _("Supported languages: en, fr, de, ru, ar, uk, ro, it")},
         )
     txt = req.text.strip()
     if not txt:
