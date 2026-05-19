@@ -250,7 +250,7 @@ def get_i18n_data():
                 'en': _t("English"), 'fr': _t("French"), 'de': _t("German"),
                 'ru': _t("Russian"), 'ar': _t("Arabic"), 'uk': _t("Ukrainian"),
                 'ro': _t("Romanian"), 'es': _t("Spanish"), 'ca': _t("Valencian"),
-                'it': _("Italian")
+                'it': _t("Italian")
             }
         }
     data['va'] = data['ca']
@@ -574,7 +574,14 @@ HTML_CLIENT = r"""<!doctype html>
         addOption("", data.langs[INPUT_LANG] || INPUT_LANG, true);
         targetSel.disabled = true;
       } else {
-        ["en", "fr", "de", "ru", "ar", "uk", "ro", "it"].forEach(t => {
+        const languages = ["en", "fr", "de", "ru", "ar", "uk", "ro", "it"];
+        languages.sort((a, b) => {
+          const nameA = data.langs[a] || a;
+          const nameB = data.langs[b] || b;
+          return nameA.localeCompare(nameB, UI_LANG);
+        });
+
+        languages.forEach(t => {
           addOption(t, data.langs[t] || t, t === "en");
         });
         targetSel.disabled = false;
