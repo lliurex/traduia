@@ -1,3 +1,9 @@
+traduia (0.7.2) noble; urgency=medium
+
+  * Sort languages
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 19 May 2026 13:47:55 +0200
+
 traduia (0.7.1) noble; urgency=medium
 
   * Improved usability: Change textbox font
