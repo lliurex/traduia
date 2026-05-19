@@ -406,13 +406,13 @@ HTML_CLIENT = r"""<!doctype html>
       border: 1px solid rgba(55, 65, 81, 0.9);
       padding: 10px 11px;
       resize: vertical;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-                   "Liberation Mono", "Courier New", monospace;
-      font-size: 13px;
+      font-family: "Noto Sans", "Ubuntu", "Arial", sans-serif;
+      font-size: 18px;
+      line-height: 1.6;
+      letter-spacing: 0.01em;
       background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.9), #020617);
       color: #e5e7eb;
       outline: none;
-      line-height: 1.5;
       white-space: pre-wrap;
       box-sizing: border-box;
       flex: 1;
