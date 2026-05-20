@@ -232,7 +232,6 @@ def get_i18n_data():
             'title': _t("LliureX - Real-time Transcription / Translation System"),
             'mainTitle': _t("LliureX - TraduIA"),
             'aliciaName': _t("AlicIA"),
-            'subtitle': _t("Connected to teacher's classroom · Text in your language"),
             'labelMode': _t("Display Mode"),
             'labelLang': _t("Language"),
             'optOriginal': _t("View original (teacher's language)"),
@@ -325,8 +324,9 @@ HTML_CLIENT = r"""<!doctype html>
     }
     .header-title h1 {
       margin: 0;
-      font-size: 18px;
+      font-size: 30px;
       font-weight: 600;
+      font-family: "Noto Sans", "Ubuntu", "Arial", sans-serif;
     }
     .header-title span {
       font-size: 12px;
@@ -347,6 +347,7 @@ HTML_CLIENT = r"""<!doctype html>
       gap: 10px 12px;
       align-items: center;
       margin-bottom: 8px;
+      font-family: "Noto Sans", "Ubuntu", "Arial", sans-serif;
     }
     .field {
       display: flex;
@@ -355,7 +356,7 @@ HTML_CLIENT = r"""<!doctype html>
       min-width: 150px;
     }
     .field-label {
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #9ca3af;
@@ -368,6 +369,10 @@ HTML_CLIENT = r"""<!doctype html>
       color: #e5e7eb;
       font-size: 13px;
       outline: none;
+    }
+    #mode, #mode option {
+      font-family: "Noto Sans", "Ubuntu", "Arial", sans-serif;
+      font-size: 14px;
     }
     select:focus {
       border-color: #38bdf8;
@@ -385,6 +390,7 @@ HTML_CLIENT = r"""<!doctype html>
       color:#9ca3af;
       background:rgba(15, 23, 42, 0.9);
       white-space: nowrap;
+      margin-left: auto;
     }
     .pill-dot {
       width:7px;
@@ -441,7 +447,10 @@ HTML_CLIENT = r"""<!doctype html>
       <div class="header">
         <div class="header-title">
           <h1 id="title-main">...</h1>
-          <span id="subtitle">...</span>
+        </div>
+        <div class="pill" id="status-pill">
+          <span class="pill-dot" id="status-dot"></span>
+          <span id="status-text">...</span>
         </div>
         <img src="/alicia.png" alt="..." id="alicia-logo" class="logo">
       </div>
@@ -460,10 +469,6 @@ HTML_CLIENT = r"""<!doctype html>
           <select id="target"></select>
         </div>
 
-        <div class="pill" id="status-pill">
-          <span class="pill-dot" id="status-dot"></span>
-          <span id="status-text">...</span>
-        </div>
       </div>
 
       <div class="text-area-row">
@@ -596,7 +601,6 @@ HTML_CLIENT = r"""<!doctype html>
       document.title = d.title;
       titleMain.textContent = d.mainTitle;
       aliciaLogo.alt = d.aliciaName;
-      subtitle.textContent = d.subtitle;
       labelMode.textContent = d.labelMode;
       labelLang.textContent = d.labelLang;
       out.placeholder = d.placeholder;
