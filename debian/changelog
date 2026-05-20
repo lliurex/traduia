@@ -1,3 +1,12 @@
+traduia (0.7.3) jammy; urgency=medium
+
+  * Removed subtitle
+  * Bigger fonts + using sans-serif and same family
+  * Status on new position
+  * Inclussion labels
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Wed, 20 May 2026 13:43:58 +0200
+
 traduia (0.7.2) jammy; urgency=medium
 
   * Sort languages 
