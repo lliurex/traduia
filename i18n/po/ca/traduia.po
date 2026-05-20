@@ -48,7 +48,7 @@ msgstr "Idioma"
 
 #: traduia_server.py:238
 msgid "View original (teacher's language)"
-msgstr "Veure original (idioma del professor)"
+msgstr "Veure original (idioma del docent)"
 
 #: traduia_server.py:239
 msgid "View translated"
