@@ -991,7 +991,7 @@ def stt_worker():
                 if not text or is_hallucination_line(text):
                     continue
 
-                print(f"[STT][{INPUT_LANG}]", text)
+                # print(f"[STT][{INPUT_LANG}]", text)
                 broadcast_line(text)
 
             except ValueError as e:
@@ -1096,8 +1096,8 @@ def start_stt_if_needed():
             # Solo actuamos si el historial está completo (10 min)
             if len(activity_window) >= activity_window.maxlen:
                 ratio = sum(activity_window) / len(activity_window)
-                # Si el ratio es menor al 5% (baja probabilidad de habla)
-                if ratio < 0.05:
+                # Si el ratio es menor al 10% (baja probabilidad de habla)
+                if ratio < 0.1:
                     print(_("[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})").format(ratio))
                     _stop_event.set()
                     # Salida limpia del proceso
