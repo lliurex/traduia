@@ -56,18 +56,6 @@ print("[preload] HF_HUB_CACHE:", os.environ.get("HF_HUB_CACHE"))
 # faster-whisper small => repo
 repos = [
     "Systran/faster-whisper-small",
-
-    # MarianMT (Helsinki-NLP) - ajusta esta lista si usas otros pares
-    "Helsinki-NLP/opus-mt-es-en",
-    "Helsinki-NLP/opus-mt-es-fr",
-    "Helsinki-NLP/opus-mt-es-de",
-    "Helsinki-NLP/opus-mt-es-ru",
-    "Helsinki-NLP/opus-mt-es-ar",
-    "Helsinki-NLP/opus-mt-es-ro",
-    "Helsinki-NLP/opus-mt-es-it",
-    "Helsinki-NLP/opus-mt-es-uk",
-    "Helsinki-NLP/opus-mt-ca-en",
-    "Helsinki-NLP/opus-mt-ca-es",
 ]
 
 for repo in repos:
@@ -149,6 +137,102 @@ echo "$(_ "Downloading torch")"
 pip install --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
 pip install sacremoses  > /dev/null 2>&1
 echo "$(_ "Torch downloaded!")"
+
+echo "[setup] $(_ "Converting Marian models to CTranslate2...")"
+mkdir -p "$SHARED_HF/ct2"
+
+python - <<'PY'
+import os, json, subprocess, shutil
+from huggingface_hub import snapshot_download
+from huggingface_hub.utils import disable_progress_bars
+disable_progress_bars()
+
+HF_HOME = os.environ.get("HF_HOME", "/usr/lib/ai/traduia_models")
+CT2_BASE = os.path.join(HF_HOME, "ct2")
+HUB_CACHE = os.environ.get("HF_HUB_CACHE", os.path.join(HF_HOME, "hub"))
+
+MARIAN_PAIRS = [
+    "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+    "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+]
+
+TOKENIZER_FILES = [
+    "tokenizer_config.json",
+    "vocab.json",
+    "source.spm",
+    "target.spm",
+    "special_tokens_map.json",
+    "tokenizer.json",
+]
+
+
+def _has_ct2_model(out_dir):
+    model_bin = os.path.join(out_dir, "model.bin")
+    if os.path.exists(model_bin) and os.path.getsize(model_bin) > 0:
+        return True
+    if os.path.isdir(os.path.join(out_dir, "model")):
+        return True
+    return False
+
+
+for pair in MARIAN_PAIRS:
+    model_id = f"Helsinki-NLP/opus-mt-{pair}"
+    out_dir = os.path.join(CT2_BASE, f"opus-mt-{pair}")
+    os.makedirs(out_dir, exist_ok=True)
+
+    if _has_ct2_model(out_dir):
+        print(f"[CT2] opus-mt-{pair} already converted, skipping.")
+    else:
+        print(f"[CT2] Converting {model_id} ...")
+        subprocess.run([
+            "ct2-transformers-converter",
+            "--model", model_id,
+            "--output_dir", out_dir,
+            "--quantization", "int8",
+            "--force",
+        ], check=True)
+
+    local_path = snapshot_download(
+        repo_id=model_id,
+        cache_dir=HUB_CACHE,
+        local_dir=None,
+    )
+
+    for fname in TOKENIZER_FILES:
+        src = os.path.join(local_path, fname)
+        if not os.path.exists(src):
+            continue
+        dst = os.path.join(out_dir, fname)
+        if os.path.exists(dst):
+            if fname.endswith(".json"):
+                with open(src, encoding="utf-8") as f_src, \
+                     open(dst, encoding="utf-8") as f_dst:
+                    src_data = json.load(f_src)
+                    dst_data = json.load(f_dst)
+                merged = {**src_data, **dst_data}
+                with open(dst, "w", encoding="utf-8") as f_out:
+                    json.dump(merged, f_out, indent=2, ensure_ascii=False)
+                print(f"[CT2]   Merged {fname}")
+            else:
+                print(f"[CT2]   Skipped {fname} (CT2 already has it)")
+        else:
+            shutil.copy2(src, dst)
+            print(f"[CT2]   Copied {fname}")
+
+    hf_config = os.path.join(local_path, "config.json")
+    ct2_config = os.path.join(out_dir, "config.json")
+    if os.path.exists(hf_config) and os.path.exists(ct2_config):
+        with open(hf_config, encoding="utf-8") as f_src, \
+             open(ct2_config, encoding="utf-8") as f_dst:
+            hf_data = json.load(f_src)
+            ct2_data = json.load(f_dst)
+        merged = {**hf_data, **ct2_data}
+        with open(ct2_config, "w", encoding="utf-8") as f_out:
+            json.dump(merged, f_out, indent=2, ensure_ascii=False)
+        print(f"[CT2]   Merged config.json")
+
+print("[CT2] All Marian models converted.")
+PY
 
 echo ""
 echo "[setup] $(_ "Ready.")"
