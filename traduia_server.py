@@ -64,7 +64,8 @@ from starlette.responses import (
     FileResponse,
 )
 from faster_whisper import WhisperModel
-from transformers import MarianMTModel, MarianTokenizer
+from transformers import MarianTokenizer
+import ctranslate2
 from pathlib import Path
 dist_packages_paths=set()
 for path in Path('/usr/lib').glob('python*/dist-packages'):
@@ -124,6 +125,12 @@ WHISPER_COMPUTE_TYPE = "int8"
 
 # BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path('/usr/lib/traduia')
+MARIAN_CT2_BASE = Path('/usr/lib/ai/traduia_models/ct2')
+
+def _marian_ct2_path(model_name: str) -> str:
+    repo = model_name.split("/")[-1]
+    return str(MARIAN_CT2_BASE / repo)
+
 # =========================================================
 # MARIAN: ES/CA -> EN/FR/DE/RU/AR/UK
 # =========================================================
@@ -144,20 +151,21 @@ MARIAN_CA_ES = "Helsinki-NLP/opus-mt-ca-es"
 
 # Caches
 _m_es_tok = {}
-_m_es_model = {}
+_m_es_ct2 = {}
 _m_ca_tok = {}
-_m_ca_model = {}
+_m_ca_ct2 = {}
 
 
-def _load_marian(model_name: str,
-                 cache_tok: dict,
-                 cache_model: dict) -> Tuple[MarianTokenizer, MarianMTModel]:
-    if model_name not in cache_tok or model_name not in cache_model:
-        tok = MarianTokenizer.from_pretrained(model_name)
-        model = MarianMTModel.from_pretrained(model_name)
+def _load_marian_ct2(model_name: str,
+                     cache_tok: dict,
+                     cache_ct2: dict) -> Tuple[MarianTokenizer, ctranslate2.Translator]:
+    if model_name not in cache_tok or model_name not in cache_ct2:
+        ct2_path = _marian_ct2_path(model_name)
+        tok = MarianTokenizer.from_pretrained(ct2_path)
+        translator = ctranslate2.Translator(ct2_path, device="cpu")
         cache_tok[model_name] = tok
-        cache_model[model_name] = model
-    return cache_tok[model_name], cache_model[model_name]
+        cache_ct2[model_name] = translator
+    return cache_tok[model_name], cache_ct2[model_name]
 
 
 def translate_from_es(text: str, target: str) -> str:
@@ -174,11 +182,16 @@ def translate_from_es(text: str, target: str) -> str:
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
     model_name = mapping[target]
-    tok, model = _load_marian(model_name, _m_es_tok, _m_es_model)
-    batch = tok([text], return_tensors="pt", padding=True, truncation=True)
-    gen = model.generate(**batch, max_length=512)
-    out = tok.batch_decode(gen, skip_special_tokens=True)
-    return out[0] if out else ""
+    tok, translator = _load_marian_ct2(model_name, _m_es_tok, _m_es_ct2)
+    source_tokens = tok.tokenize(text)
+    if not source_tokens:
+        return ""
+    results = translator.translate_batch([source_tokens], max_length=512, beam_size=4)
+    target_tokens = results[0].hypotheses[0]
+    return tok.decode(
+        tok.convert_tokens_to_ids(target_tokens),
+        skip_special_tokens=True,
+    )
 
 
 def translate_from_ca(text: str, target: str) -> str:
@@ -192,20 +205,30 @@ def translate_from_ca(text: str, target: str) -> str:
 
     # CA -> EN
     if target == "en":
-        tok, model = _load_marian(MARIAN_CA_EN, _m_ca_tok, _m_ca_model)
-        batch = tok([txt], return_tensors="pt", padding=True, truncation=True)
-        gen = model.generate(**batch, max_length=512)
-        out = tok.batch_decode(gen, skip_special_tokens=True)
-        return out[0] if out else ""
+        tok, translator = _load_marian_ct2(MARIAN_CA_EN, _m_ca_tok, _m_ca_ct2)
+        source_tokens = tok.tokenize(txt)
+        if not source_tokens:
+            return ""
+        results = translator.translate_batch([source_tokens], max_length=512, beam_size=4)
+        target_tokens = results[0].hypotheses[0]
+        return tok.decode(
+            tok.convert_tokens_to_ids(target_tokens),
+            skip_special_tokens=True,
+        )
 
     # CA -> ES
-    tok_ca_es, model_ca_es = _load_marian(MARIAN_CA_ES, _m_ca_tok, _m_ca_model)
-    batch_es = tok_ca_es([txt], return_tensors="pt", padding=True, truncation=True)
-    gen_es = model_ca_es.generate(**batch_es, max_length=512)
-    out_es = tok_ca_es.batch_decode(gen_es, skip_special_tokens=True)
-    if not out_es:
+    tok_ca_es, translator_ca_es = _load_marian_ct2(MARIAN_CA_ES, _m_ca_tok, _m_ca_ct2)
+    source_tokens = tok_ca_es.tokenize(txt)
+    if not source_tokens:
         return ""
-    text_es = out_es[0]
+    results_es = translator_ca_es.translate_batch([source_tokens], max_length=512, beam_size=4)
+    text_es_tokens = results_es[0].hypotheses[0]
+    text_es = tok_ca_es.decode(
+        tok_ca_es.convert_tokens_to_ids(text_es_tokens),
+        skip_special_tokens=True,
+    )
+    if not text_es:
+        return ""
 
     # ES -> target
     return translate_from_es(text_es, target)
