@@ -26,10 +26,10 @@ echo $TRADUIA_DIR > $TRADUIA_VENV/lib/python${PYTHON_VER}/site-packages/extra_pa
 source $TRADUIA_VENV/bin/activate
 
 echo "[setup] $(_ "Updating pip/setuptools/wheel")"
-python -m pip install --upgrade pip setuptools wheel  > /dev/null 2>&1
+python -m pip install --no-cache-dir --upgrade pip setuptools wheel  > /dev/null 2>&1
 
 echo "[setup] $(_ "Installing Python dependencies")"
-pip install fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil > /dev/null 2>&1
+pip install --no-cache-dir fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil > /dev/null 2>&1
 
 echo "[setup] $(_ "Exporting shared cache variables (for this process)")"
 export HF_HOME="$SHARED_HF"
@@ -134,8 +134,8 @@ if [ -n "$checked_size" -a "$checked_size" -gt 5000 ]; then
 fi
 
 echo "$(_ "Downloading torch")"
-pip install --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
-pip install sacremoses  > /dev/null 2>&1
+pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
+pip install --no-cache-dir sacremoses  > /dev/null 2>&1
 echo "$(_ "Torch downloaded!")"
 
 echo "[setup] $(_ "Converting Marian models to CTranslate2...")"
@@ -230,6 +230,19 @@ for pair in MARIAN_PAIRS:
         with open(ct2_config, "w", encoding="utf-8") as f_out:
             json.dump(merged, f_out, indent=2, ensure_ascii=False)
         print(f"[CT2]   Merged config.json")
+
+    # Liberar espacio: borrar el modelo original del caché HF
+    hub_repo_dir = os.path.join(HUB_CACHE, f"models--{model_id.replace('/', '--')}")
+    if os.path.exists(hub_repo_dir):
+        shutil.rmtree(hub_repo_dir, ignore_errors=True)
+        print(f"[CT2]   Deleted HF Hub cache: {hub_repo_dir}")
+
+    tf_cache = os.environ.get("TRANSFORMERS_CACHE")
+    if tf_cache:
+        tf_repo_dir = os.path.join(tf_cache, f"models--{model_id.replace('/', '--')}")
+        if os.path.exists(tf_repo_dir):
+            shutil.rmtree(tf_repo_dir, ignore_errors=True)
+            print(f"[CT2]   Deleted transformers cache: {tf_repo_dir}")
 
 print("[CT2] All Marian models converted.")
 PY
