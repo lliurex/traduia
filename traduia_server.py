@@ -48,6 +48,7 @@ import subprocess
 import signal
 import fcntl
 import psutil
+from collections import deque
 from typing import Iterator, List, Tuple, Optional
 
 import numpy as np
@@ -98,6 +99,15 @@ BLOCK = RATE // 10  # ~100 ms
 INPUT_LANG = (os.getenv("ALICIA_INPUT_LANG", "es") or "es").strip().split("|")[0].strip()
 if INPUT_LANG not in ("es", "ca"):
     INPUT_LANG = "es"
+
+
+# =========================================================
+# MONITOR DE ACTIVIDAD (10 MINUTOS)
+# =========================================================
+MONITOR_WINDOW_MINS = 10
+CHUNK_DURATION = 3.0  # Coincide con MIN_SECONDS en stt_worker
+MAX_WINDOW_SIZE = int((MONITOR_WINDOW_MINS * 60) // CHUNK_DURATION)
+activity_window: deque = deque(maxlen=MAX_WINDOW_SIZE)
 
 PROMPT_CA = (
     "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, "
@@ -945,7 +955,7 @@ def stt_worker():
                         # If the process finished with code 0 and we are stopping, it's normal.
                         if _stop_event.is_set() or proc.returncode == 0:
                             break
-                        
+
                         err = b""
                         if proc.stderr is not None:
                             try:
@@ -966,7 +976,10 @@ def stt_worker():
                 chunk = np.concatenate(buf, axis=0)
                 buf.clear()
 
-                if chunk.size == 0 or not looks_like_voice(chunk):
+                is_voice = looks_like_voice(chunk)
+                activity_window.append(1 if is_voice else 0)
+
+                if chunk.size == 0 or not is_voice:
                     continue
 
                 try:
@@ -1047,7 +1060,10 @@ def stt_worker():
             if chunk.size == 0:
                 continue
 
-            if not looks_like_voice(chunk):
+            is_voice = looks_like_voice(chunk)
+            activity_window.append(1 if is_voice else 0)
+
+            if not is_voice:
                 silence_streak += 1
                 # No transcribimos ruido/ambigüedad -> reduce alucinaciones.
                 continue
@@ -1113,6 +1129,25 @@ def start_stt_if_needed():
     _stt_thread.start()
     _stt_started = True
 
+    # Monitor de auto-apagado por inactividad
+    def auto_shutdown_check():
+        while not _stop_event.is_set():
+            time.sleep(30) # Comprobar cada 30 segundos
+
+            # Solo actuamos si el historial está completo (10 min)
+            if len(activity_window) >= activity_window.maxlen:
+                ratio = sum(activity_window) / len(activity_window)
+                # Si el ratio es menor al 5% (baja probabilidad de habla)
+                if ratio < 0.05:
+                    print(_("[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})").format(ratio))
+                    _stop_event.set()
+                    # Salida limpia del proceso
+                    os.kill(os.getpid(), signal.SIGINT)
+                    break
+
+    t_shutdown = threading.Thread(target=auto_shutdown_check, daemon=True)
+    t_shutdown.start()
+
 def start_system_tray():
     tray = TrayIcon()
     tray.show()
@@ -1134,7 +1169,7 @@ app,_stt_thread,_subscribers = init_app()
 # DEPRECATED
 # @app.on_event("startup")
 # def on_startup():
-    
+
 # @app.on_event("shutdown")
 # def on_shutdown():
 #     # Ctrl+C fix: señalamos parada para que el hilo STT cierre el InputStream
@@ -1143,6 +1178,21 @@ app,_stt_thread,_subscribers = init_app()
 def health():
     return {"ok": True, "input_lang": INPUT_LANG}
 
+@app.get("/activity")
+def get_activity():
+    if not activity_window:
+        return {"ratio": 0.0, "is_active": False, "samples": 0}
+
+    ratio = sum(activity_window) / len(activity_window)
+    # Umbral de actividad: 5% de los bloques con voz (aprox 30s en 10min)
+    is_active = ratio > 0.05
+
+    return {
+        "ratio": round(ratio, 4),
+        "is_active": is_active,
+        "samples": len(activity_window),
+        "window_mins": MONITOR_WINDOW_MINS
+    }
 
 @app.get("/", include_in_schema=False)
 def root():
@@ -1249,7 +1299,26 @@ class TrayIcon(QSystemTrayIcon):
         self._setup_menu()
         self.activated.connect(self._on_tray_activated)
         self.api_thread = FastApiThread()
-        
+
+        # Timer para actualizar el ratio de actividad en el widget
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._update_activity_info)
+        self.timer.start(10000)  # 10 segundos
+        self._update_activity_info()
+
+    def _update_activity_info(self):
+        if not activity_window:
+            status_text = _("Activity: Wait...")
+        else:
+            ratio = sum(activity_window) / len(activity_window)
+            is_active = ratio > 0.05
+            status = _("Active") if is_active else _("Inactive")
+            status_text = _("Activity: {} ({:.1%})").format(status, ratio)
+
+        self.setToolTip(f"{_('TraduIA Server')}\n{status_text}")
+        if hasattr(self, "status_action"):
+            self.status_action.setText(status_text)
+
     def _setup_icon(self):
         image_path = '/usr/share/icons/hicolor/128x128/apps/traduia.png'
 
@@ -1263,6 +1332,11 @@ class TrayIcon(QSystemTrayIcon):
 
     def _setup_menu(self):
         menu = QMenu()
+
+        self.status_action = menu.addAction(_("Activity: Wait..."))
+        self.status_action.setDisabled(True)
+        menu.addSeparator()
+
         exit_action = menu.addAction(_("Exit"))
         exit_action.triggered.connect(self._on_exit)
         self.setContextMenu(menu)
@@ -1309,13 +1383,13 @@ def _ensure_single_instance():
         try:
             if proc.pid == current_pid:
                 continue
-            
+
             should_kill = False
             # Check cmdline
             cmdline = proc.info.get('cmdline')
             if cmdline and any("traduia_server.py" in arg for arg in cmdline):
                 should_kill = True
-            
+
             # Check port (if possible)
             if not should_kill:
                 try:
@@ -1325,7 +1399,7 @@ def _ensure_single_instance():
                             break
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     pass
-            
+
             if should_kill:
                 print(_("[INFO] Stopping previous instance (PID {})...").format(proc.pid))
                 proc.terminate()
@@ -1369,7 +1443,7 @@ if __name__ == "__main__":
 
     tray = TrayIcon()
     tray.show()
-    
+
     # Small delay to ensure the previous instance has fully released the port
     # before we attempt to bind to it in the background thread.
     QTimer.singleShot(500, tray.api_thread.start)
@@ -1378,7 +1452,7 @@ if __name__ == "__main__":
         res = qt_tray.exec()
     except:
         res = qt_tray.exec_()
-    
+
     # Clean shutdown
     print(_("[INFO] Cleaning up..."))
     tray.hide()
