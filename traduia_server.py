@@ -798,7 +798,6 @@ def stt_worker():
         audio_q.put(indata.copy())
 
     buf: List[np.ndarray] = []
-    total = 0
 
     MIN_SECONDS = 3.0
     MIN_SAMPLES = int(MIN_SECONDS * RATE)
@@ -861,11 +860,6 @@ def stt_worker():
     ]
 
 
-    # Si llevamos muchos chunks sin voz, reseteamos el buffer de "contexto"
-    # (en nuestro caso, al no arrastrar contexto, simplemente sirve para estadísticas/log).
-    silence_streak = 0
-    last_log = 0.0
-
     def looks_like_voice(x: np.ndarray) -> bool:
         """Heurística rápida para decidir si merece la pena transcribir."""
         if x.size == 0:
@@ -901,13 +895,97 @@ def stt_worker():
 
     prompt = PROMPT_ES if INPUT_LANG == "es" else PROMPT_CA
 
-    # =========================================================
-    # FUENTE DE AUDIO
-    # - Por defecto: sounddevice (PortAudio) -> micrófonos
-    # - Si ALICIA_PULSE_MONITOR está definido: capturamos audio del sistema
-    #   (lo que suena por los altavoces) vía `parec` (PipeWire/PulseAudio).
-    #   Esto evita el problema de que PortAudio no exponga los *.monitor.
-    # =========================================================
+    def _transcription_loop(beam_size: int, proc: Optional[subprocess.Popen] = None):
+        """Bucle común de transcripción: lee de audio_q, procesa y transcribe."""
+        last_log = 0.0
+
+        while not _stop_event.is_set():
+            if proc is not None and proc.poll() is not None:
+                if _stop_event.is_set() or proc.returncode == 0:
+                    break
+                err = b""
+                if proc.stderr is not None:
+                    try:
+                        err = proc.stderr.read() or b""
+                    except Exception:
+                        err = b""
+                raise RuntimeError(
+                    f"parec terminó (code={proc.returncode}).\n{err.decode(errors='ignore')}"
+                )
+
+            try:
+                data = audio_q.get(timeout=0.5)
+            except queue.Empty:
+                if _stop_event.is_set():
+                    break
+                continue
+
+            if data.ndim == 2:
+                data = data[:, 0]
+            data = data.astype(np.float32, copy=False)
+
+            buf.append(data)
+            total = sum(b.shape[0] for b in buf)
+
+            if total < MIN_SAMPLES:
+                continue
+
+            chunk = np.concatenate(buf, axis=0)
+            buf.clear()
+
+            if chunk.size == 0:
+                continue
+
+            is_voice = looks_like_voice(chunk)
+            activity_window.append(1 if is_voice else 0)
+
+            if not is_voice:
+                continue
+
+            try:
+                segments, info = model.transcribe(
+                    chunk,
+                    language=INPUT_LANG,
+                    task="transcribe",
+                    vad_filter=True,
+                    vad_parameters=dict(
+                        min_silence_duration_ms=300,
+                        speech_pad_ms=200,
+                    ),
+                    beam_size=beam_size,
+                    condition_on_previous_text=False,
+                    initial_prompt=prompt,
+                )
+
+                segs = list(segments)
+                if not segs:
+                    continue
+                text = "".join(s.text for s in segs).strip()
+
+                if INPUT_LANG == "es":
+                    text = clean_spanish_line(text)
+
+                if not text or is_hallucination_line(text):
+                    continue
+
+                print(f"[STT][{INPUT_LANG}]", text)
+                broadcast_line(text)
+
+            except ValueError as e:
+                msg = str(e).lower()
+                if "too short" in msg or "max() iterable argument is empty" in msg:
+                    continue
+                now = time.time()
+                if now - last_log > 5:
+                    print("[STT][ERROR]", e)
+                    last_log = now
+                continue
+            except Exception as e:
+                now = time.time()
+                if now - last_log > 5:
+                    print("[STT][ERROR]", e)
+                    last_log = now
+                continue
 
     pulse_source = (os.getenv("ALICIA_PULSE_SOURCE") or "").strip()
     pulse_monitor = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
@@ -945,65 +1023,7 @@ def stt_worker():
         print(_("[STT] Capturing audio (Pulse). Ctrl+C to stop."))
 
         try:
-            while not _stop_event.is_set():
-                try:
-                    data = audio_q.get(timeout=0.5)
-                except queue.Empty:
-                    if _stop_event.is_set():
-                        break
-                    if proc.poll() is not None:
-                        # If the process finished with code 0 and we are stopping, it's normal.
-                        if _stop_event.is_set() or proc.returncode == 0:
-                            break
-
-                        err = b""
-                        if proc.stderr is not None:
-                            try:
-                                err = proc.stderr.read() or b""
-                            except Exception:
-                                err = b""
-                        raise RuntimeError(
-                            f"parec terminó (code={proc.returncode}).\n{err.decode(errors='ignore')}"
-                        )
-                    continue
-
-                data = data.astype(np.float32, copy=False)
-                buf.append(data)
-                total_samples = sum(b.shape[0] for b in buf)
-                if total_samples < MIN_SAMPLES:
-                    continue
-
-                chunk = np.concatenate(buf, axis=0)
-                buf.clear()
-
-                is_voice = looks_like_voice(chunk)
-                activity_window.append(1 if is_voice else 0)
-
-                if chunk.size == 0 or not is_voice:
-                    continue
-
-                try:
-                    segments, info = model.transcribe(
-                        chunk,
-                        language=INPUT_LANG,
-                        task="transcribe",
-                        vad_filter=True,
-                        vad_parameters=dict(
-                            min_silence_duration_ms=300,
-                            speech_pad_ms=200,
-                        ),
-                        beam_size=beam_size,
-                        condition_on_previous_text=False,
-                        initial_prompt=prompt,
-                    )
-                    text = " ".join([s.text.strip() for s in segments]).strip()
-                    if INPUT_LANG == "es":
-                        text = clean_spanish_line(text)
-                    if is_hallucination_line(text):
-                        continue
-                    broadcast_line(text)
-                except Exception as e:
-                    print("[STT][ERROR]", repr(e))
+            _transcription_loop(beam_size, proc=proc)
         finally:
             try:
                 proc.terminate()
@@ -1026,7 +1046,6 @@ def stt_worker():
         _run_pulse_loop("ALTAVOCES (monitor PipeWire/Pulse)", pulse_monitor, beam_size=1)
         return
 
-# ---- MICRÓFONO (PortAudio) ----
     with sd.InputStream(
         samplerate=RATE,
         channels=CHANNELS,
@@ -1035,90 +1054,7 @@ def stt_worker():
         blocksize=BLOCK,
     ):
         print(_("[STT] Microphone open. Ctrl+C to stop."))
-        while True:
-            try:
-                data = audio_q.get(timeout=0.5)
-            except queue.Empty:
-                if _stop_event.is_set():
-                    break
-                continue
-
-            if data.ndim == 2:
-                data = data[:, 0]
-            data = data.astype(np.float32, copy=False)
-
-            buf.append(data)
-            total += data.shape[0]
-
-            if total < MIN_SAMPLES:
-                continue
-
-            chunk = np.concatenate(buf, axis=0)
-            buf.clear()
-            total = 0
-
-            if chunk.size == 0:
-                continue
-
-            is_voice = looks_like_voice(chunk)
-            activity_window.append(1 if is_voice else 0)
-
-            if not is_voice:
-                silence_streak += 1
-                # No transcribimos ruido/ambigüedad -> reduce alucinaciones.
-                continue
-            else:
-                silence_streak = 0
-
-
-            try:
-                segments, info = model.transcribe(
-                    chunk,
-                    language=INPUT_LANG,
-                    task="transcribe",
-                    vad_filter=True,
-                    vad_parameters=dict(
-                        min_silence_duration_ms=300,
-                        speech_pad_ms=200,
-                    ),
-                    beam_size=5,
-                    condition_on_previous_text=False,  # streaming: evita arrastre de alucinaciones
-                    initial_prompt=prompt,
-                )
-
-                segs = list(segments)
-                if not segs:
-                    continue
-                line = "".join(s.text for s in segs).strip()
-
-                if INPUT_LANG == "es":
-                    line = clean_spanish_line(line)
-
-                if not line:
-                    continue
-
-                # Defensa extra: filtrar patrones típicos de alucinación en ruido/silencio.
-                if is_hallucination_line(line):
-                    continue
-
-                print(f"[STT][{INPUT_LANG}]", line)
-                broadcast_line(line)
-
-            except ValueError as e:
-                msg = str(e).lower()
-                if "too short" in msg or "max() iterable argument is empty" in msg:
-                    continue
-                now = time.time()
-                if now - last_log > 5:
-                    print("[STT][ERROR]", e)
-                    last_log = now
-                continue
-            except Exception as e:
-                now = time.time()
-                if now - last_log > 5:
-                    print("[STT][ERROR]", e)
-                    last_log = now
-                continue
+        _transcription_loop(beam_size=5)
 
 
 def start_stt_if_needed():
