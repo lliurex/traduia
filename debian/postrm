@@ -21,11 +21,11 @@ set -e
 
 case "$1" in
     purge)
-        models='/usr/lib/ai/traduia_models'
+        models='/opt/ai/models/traduia_models'
         if [ -e "$models" ]; then
             rm -rf "$models"
         fi
-        venv='/usr/lib/traduia/venv'
+        venv='/opt/ai/venv/traduia_venv'
         if [ -e "$venv" ]; then
             rm -rf "$venv"
         fi
