@@ -168,6 +168,22 @@ def _load_marian_ct2(model_name: str,
     return cache_tok[model_name], cache_ct2[model_name]
 
 
+def _translate_text(text: str, tok: MarianTokenizer, translator: ctranslate2.Translator) -> str:
+    source_tokens = tok.tokenize(text)
+    if not source_tokens:
+        return ""
+    results = translator.translate_batch(
+        [source_tokens],
+        max_decoding_length=512,
+        beam_size=4,
+        repetition_penalty=1.2,
+    )
+    return tok.decode(
+        tok.convert_tokens_to_ids(results[0].hypotheses[0]),
+        skip_special_tokens=True,
+    )
+
+
 def translate_from_es(text: str, target: str) -> str:
     mapping = {
         "en": MARIAN_ES_EN,
@@ -181,17 +197,8 @@ def translate_from_es(text: str, target: str) -> str:
     }
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
-    model_name = mapping[target]
-    tok, translator = _load_marian_ct2(model_name, _m_es_tok, _m_es_ct2)
-    source_tokens = tok.tokenize(text)
-    if not source_tokens:
-        return ""
-    results = translator.translate_batch([source_tokens], max_decoding_length=512, beam_size=4)
-    target_tokens = results[0].hypotheses[0]
-    return tok.decode(
-        tok.convert_tokens_to_ids(target_tokens),
-        skip_special_tokens=True,
-    )
+    tok, translator = _load_marian_ct2(mapping[target], _m_es_tok, _m_es_ct2)
+    return _translate_text(text, tok, translator)
 
 
 def translate_from_ca(text: str, target: str) -> str:
@@ -203,35 +210,13 @@ def translate_from_ca(text: str, target: str) -> str:
     if not txt:
         return ""
 
-    # CA -> EN
     if target == "en":
         tok, translator = _load_marian_ct2(MARIAN_CA_EN, _m_ca_tok, _m_ca_ct2)
-        source_tokens = tok.tokenize(txt)
-        if not source_tokens:
-            return ""
-        results = translator.translate_batch([source_tokens], max_decoding_length=512, beam_size=4)
-        target_tokens = results[0].hypotheses[0]
-        return tok.decode(
-            tok.convert_tokens_to_ids(target_tokens),
-            skip_special_tokens=True,
-        )
+        return _translate_text(txt, tok, translator)
 
-    # CA -> ES
     tok_ca_es, translator_ca_es = _load_marian_ct2(MARIAN_CA_ES, _m_ca_tok, _m_ca_ct2)
-    source_tokens = tok_ca_es.tokenize(txt)
-    if not source_tokens:
-        return ""
-    results_es = translator_ca_es.translate_batch([source_tokens], max_decoding_length=512, beam_size=4)
-    text_es_tokens = results_es[0].hypotheses[0]
-    text_es = tok_ca_es.decode(
-        tok_ca_es.convert_tokens_to_ids(text_es_tokens),
-        skip_special_tokens=True,
-    )
-    if not text_es:
-        return ""
-
-    # ES -> target
-    return translate_from_es(text_es, target)
+    text_es = _translate_text(txt, tok_ca_es, translator_ca_es)
+    return translate_from_es(text_es, target) if text_es else ""
 
 
 def translate_text(text: str, target: str) -> str:
