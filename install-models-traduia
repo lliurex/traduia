@@ -14,7 +14,7 @@ cd "$SCRIPT_DIR"
 
 SHARED_HF="/opt/ai/models/traduia_models"
 TRADUIA_DIR="/usr/lib/traduia"
-TRADUIA_VENV="$TRADUIA_DIR/venv"
+TRADUIA_VENV="/opt/ai/venv/traduia_venv"
 
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
