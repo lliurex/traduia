@@ -109,6 +109,7 @@ MONITOR_WINDOW_MINS = 10
 CHUNK_DURATION = 3.0  # Coincide con MIN_SECONDS en stt_worker
 MAX_WINDOW_SIZE = int((MONITOR_WINDOW_MINS * 60) // CHUNK_DURATION)
 activity_window: deque = deque(maxlen=MAX_WINDOW_SIZE)
+INACTIVITY_RATIO = 0.1  # umbral de actividad (10%): systray, /activity y auto-shutdown
 
 PROMPT_CA = (
     "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, "
@@ -1076,18 +1077,15 @@ def start_stt_if_needed():
     # Monitor de auto-apagado por inactividad
     def auto_shutdown_check():
         while not _stop_event.is_set():
-            time.sleep(30) # Comprobar cada 30 segundos
-
-            # Solo actuamos si el historial está completo (10 min)
-            if len(activity_window) >= activity_window.maxlen:
-                ratio = sum(activity_window) / len(activity_window)
-                # Si el ratio es menor al 10% (baja probabilidad de habla)
-                if ratio < 0.1:
-                    print(_("[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})").format(ratio))
-                    _stop_event.set()
-                    # Salida limpia del proceso
-                    os.kill(os.getpid(), signal.SIGINT)
-                    break
+            time.sleep(10)
+            if len(activity_window) < 20:
+                continue
+            ratio = sum(activity_window) / len(activity_window)
+            if ratio < INACTIVITY_RATIO:
+                print(_("[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})").format(ratio))
+                _stop_event.set()
+                os.kill(os.getpid(), signal.SIGINT)
+                break
 
     t_shutdown = threading.Thread(target=auto_shutdown_check, daemon=True)
     t_shutdown.start()
@@ -1128,8 +1126,7 @@ def get_activity():
         return {"ratio": 0.0, "is_active": False, "samples": 0}
 
     ratio = sum(activity_window) / len(activity_window)
-    # Umbral de actividad: 5% de los bloques con voz (aprox 30s en 10min)
-    is_active = ratio > 0.05
+    is_active = ratio > INACTIVITY_RATIO
 
     return {
         "ratio": round(ratio, 4),
@@ -1255,7 +1252,7 @@ class TrayIcon(QSystemTrayIcon):
             status_text = _("Activity: Wait...")
         else:
             ratio = sum(activity_window) / len(activity_window)
-            is_active = ratio > 0.05
+            is_active = ratio > INACTIVITY_RATIO
             status = _("Active") if is_active else _("Inactive")
             status_text = _("Activity: {} ({:.1%})").format(status, ratio)
 
