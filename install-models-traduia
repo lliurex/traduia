@@ -133,10 +133,14 @@ if [ -n "$checked_size" -a "$checked_size" -gt 5000 ]; then
     sed -ri 's|NoDisplay=true|NoDisplay=false|g' /usr/share/applications/traduia.desktop
 fi
 
-echo "$(_ "Downloading torch")"
-pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
+if python -c "import torch" 2>/dev/null; then
+    echo "[setup] $(_ "Torch already installed, skipping.")"
+else
+    echo "$(_ "Downloading torch")"
+    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
+    echo "$(_ "Torch downloaded!")"
+fi
 pip install --no-cache-dir sacremoses  > /dev/null 2>&1
-echo "$(_ "Torch downloaded!")"
 
 echo "[setup] $(_ "Converting Marian models to CTranslate2...")"
 mkdir -p "$SHARED_HF/ct2"
@@ -181,7 +185,14 @@ for pair in MARIAN_PAIRS:
     os.makedirs(out_dir, exist_ok=True)
 
     if _has_ct2_model(out_dir):
-        print(f"[CT2] opus-mt-{pair} already converted, skipping.")
+        all_tok_files = all(
+            os.path.exists(os.path.join(out_dir, f))
+            for f in TOKENIZER_FILES
+        )
+        if all_tok_files:
+            print(f"[CT2] opus-mt-{pair} already converted, skipping.")
+            continue
+        print(f"[CT2] opus-mt-{pair} converted but missing tokenizer files, downloading...")
     else:
         print(f"[CT2] Converting {model_id} ...")
         subprocess.run([
