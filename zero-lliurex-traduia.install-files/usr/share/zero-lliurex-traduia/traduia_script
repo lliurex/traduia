@@ -12,11 +12,11 @@ _() {
 ACTION="$1"
 
 function remove_models(){
-    models='/opt/ai/models/traduia_models'
+    models='/opt/ai/traduia/models'
     if [ -e "$models" ]; then
         rm -rf "$models"
     fi
-    venv='/opt/ai/venv/traduia_venv'
+    venv='/opt/ai/traduia/venv'
     if [ -e "$venv" ]; then
         rm -rf "$venv"
     fi
