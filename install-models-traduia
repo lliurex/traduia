@@ -12,9 +12,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
 
-SHARED_HF="/opt/ai/models/traduia_models"
+SHARED_HF="/opt/ai/traduia/models"
 TRADUIA_DIR="/usr/lib/traduia"
-TRADUIA_VENV="/opt/ai/venv/traduia_venv"
+TRADUIA_VENV="/opt/ai/traduia/venv"
 
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
@@ -71,7 +71,7 @@ PY
 }
 
 URL_BASE="http://server:4141/traduia_models"
-LOCALDIR="/opt/ai/models/traduia_models"
+LOCALDIR="/opt/ai/traduia/models"
 
 function download_lan_models(){
     mkdir -p "$LOCALDIR"
@@ -151,7 +151,7 @@ from huggingface_hub import snapshot_download
 from huggingface_hub.utils import disable_progress_bars
 disable_progress_bars()
 
-HF_HOME = os.environ.get("HF_HOME", "/opt/ai/models/traduia_models")
+HF_HOME = os.environ.get("HF_HOME", "/opt/ai/traduia/models")
 CT2_BASE = os.path.join(HF_HOME, "ct2")
 HUB_CACHE = os.environ.get("HF_HUB_CACHE", os.path.join(HF_HOME, "hub"))
 
