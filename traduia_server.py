@@ -125,7 +125,7 @@ WHISPER_COMPUTE_TYPE = "int8"
 
 # BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path('/usr/lib/traduia')
-MARIAN_CT2_BASE = Path('/usr/lib/ai/traduia_models/ct2')
+MARIAN_CT2_BASE = Path('/opt/ai/models/traduia_models/ct2')
 
 def _marian_ct2_path(model_name: str) -> str:
     repo = model_name.split("/")[-1]
@@ -186,7 +186,7 @@ def translate_from_es(text: str, target: str) -> str:
     source_tokens = tok.tokenize(text)
     if not source_tokens:
         return ""
-    results = translator.translate_batch([source_tokens], max_length=512, beam_size=4)
+    results = translator.translate_batch([source_tokens], max_decoding_length=512, beam_size=4)
     target_tokens = results[0].hypotheses[0]
     return tok.decode(
         tok.convert_tokens_to_ids(target_tokens),
@@ -209,7 +209,7 @@ def translate_from_ca(text: str, target: str) -> str:
         source_tokens = tok.tokenize(txt)
         if not source_tokens:
             return ""
-        results = translator.translate_batch([source_tokens], max_length=512, beam_size=4)
+        results = translator.translate_batch([source_tokens], max_decoding_length=512, beam_size=4)
         target_tokens = results[0].hypotheses[0]
         return tok.decode(
             tok.convert_tokens_to_ids(target_tokens),
@@ -221,7 +221,7 @@ def translate_from_ca(text: str, target: str) -> str:
     source_tokens = tok_ca_es.tokenize(txt)
     if not source_tokens:
         return ""
-    results_es = translator_ca_es.translate_batch([source_tokens], max_length=512, beam_size=4)
+    results_es = translator_ca_es.translate_batch([source_tokens], max_decoding_length=512, beam_size=4)
     text_es_tokens = results_es[0].hypotheses[0]
     text_es = tok_ca_es.decode(
         tok_ca_es.convert_tokens_to_ids(text_es_tokens),
