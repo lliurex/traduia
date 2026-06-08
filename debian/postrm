@@ -33,6 +33,15 @@ case "$1" in
         if [ -d "$d" ]; then
             rmdir "$d" || true
         fi
+        # Paths antiguos (por si quedaron de una migración incompleta)
+        old_models='/usr/lib/ai/traduia_models'
+        if [ -e "$old_models" ]; then
+            rm -rf "$old_models"
+        fi
+        old_venv='/usr/lib/traduia/venv'
+        if [ -e "$old_venv" ]; then
+            rm -rf "$old_venv"
+        fi
     ;;
     remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
     ;;
