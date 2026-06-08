@@ -125,7 +125,7 @@ WHISPER_COMPUTE_TYPE = "int8"
 
 # BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path('/usr/lib/traduia')
-MARIAN_CT2_BASE = Path('/usr/lib/ai/traduia_models/ct2')
+MARIAN_CT2_BASE = Path('/opt/ai/models/traduia_models/ct2')
 
 def _marian_ct2_path(model_name: str) -> str:
     repo = model_name.split("/")[-1]

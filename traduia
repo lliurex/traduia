@@ -5,7 +5,7 @@ APP_NAME="AlicIA Transcriptor (LliureX)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TRADUIA_DIR="/usr/lib/traduia"
 TRADUIA_VENV="$TRADUIA_DIR/venv"
-TRADUIA_MODELS="/usr/lib/ai/traduia_models"
+TRADUIA_MODELS="/opt/ai/models/traduia_models"
 
 export TEXTDOMAIN="traduia"
 export TEXTDOMAINDIR="/usr/share/locale"
