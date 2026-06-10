@@ -103,6 +103,204 @@ if INPUT_LANG not in ("es", "ca"):
 
 
 # =========================================================
+# DEFAULTS — Whisper (all parameters for WhisperModel & transcribe)
+# =========================================================
+
+# -- WhisperModel.__init__() --
+DEFAULT_WHISPER_MODEL_NAME = "small"            # Model size/path: tiny, base, small, medium, large, large-v3, turbo, or HF ID.
+DEFAULT_WHISPER_DEVICE = "auto"                  # Device: "cpu", "cuda", "auto".
+DEFAULT_WHISPER_DEVICE_INDEX = 0                 # GPU device index. List for multiple GPUs.
+DEFAULT_WHISPER_COMPUTE_TYPE = "default"         # Quantization: "default", "int8", "float16", "float32", "bfloat16", etc.
+DEFAULT_WHISPER_CPU_THREADS = 0                  # CPU threads (0 = default / OMP_NUM_THREADS).
+DEFAULT_WHISPER_NUM_WORKERS = 1                  # Parallel workers for generate() calls.
+DEFAULT_WHISPER_DOWNLOAD_ROOT = None             # Custom model download directory (None = HF cache).
+DEFAULT_WHISPER_LOCAL_FILES_ONLY = False         # Avoid downloading, use local cache only.
+DEFAULT_WHISPER_REVISION = None                  # HF Hub revision (tag, branch, commit hash).
+DEFAULT_WHISPER_USE_AUTH_TOKEN = None            # HF auth token or True to use cached token.
+
+# -- WhisperModel.transcribe() --
+DEFAULT_WHISPER_LANGUAGE = None                  # Language code (None = auto-detect; overridden by INPUT_LANG in code).
+DEFAULT_WHISPER_TASK = "transcribe"              # Task: "transcribe" or "translate".
+DEFAULT_WHISPER_LOG_PROGRESS = False             # Show progress bar during transcription.
+DEFAULT_WHISPER_BEAM_SIZE = 5                    # Beam size (larger = better quality, slower).
+DEFAULT_WHISPER_BEST_OF = 5                      # Candidates when sampling with non-zero temperature.
+DEFAULT_WHISPER_PATIENCE = 1.0                   # Beam search patience factor.
+DEFAULT_WHISPER_LENGTH_PENALTY = 1.0             # Exponential length penalty constant.
+DEFAULT_WHISPER_REPETITION_PENALTY = 1.0         # Penalty for repeated tokens (>1 = penalise).
+DEFAULT_WHISPER_NO_REPEAT_NGRAM_SIZE = 0         # Prevent n-gram repetitions (0 = disabled).
+DEFAULT_WHISPER_TEMPERATURE = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]  # Sampling temperature(s); list = fallback on failure.
+DEFAULT_WHISPER_COMPRESSION_RATIO_THRESHOLD = 2.4   # Max gzip compression ratio to accept segment.
+DEFAULT_WHISPER_LOG_PROB_THRESHOLD = -1.0            # Min avg log-probability to accept segment.
+DEFAULT_WHISPER_NO_SPEECH_THRESHOLD = 0.6            # Skip segment if no_speech_prob > this and log_prob < threshold.
+DEFAULT_WHISPER_CONDITION_ON_PREVIOUS_TEXT = True    # Provide previous output as prompt for next window.
+DEFAULT_WHISPER_PROMPT_RESET_ON_TEMPERATURE = 0.5    # Reset prompt cache above this temperature.
+DEFAULT_WHISPER_INITIAL_PROMPT = None            # Text prompt for first window (overridden per-language in code).
+DEFAULT_WHISPER_PREFIX = None                    # Text prefix forced at start of first window.
+DEFAULT_WHISPER_SUPPRESS_BLANK = True            # Suppress blank outputs at start of sampling.
+DEFAULT_WHISPER_SUPPRESS_TOKENS = [-1]           # Token IDs to suppress (-1 = default Whisper set).
+DEFAULT_WHISPER_WITHOUT_TIMESTAMPS = False       # Only sample text tokens (no timestamps).
+DEFAULT_WHISPER_MAX_INITIAL_TIMESTAMP = 1.0      # Initial timestamp cannot be later than this (seconds).
+DEFAULT_WHISPER_WORD_TIMESTAMPS = False          # Extract word-level timestamps via cross-attention.
+DEFAULT_WHISPER_PREPEND_PUNCTUATIONS = "\"'\"¿([{-"  # Merge these punct. symbols with next word.
+DEFAULT_WHISPER_APPEND_PUNCTUATIONS = "\"\'.。，!！?？:：”)]}、"  # Merge these punct. with previous word.
+DEFAULT_WHISPER_MULTILINGUAL = False             # Run language detection on every segment.
+DEFAULT_WHISPER_VAD_FILTER = False               # Enable Silero VAD to filter non-speech.
+DEFAULT_WHISPER_VAD_PARAMETERS = {               # VAD options (dict).
+    "threshold": 0.5,                            #   Speech probability threshold.
+    "neg_threshold": None,                       #   Silence threshold (None = auto max(threshold-0.15, 0.01)).
+    "min_speech_duration_ms": 0,                 #   Drop speech chunks shorter than this (ms).
+    "max_speech_duration_s": float("inf"),       #   Split speech chunks longer than this (s).
+    "min_silence_duration_ms": 2000,             #   Silence duration to separate speech chunks (ms).
+    "speech_pad_ms": 400,                        #   Pad each speech chunk on both sides (ms).
+}
+DEFAULT_WHISPER_MAX_NEW_TOKENS = None            # Max new tokens per chunk (None = model default).
+DEFAULT_WHISPER_CHUNK_LENGTH = None              # Override feature-extractor chunk length (seconds).
+DEFAULT_WHISPER_CLIP_TIMESTAMPS = "0"            # Clip timestamps (comma-separated or float list).
+DEFAULT_WHISPER_HALLUCINATION_SILENCE_THRESHOLD = None  # Skip silent gaps longer than this (s).
+DEFAULT_WHISPER_HOTWORDS = None                  # Hotwords / hint phrases (no effect if prefix is set).
+DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD = 0.5  # Language detection confidence threshold.
+DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS = 1      # Segments used for language detection.
+
+# =========================================================
+# DEFAULTS — CTranslate2 (all parameters for Translator & translate_batch)
+# =========================================================
+
+# -- ctranslate2.Translator.__init__() --
+DEFAULT_CT2_DEVICE = "cpu"                       # Device: "cpu", "cuda", "auto".
+DEFAULT_CT2_DEVICE_INDEX = 0                     # Device ID(s). List for multiple GPUs.
+DEFAULT_CT2_COMPUTE_TYPE = "default"             # Quantization: "default", "int8", "float16", etc.
+DEFAULT_CT2_INTER_THREADS = 1                    # Max number of parallel translations.
+DEFAULT_CT2_INTRA_THREADS = 0                    # OpenMP threads per translator (0 = default).
+DEFAULT_CT2_MAX_QUEUED_BATCHES = 0               # Max batches in queue (0 = auto, -1 = unlimited).
+DEFAULT_CT2_FLASH_ATTENTION = False              # Use Flash Attention 2 for self-attention layers.
+DEFAULT_CT2_TENSOR_PARALLEL = False              # Run with tensor parallelism across devices.
+
+# -- ctranslate2.Translator.translate_batch() --
+DEFAULT_CT2_BEAM_SIZE = 2                        # Beam size (1 = greedy).
+DEFAULT_CT2_PATIENCE = 1.0                       # Beam search patience factor.
+DEFAULT_CT2_NUM_HYPOTHESES = 1                   # Number of hypotheses to return.
+DEFAULT_CT2_LENGTH_PENALTY = 1.0                 # Exponential length penalty constant.
+DEFAULT_CT2_COVERAGE_PENALTY = 0.0               # Coverage penalty weight.
+DEFAULT_CT2_REPETITION_PENALTY = 1.0             # Penalty for repeated tokens (>1 = penalise).
+DEFAULT_CT2_NO_REPEAT_NGRAM_SIZE = 0             # Prevent n-gram repetitions (0 = disabled).
+DEFAULT_CT2_DISABLE_UNK = False                  # Disable generation of the unknown token.
+DEFAULT_CT2_SUPPRESS_SEQUENCES = None            # Suppress specific token sequences.
+DEFAULT_CT2_END_TOKEN = None                     # Stop decoding on these token(s) (None = model EOS).
+DEFAULT_CT2_RETURN_END_TOKEN = False             # Include the end token in the returned result.
+DEFAULT_CT2_PREFIX_BIAS_BETA = 0.0              # Bias translations towards the given prefix.
+DEFAULT_CT2_MAX_INPUT_LENGTH = 1024              # Truncate inputs after this many tokens (0 = disable).
+DEFAULT_CT2_MAX_DECODING_LENGTH = 256            # Maximum prediction length (tokens).
+DEFAULT_CT2_MIN_DECODING_LENGTH = 1              # Minimum prediction length (tokens).
+DEFAULT_CT2_USE_VMAP = False                     # Use vocabulary mapping file saved in the model.
+DEFAULT_CT2_RETURN_SCORES = False                # Include scores in the translation result.
+DEFAULT_CT2_RETURN_LOGITS_VOCAB = False          # Include log-probabilities of each token in the vocabulary.
+DEFAULT_CT2_RETURN_ATTENTION = False             # Include attention vectors in the result.
+DEFAULT_CT2_RETURN_ALTERNATIVES = False          # Return alternatives at first unconstrained decoding position.
+DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB = 0.0  # Min initial probability to expand an alternative.
+DEFAULT_CT2_SAMPLING_TOPK = 1                    # Randomly sample from top K candidates (1 = greedy).
+DEFAULT_CT2_SAMPLING_TOPP = 1.0                  # Nucleus sampling cumulative probability threshold.
+DEFAULT_CT2_SAMPLING_TEMPERATURE = 1.0           # Sampling temperature (>1 = more random, <1 = more greedy).
+DEFAULT_CT2_REPLACE_UNKNOWNS = False             # Replace <unk> with source token of highest attention.
+DEFAULT_CT2_MAX_BATCH_SIZE = 0                   # Max batch size (0 = auto, >0 = split into smaller batches).
+DEFAULT_CT2_BATCH_TYPE = "examples"              # Batching strategy: "examples" or "tokens".
+
+# =========================================================
+# OVERRIDE — Runtime overrides for Whisper & CTranslate2
+# Modify values below to change behaviour without touching defaults.
+# =========================================================
+
+# -- Whisper overrides --
+WHISPER_MODEL_NAME = DEFAULT_WHISPER_MODEL_NAME
+WHISPER_DEVICE = "cpu"                           # DEFAULT: "auto" — override for CPU-only
+WHISPER_DEVICE_INDEX = DEFAULT_WHISPER_DEVICE_INDEX
+WHISPER_COMPUTE_TYPE = "int8"                    # DEFAULT: "default" — override for int8 quant
+WHISPER_CPU_THREADS = DEFAULT_WHISPER_CPU_THREADS
+WHISPER_NUM_WORKERS = DEFAULT_WHISPER_NUM_WORKERS
+WHISPER_DOWNLOAD_ROOT = DEFAULT_WHISPER_DOWNLOAD_ROOT
+WHISPER_LOCAL_FILES_ONLY = DEFAULT_WHISPER_LOCAL_FILES_ONLY
+WHISPER_REVISION = DEFAULT_WHISPER_REVISION
+WHISPER_USE_AUTH_TOKEN = DEFAULT_WHISPER_USE_AUTH_TOKEN
+WHISPER_LANGUAGE = DEFAULT_WHISPER_LANGUAGE
+WHISPER_TASK = DEFAULT_WHISPER_TASK
+WHISPER_LOG_PROGRESS = DEFAULT_WHISPER_LOG_PROGRESS
+WHISPER_BEAM_SIZE = DEFAULT_WHISPER_BEAM_SIZE
+WHISPER_BEST_OF = DEFAULT_WHISPER_BEST_OF
+WHISPER_PATIENCE = DEFAULT_WHISPER_PATIENCE
+WHISPER_LENGTH_PENALTY = DEFAULT_WHISPER_LENGTH_PENALTY
+WHISPER_REPETITION_PENALTY = DEFAULT_WHISPER_REPETITION_PENALTY
+WHISPER_NO_REPEAT_NGRAM_SIZE = DEFAULT_WHISPER_NO_REPEAT_NGRAM_SIZE
+WHISPER_TEMPERATURE = DEFAULT_WHISPER_TEMPERATURE
+WHISPER_COMPRESSION_RATIO_THRESHOLD = DEFAULT_WHISPER_COMPRESSION_RATIO_THRESHOLD
+WHISPER_LOG_PROB_THRESHOLD = DEFAULT_WHISPER_LOG_PROB_THRESHOLD
+WHISPER_NO_SPEECH_THRESHOLD = DEFAULT_WHISPER_NO_SPEECH_THRESHOLD
+WHISPER_CONDITION_ON_PREVIOUS_TEXT = False       # DEFAULT: True — reduce hallucination carry-over
+WHISPER_PROMPT_RESET_ON_TEMPERATURE = DEFAULT_WHISPER_PROMPT_RESET_ON_TEMPERATURE
+WHISPER_INITIAL_PROMPT = DEFAULT_WHISPER_INITIAL_PROMPT
+WHISPER_PREFIX = DEFAULT_WHISPER_PREFIX
+WHISPER_SUPPRESS_BLANK = DEFAULT_WHISPER_SUPPRESS_BLANK
+WHISPER_SUPPRESS_TOKENS = DEFAULT_WHISPER_SUPPRESS_TOKENS
+WHISPER_WITHOUT_TIMESTAMPS = DEFAULT_WHISPER_WITHOUT_TIMESTAMPS
+WHISPER_MAX_INITIAL_TIMESTAMP = DEFAULT_WHISPER_MAX_INITIAL_TIMESTAMP
+WHISPER_WORD_TIMESTAMPS = DEFAULT_WHISPER_WORD_TIMESTAMPS
+WHISPER_PREPEND_PUNCTUATIONS = DEFAULT_WHISPER_PREPEND_PUNCTUATIONS
+WHISPER_APPEND_PUNCTUATIONS = DEFAULT_WHISPER_APPEND_PUNCTUATIONS
+WHISPER_MULTILINGUAL = DEFAULT_WHISPER_MULTILINGUAL
+WHISPER_VAD_FILTER = True                        # DEFAULT: False — filter non-speech with Silero VAD
+WHISPER_VAD_PARAMETERS = {                       # DEFAULT: min_silence=2000, pad=400 — tighter for speech detection
+    "threshold": DEFAULT_WHISPER_VAD_PARAMETERS["threshold"],
+    "neg_threshold": DEFAULT_WHISPER_VAD_PARAMETERS["neg_threshold"],
+    "min_speech_duration_ms": DEFAULT_WHISPER_VAD_PARAMETERS["min_speech_duration_ms"],
+    "max_speech_duration_s": DEFAULT_WHISPER_VAD_PARAMETERS["max_speech_duration_s"],
+    "min_silence_duration_ms": 300,
+    "speech_pad_ms": 200,
+}
+WHISPER_MAX_NEW_TOKENS = DEFAULT_WHISPER_MAX_NEW_TOKENS
+WHISPER_CHUNK_LENGTH = DEFAULT_WHISPER_CHUNK_LENGTH
+WHISPER_CLIP_TIMESTAMPS = DEFAULT_WHISPER_CLIP_TIMESTAMPS
+WHISPER_HALLUCINATION_SILENCE_THRESHOLD = DEFAULT_WHISPER_HALLUCINATION_SILENCE_THRESHOLD
+WHISPER_HOTWORDS = DEFAULT_WHISPER_HOTWORDS
+WHISPER_LANGUAGE_DETECTION_THRESHOLD = DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD
+WHISPER_LANGUAGE_DETECTION_SEGMENTS = DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS
+
+# -- CTranslate2 overrides --
+CT2_DEVICE = DEFAULT_CT2_DEVICE
+CT2_DEVICE_INDEX = DEFAULT_CT2_DEVICE_INDEX
+CT2_COMPUTE_TYPE = DEFAULT_CT2_COMPUTE_TYPE
+CT2_INTER_THREADS = DEFAULT_CT2_INTER_THREADS
+CT2_INTRA_THREADS = DEFAULT_CT2_INTRA_THREADS
+CT2_MAX_QUEUED_BATCHES = DEFAULT_CT2_MAX_QUEUED_BATCHES
+CT2_FLASH_ATTENTION = DEFAULT_CT2_FLASH_ATTENTION
+CT2_TENSOR_PARALLEL = DEFAULT_CT2_TENSOR_PARALLEL
+CT2_BEAM_SIZE = 4                                # DEFAULT: 2 — slightly wider beam for better translations
+CT2_PATIENCE = DEFAULT_CT2_PATIENCE
+CT2_NUM_HYPOTHESES = DEFAULT_CT2_NUM_HYPOTHESES
+CT2_LENGTH_PENALTY = DEFAULT_CT2_LENGTH_PENALTY
+CT2_COVERAGE_PENALTY = DEFAULT_CT2_COVERAGE_PENALTY
+CT2_REPETITION_PENALTY = 1.2                     # DEFAULT: 1.0 — mild penalty to reduce repetition
+CT2_NO_REPEAT_NGRAM_SIZE = DEFAULT_CT2_NO_REPEAT_NGRAM_SIZE
+CT2_DISABLE_UNK = DEFAULT_CT2_DISABLE_UNK
+CT2_SUPPRESS_SEQUENCES = DEFAULT_CT2_SUPPRESS_SEQUENCES
+CT2_END_TOKEN = DEFAULT_CT2_END_TOKEN
+CT2_RETURN_END_TOKEN = DEFAULT_CT2_RETURN_END_TOKEN
+CT2_PREFIX_BIAS_BETA = DEFAULT_CT2_PREFIX_BIAS_BETA
+CT2_MAX_INPUT_LENGTH = DEFAULT_CT2_MAX_INPUT_LENGTH
+CT2_MAX_DECODING_LENGTH = 512                    # DEFAULT: 256 — longer text support
+CT2_MIN_DECODING_LENGTH = DEFAULT_CT2_MIN_DECODING_LENGTH
+CT2_USE_VMAP = DEFAULT_CT2_USE_VMAP
+CT2_RETURN_SCORES = DEFAULT_CT2_RETURN_SCORES
+CT2_RETURN_LOGITS_VOCAB = DEFAULT_CT2_RETURN_LOGITS_VOCAB
+CT2_RETURN_ATTENTION = DEFAULT_CT2_RETURN_ATTENTION
+CT2_RETURN_ALTERNATIVES = DEFAULT_CT2_RETURN_ALTERNATIVES
+CT2_MIN_ALTERNATIVE_EXPANSION_PROB = DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB
+CT2_SAMPLING_TOPK = DEFAULT_CT2_SAMPLING_TOPK
+CT2_SAMPLING_TOPP = DEFAULT_CT2_SAMPLING_TOPP
+CT2_SAMPLING_TEMPERATURE = DEFAULT_CT2_SAMPLING_TEMPERATURE
+CT2_REPLACE_UNKNOWNS = DEFAULT_CT2_REPLACE_UNKNOWNS
+CT2_MAX_BATCH_SIZE = DEFAULT_CT2_MAX_BATCH_SIZE
+CT2_BATCH_TYPE = DEFAULT_CT2_BATCH_TYPE
+
+
+# =========================================================
 # MONITOR DE ACTIVIDAD (10 MINUTOS)
 # =========================================================
 MONITOR_WINDOW_MINS = 10
@@ -120,9 +318,7 @@ PROMPT_ES = (
     "vámonos, trabajo, gafas, libreta."
 )
 
-WHISPER_MODEL_NAME = "small"
-WHISPER_DEVICE = "cpu"
-WHISPER_COMPUTE_TYPE = "int8"
+
 
 # BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path('/usr/lib/traduia')
@@ -163,7 +359,17 @@ def _load_marian_ct2(model_name: str,
     if model_name not in cache_tok or model_name not in cache_ct2:
         ct2_path = _marian_ct2_path(model_name)
         tok = MarianTokenizer.from_pretrained(ct2_path)
-        translator = ctranslate2.Translator(ct2_path, device="cpu")
+        translator = ctranslate2.Translator(
+            ct2_path,
+            device=CT2_DEVICE,
+        device_index=CT2_DEVICE_INDEX,
+        compute_type=CT2_COMPUTE_TYPE,
+        inter_threads=CT2_INTER_THREADS,
+        intra_threads=CT2_INTRA_THREADS,
+        max_queued_batches=CT2_MAX_QUEUED_BATCHES,
+        flash_attention=CT2_FLASH_ATTENTION,
+        tensor_parallel=CT2_TENSOR_PARALLEL,
+    )
         cache_tok[model_name] = tok
         cache_ct2[model_name] = translator
     return cache_tok[model_name], cache_ct2[model_name]
@@ -175,9 +381,32 @@ def _translate_text(text: str, tok: MarianTokenizer, translator: ctranslate2.Tra
         return ""
     results = translator.translate_batch(
         [source_tokens],
-        max_decoding_length=512,
-        beam_size=4,
-        repetition_penalty=1.2,
+        beam_size=CT2_BEAM_SIZE,
+        patience=CT2_PATIENCE,
+        num_hypotheses=CT2_NUM_HYPOTHESES,
+        length_penalty=CT2_LENGTH_PENALTY,
+        coverage_penalty=CT2_COVERAGE_PENALTY,
+        repetition_penalty=CT2_REPETITION_PENALTY,
+        no_repeat_ngram_size=CT2_NO_REPEAT_NGRAM_SIZE,
+        max_batch_size=CT2_MAX_BATCH_SIZE,
+        batch_type=CT2_BATCH_TYPE,
+        max_input_length=CT2_MAX_INPUT_LENGTH,
+        max_decoding_length=CT2_MAX_DECODING_LENGTH,
+        min_decoding_length=CT2_MIN_DECODING_LENGTH,
+        sampling_topk=CT2_SAMPLING_TOPK,
+        sampling_topp=CT2_SAMPLING_TOPP,
+        sampling_temperature=CT2_SAMPLING_TEMPERATURE,
+        return_scores=CT2_RETURN_SCORES,
+        return_logits_vocab=CT2_RETURN_LOGITS_VOCAB,
+        return_attention=CT2_RETURN_ATTENTION,
+        return_alternatives=CT2_RETURN_ALTERNATIVES,
+        min_alternative_expansion_prob=CT2_MIN_ALTERNATIVE_EXPANSION_PROB,
+        suppress_sequences=CT2_SUPPRESS_SEQUENCES,
+        end_token=CT2_END_TOKEN,
+        return_end_token=CT2_RETURN_END_TOKEN,
+        prefix_bias_beta=CT2_PREFIX_BIAS_BETA,
+        use_vmap=CT2_USE_VMAP,
+        replace_unknowns=CT2_REPLACE_UNKNOWNS,
     )
     return tok.decode(
         tok.convert_tokens_to_ids(results[0].hypotheses[0]),
@@ -793,7 +1022,14 @@ def stt_worker():
     model = WhisperModel(
         WHISPER_MODEL_NAME,
         device=WHISPER_DEVICE,
+        device_index=WHISPER_DEVICE_INDEX,
         compute_type=WHISPER_COMPUTE_TYPE,
+        cpu_threads=WHISPER_CPU_THREADS,
+        num_workers=WHISPER_NUM_WORKERS,
+        download_root=WHISPER_DOWNLOAD_ROOT,
+        local_files_only=WHISPER_LOCAL_FILES_ONLY,
+        revision=WHISPER_REVISION,
+        use_auth_token=WHISPER_USE_AUTH_TOKEN,
     )
 
     audio_q: "queue.Queue[np.ndarray]" = queue.Queue()
@@ -904,7 +1140,7 @@ def stt_worker():
 
     prompt = PROMPT_ES if INPUT_LANG == "es" else PROMPT_CA
 
-    def _transcription_loop(beam_size: int, proc: Optional[subprocess.Popen] = None):
+    def _transcription_loop(proc: Optional[subprocess.Popen] = None):
         """Bucle común de transcripción: lee de audio_q, procesa y transcribe."""
         last_log = 0.0
 
@@ -955,15 +1191,39 @@ def stt_worker():
                 segments, info = model.transcribe(
                     chunk,
                     language=INPUT_LANG,
-                    task="transcribe",
-                    vad_filter=True,
-                    vad_parameters=dict(
-                        min_silence_duration_ms=300,
-                        speech_pad_ms=200,
-                    ),
-                    beam_size=beam_size,
-                    condition_on_previous_text=False,
+                    task=WHISPER_TASK,
+                    log_progress=WHISPER_LOG_PROGRESS,
+                    beam_size=WHISPER_BEAM_SIZE,
+                    best_of=WHISPER_BEST_OF,
+                    patience=WHISPER_PATIENCE,
+                    length_penalty=WHISPER_LENGTH_PENALTY,
+                    repetition_penalty=WHISPER_REPETITION_PENALTY,
+                    no_repeat_ngram_size=WHISPER_NO_REPEAT_NGRAM_SIZE,
+                    temperature=WHISPER_TEMPERATURE,
+                    compression_ratio_threshold=WHISPER_COMPRESSION_RATIO_THRESHOLD,
+                    log_prob_threshold=WHISPER_LOG_PROB_THRESHOLD,
+                    no_speech_threshold=WHISPER_NO_SPEECH_THRESHOLD,
+                    condition_on_previous_text=WHISPER_CONDITION_ON_PREVIOUS_TEXT,
+                    prompt_reset_on_temperature=WHISPER_PROMPT_RESET_ON_TEMPERATURE,
                     initial_prompt=prompt,
+                    prefix=WHISPER_PREFIX,
+                    suppress_blank=WHISPER_SUPPRESS_BLANK,
+                    suppress_tokens=WHISPER_SUPPRESS_TOKENS,
+                    without_timestamps=WHISPER_WITHOUT_TIMESTAMPS,
+                    max_initial_timestamp=WHISPER_MAX_INITIAL_TIMESTAMP,
+                    word_timestamps=WHISPER_WORD_TIMESTAMPS,
+                    prepend_punctuations=WHISPER_PREPEND_PUNCTUATIONS,
+                    append_punctuations=WHISPER_APPEND_PUNCTUATIONS,
+                    multilingual=WHISPER_MULTILINGUAL,
+                    vad_filter=WHISPER_VAD_FILTER,
+                    vad_parameters=WHISPER_VAD_PARAMETERS,
+                    max_new_tokens=WHISPER_MAX_NEW_TOKENS,
+                    chunk_length=WHISPER_CHUNK_LENGTH,
+                    clip_timestamps=WHISPER_CLIP_TIMESTAMPS,
+                    hallucination_silence_threshold=WHISPER_HALLUCINATION_SILENCE_THRESHOLD,
+                    hotwords=WHISPER_HOTWORDS,
+                    language_detection_threshold=WHISPER_LANGUAGE_DETECTION_THRESHOLD,
+                    language_detection_segments=WHISPER_LANGUAGE_DETECTION_SEGMENTS,
                 )
 
                 segs = list(segments)
@@ -1026,13 +1286,13 @@ def stt_worker():
         t.start()
         return proc
 
-    def _run_pulse_loop(label: str, pulse_dev: str, beam_size: int):
+    def _run_pulse_loop(label: str, pulse_dev: str):
         print(_("[STT] Audio source: {} -> {}").format(label, pulse_dev))
         proc = start_pulse_producer(pulse_dev)
         print(_("[STT] Capturing audio (Pulse). Ctrl+C to stop."))
 
         try:
-            _transcription_loop(beam_size, proc=proc)
+            _transcription_loop(proc=proc)
         finally:
             try:
                 proc.terminate()
@@ -1048,11 +1308,11 @@ def stt_worker():
 
     # Prioridad: MIC por Pulse (source) -> Altavoces (monitor) -> PortAudio
     if pulse_source:
-        _run_pulse_loop("MIC (Pulse source)", pulse_source, beam_size=5)
+        _run_pulse_loop("MIC (Pulse source)", pulse_source)
         return
 
     if pulse_monitor:
-        _run_pulse_loop("ALTAVOCES (monitor PipeWire/Pulse)", pulse_monitor, beam_size=1)
+        _run_pulse_loop("ALTAVOCES (monitor PipeWire/Pulse)", pulse_monitor)
         return
 
     with sd.InputStream(
@@ -1063,7 +1323,7 @@ def stt_worker():
         blocksize=BLOCK,
     ):
         print(_("[STT] Microphone open. Ctrl+C to stop."))
-        _transcription_loop(beam_size=5)
+        _transcription_loop()
 
 
 def start_stt_if_needed():
