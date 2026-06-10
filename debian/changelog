@@ -1,3 +1,9 @@
+traduia (0.8.3) jammy; urgency=medium
+
+  * Re-parametrize settings for ct2/whisper
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Wed, 10 Jun 2026 12:38:30 +0200
+
 traduia (0.8.2) jammy; urgency=medium
 
   * Fix auto-stop
