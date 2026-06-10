@@ -48,6 +48,7 @@ import subprocess
 import signal
 import fcntl
 import psutil
+import re
 from collections import deque
 from typing import Iterator, List, Tuple, Optional
 
@@ -227,11 +228,11 @@ WHISPER_BEAM_SIZE = DEFAULT_WHISPER_BEAM_SIZE
 WHISPER_BEST_OF = DEFAULT_WHISPER_BEST_OF
 WHISPER_PATIENCE = DEFAULT_WHISPER_PATIENCE
 WHISPER_LENGTH_PENALTY = DEFAULT_WHISPER_LENGTH_PENALTY
-WHISPER_REPETITION_PENALTY = DEFAULT_WHISPER_REPETITION_PENALTY
-WHISPER_NO_REPEAT_NGRAM_SIZE = DEFAULT_WHISPER_NO_REPEAT_NGRAM_SIZE
+WHISPER_REPETITION_PENALTY = 1.3
+WHISPER_NO_REPEAT_NGRAM_SIZE = 4
 WHISPER_TEMPERATURE = DEFAULT_WHISPER_TEMPERATURE
-WHISPER_COMPRESSION_RATIO_THRESHOLD = DEFAULT_WHISPER_COMPRESSION_RATIO_THRESHOLD
-WHISPER_LOG_PROB_THRESHOLD = DEFAULT_WHISPER_LOG_PROB_THRESHOLD
+WHISPER_COMPRESSION_RATIO_THRESHOLD = 1.5
+WHISPER_LOG_PROB_THRESHOLD = -0.8
 WHISPER_NO_SPEECH_THRESHOLD = DEFAULT_WHISPER_NO_SPEECH_THRESHOLD
 WHISPER_CONDITION_ON_PREVIOUS_TEXT = False       # DEFAULT: True — reduce hallucination carry-over
 WHISPER_PROMPT_RESET_ON_TEMPERATURE = DEFAULT_WHISPER_PROMPT_RESET_ON_TEMPERATURE
@@ -271,20 +272,20 @@ CT2_INTRA_THREADS = DEFAULT_CT2_INTRA_THREADS
 CT2_MAX_QUEUED_BATCHES = DEFAULT_CT2_MAX_QUEUED_BATCHES
 CT2_FLASH_ATTENTION = DEFAULT_CT2_FLASH_ATTENTION
 CT2_TENSOR_PARALLEL = DEFAULT_CT2_TENSOR_PARALLEL
-CT2_BEAM_SIZE = 4                                # DEFAULT: 2 — slightly wider beam for better translations
+CT2_BEAM_SIZE = 1                                # DEFAULT: 2 — slightly wider beam for better translations
 CT2_PATIENCE = DEFAULT_CT2_PATIENCE
 CT2_NUM_HYPOTHESES = DEFAULT_CT2_NUM_HYPOTHESES
-CT2_LENGTH_PENALTY = DEFAULT_CT2_LENGTH_PENALTY
-CT2_COVERAGE_PENALTY = DEFAULT_CT2_COVERAGE_PENALTY
-CT2_REPETITION_PENALTY = 1.2                     # DEFAULT: 1.0 — mild penalty to reduce repetition
-CT2_NO_REPEAT_NGRAM_SIZE = DEFAULT_CT2_NO_REPEAT_NGRAM_SIZE
+CT2_LENGTH_PENALTY = 0.2
+CT2_COVERAGE_PENALTY = 0.3
+CT2_REPETITION_PENALTY = 5.0                     # DEFAULT: 1.0 — mild penalty to reduce repetition
+CT2_NO_REPEAT_NGRAM_SIZE = 4
 CT2_DISABLE_UNK = DEFAULT_CT2_DISABLE_UNK
 CT2_SUPPRESS_SEQUENCES = DEFAULT_CT2_SUPPRESS_SEQUENCES
 CT2_END_TOKEN = DEFAULT_CT2_END_TOKEN
 CT2_RETURN_END_TOKEN = DEFAULT_CT2_RETURN_END_TOKEN
 CT2_PREFIX_BIAS_BETA = DEFAULT_CT2_PREFIX_BIAS_BETA
 CT2_MAX_INPUT_LENGTH = DEFAULT_CT2_MAX_INPUT_LENGTH
-CT2_MAX_DECODING_LENGTH = 512                    # DEFAULT: 256 — longer text support
+CT2_MAX_DECODING_LENGTH = 80                    # DEFAULT: 256 — longer text support
 CT2_MIN_DECODING_LENGTH = DEFAULT_CT2_MIN_DECODING_LENGTH
 CT2_USE_VMAP = DEFAULT_CT2_USE_VMAP
 CT2_RETURN_SCORES = DEFAULT_CT2_RETURN_SCORES
@@ -304,21 +305,17 @@ CT2_BATCH_TYPE = DEFAULT_CT2_BATCH_TYPE
 # MONITOR DE ACTIVIDAD (10 MINUTOS)
 # =========================================================
 MONITOR_WINDOW_MINS = 10
-CHUNK_DURATION = 3.0  # Coincide con MIN_SECONDS en stt_worker
+CHUNK_DURATION = 5.0  # Coincide con MIN_SECONDS en stt_worker
 MAX_WINDOW_SIZE = int((MONITOR_WINDOW_MINS * 60) // CHUNK_DURATION)
 activity_window: deque = deque(maxlen=MAX_WINDOW_SIZE)
 INACTIVITY_RATIO = 0.1  # umbral de actividad (10%): systray, /activity y auto-shutdown
 
 PROMPT_CA = (
-    "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, "
-    "llepolies, orxata, espenta, menut, celler."
+   "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, llepolies, orxata, espenta, menut, celler, gerundi, conjugació, subjuntiu, pretèrit, sintaxi, verb, oració, paràgraf, literatura, Cervantes, Numància, Lorca, Quixot."
 )
 PROMPT_ES = (
-    "Español de España, con palabras como coche, ordenador, móvil, "
-    "vámonos, trabajo, gafas, libreta."
+   "Español de España, con palabras como coche, ordenador, móvil, vámonos, trabajo, gafas, libreta, gerundio, conjugación, subjuntivo, pretérito, sintaxis, verbo, oración, párrafo, literatura, Cervantes, Numancia, Lorca, Quijote."
 )
-
-
 
 # BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path('/usr/lib/traduia')
@@ -374,6 +371,65 @@ def _load_marian_ct2(model_name: str,
         cache_ct2[model_name] = translator
     return cache_tok[model_name], cache_ct2[model_name]
 
+def _detect_low_diversity(words, window=12, threshold=0.45):
+    if len(words) < window:
+        return -1
+    for i in range(len(words) - window + 1):
+        chunk = words[i:i+window]
+        if len(set(chunk)) / len(chunk) < threshold:
+            return i
+    return -1
+
+def sanitize_translation(source: str, translated: str) -> str:
+    if not translated or not source:
+        return translated or ""
+
+    translated = re.sub(r'[\s.]{3,}$', '', translated).strip()
+
+    src_words = len(source.split())
+    trans_words = len(translated.split())
+
+    if trans_words > 2.0 * src_words:
+        limit = int(2.0 * src_words)
+        words = translated.split()
+        truncated = ' '.join(words[:limit])
+        for sep in ['. ', ', ', '; ', ': ']:
+            idx = truncated.rfind(sep)
+            if idx > len(truncated) // 3:
+                truncated = truncated[:idx + 1]
+                break
+        translated = truncated.strip()
+
+    words = translated.lower().split()
+    if len(words) >= 6:
+        for n in (3, 4, 5):
+            ngram_counts = {}
+            first_repeat_pos = len(words)
+            for i in range(len(words) - n + 1):
+                ngram = tuple(words[i:i+n])
+                if ngram in ngram_counts:
+                    ngram_counts[ngram] += 1
+                    if ngram_counts[ngram] >= 3:
+                        first_repeat_pos = min(first_repeat_pos, i)
+                else:
+                    ngram_counts[ngram] = 1
+            if first_repeat_pos < len(words):
+                translated = ' '.join(translated.split()[:first_repeat_pos]).strip()
+                break
+
+    words = translated.lower().split()
+    div_pos = _detect_low_diversity(words)
+    if div_pos > 0:
+        translated = ' '.join(translated.split()[:div_pos]).strip()
+
+    translated = re.sub(r'(\.{2,}\s*){2,}', '', translated)
+    translated = re.sub(r'\s*\.{3,}\s*$', '', translated)
+    translated = re.sub(r'\s{2,}', ' ', translated).strip()
+
+    if len(translated.split()) < 2:
+        return ""
+
+    return translated
 
 def _translate_text(text: str, tok: MarianTokenizer, translator: ctranslate2.Translator) -> str:
     source_tokens = tok.tokenize(text)
@@ -408,10 +464,11 @@ def _translate_text(text: str, tok: MarianTokenizer, translator: ctranslate2.Tra
         use_vmap=CT2_USE_VMAP,
         replace_unknowns=CT2_REPLACE_UNKNOWNS,
     )
-    return tok.decode(
+    translated = tok.decode(
         tok.convert_tokens_to_ids(results[0].hypotheses[0]),
         skip_special_tokens=True,
     )
+    return sanitize_translation(text,translated)
 
 
 def translate_from_es(text: str, target: str) -> str:
@@ -1044,7 +1101,7 @@ def stt_worker():
 
     buf: List[np.ndarray] = []
 
-    MIN_SECONDS = 3.0
+    MIN_SECONDS = 5.0
     MIN_SAMPLES = int(MIN_SECONDS * RATE)
 
     # =========================================================
