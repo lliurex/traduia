@@ -12,6 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
 
+USE_CT2=false  # true=CTranslate2; false=vanilla MarianMT
+
 SHARED_HF="/opt/ai/traduia/models"
 TRADUIA_DIR="/usr/lib/traduia"
 TRADUIA_VENV="/opt/ai/traduia/venv"
@@ -29,7 +31,11 @@ echo "[setup] $(_ "Updating pip/setuptools/wheel")"
 python -m pip install --no-cache-dir --upgrade pip setuptools wheel  > /dev/null 2>&1
 
 echo "[setup] $(_ "Installing Python dependencies")"
-pip install --no-cache-dir fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil > /dev/null 2>&1
+if [ "$USE_CT2" = "true" ]; then
+    pip install --no-cache-dir fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil > /dev/null 2>&1
+else
+    pip install --no-cache-dir fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub psutil > /dev/null 2>&1
+fi
 
 echo "[setup] $(_ "Exporting shared cache variables (for this process)")"
 export HF_HOME="$SHARED_HF"
@@ -44,6 +50,7 @@ unset TRANSFORMERS_OFFLINE || true
 
 function download_inet_models(){
     echo "[setup] $(_ "Preloading models into shared cache...")"
+    export USE_CT2_MODE="$USE_CT2"
     python - <<'PY'
 import os
 from huggingface_hub import snapshot_download
@@ -65,6 +72,20 @@ for repo in repos:
         cache_dir=os.environ.get("HF_HUB_CACHE"),
         local_dir=None,
     )
+
+# MarianMT models (only when not using CTranslate2)
+use_ct2 = os.environ.get("USE_CT2_MODE", "false").strip().lower() == "true"
+if not use_ct2:
+    marian_pairs = [
+        "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+        "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+    ]
+    marian_base = "/opt/ai/traduia/models/marian"
+    for pair in marian_pairs:
+        repo = f"Helsinki-NLP/opus-mt-{pair}"
+        local = f"{marian_base}/opus-mt-{pair}"
+        print(f"[preload] Downloading: {repo} -> {local}")
+        snapshot_download(repo_id=repo, local_dir=local)
 
 print("[preload] OK. Models cached.")
 PY
@@ -120,6 +141,7 @@ else
 fi
 
 echo "$(_ "Downloading models")"
+export USE_CT2_MODE="$USE_CT2"
 if [ $has_http_available -eq 0 ]; then
     download_lan_models
 else
@@ -142,10 +164,11 @@ else
 fi
 pip install --no-cache-dir sacremoses  > /dev/null 2>&1
 
-echo "[setup] $(_ "Converting Marian models to CTranslate2...")"
-mkdir -p "$SHARED_HF/ct2"
+if [ "$USE_CT2" = "true" ]; then
+    echo "[setup] $(_ "Converting Marian models to CTranslate2...")"
+    mkdir -p "$SHARED_HF/ct2"
 
-python - <<'PY'
+    python - <<'PY'
 import os, json, subprocess, shutil
 from huggingface_hub import snapshot_download
 from huggingface_hub.utils import disable_progress_bars
@@ -251,6 +274,7 @@ for pair in MARIAN_PAIRS:
 
 print("[CT2] All Marian models converted.")
 PY
+fi
 
 echo ""
 echo "[setup] $(_ "Ready.")"
