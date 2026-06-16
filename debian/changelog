@@ -1,3 +1,9 @@
+traduia (0.8.4) jammy; urgency=medium
+
+  * Switch to Marian from CT2, easy back with static flag
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 16 Jun 2026 16:51:04 +0200
+
 traduia (0.8.3) jammy; urgency=medium
 
   * Re-parametrize settings for ct2/whisper
