@@ -65,8 +65,7 @@ from starlette.responses import (
     FileResponse,
 )
 from faster_whisper import WhisperModel
-from transformers import MarianTokenizer
-import ctranslate2
+from transformers import MarianTokenizer, MarianMTModel
 from pathlib import Path
 dist_packages_paths=set()
 for path in Path('/usr/lib').glob('python*/dist-packages'):
@@ -101,6 +100,11 @@ BLOCK = RATE // 10  # ~100 ms
 INPUT_LANG = (os.getenv("ALICIA_INPUT_LANG", "es") or "es").strip().split("|")[0].strip()
 if INPUT_LANG not in ("es", "ca"):
     INPUT_LANG = "es"
+
+# =========================================================
+# USE_CT2: True = CTranslate2; False = MarianMT nativo (transformers)
+# =========================================================
+USE_CT2 = False
 
 
 # =========================================================
@@ -162,48 +166,51 @@ DEFAULT_WHISPER_HOTWORDS = None                  # Hotwords / hint phrases (no e
 DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD = 0.5  # Language detection confidence threshold.
 DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS = 1      # Segments used for language detection.
 
-# =========================================================
-# DEFAULTS — CTranslate2 (all parameters for Translator & translate_batch)
-# =========================================================
+if USE_CT2:
+    import ctranslate2
 
-# -- ctranslate2.Translator.__init__() --
-DEFAULT_CT2_DEVICE = "cpu"                       # Device: "cpu", "cuda", "auto".
-DEFAULT_CT2_DEVICE_INDEX = 0                     # Device ID(s). List for multiple GPUs.
-DEFAULT_CT2_COMPUTE_TYPE = "default"             # Quantization: "default", "int8", "float16", etc.
-DEFAULT_CT2_INTER_THREADS = 1                    # Max number of parallel translations.
-DEFAULT_CT2_INTRA_THREADS = 0                    # OpenMP threads per translator (0 = default).
-DEFAULT_CT2_MAX_QUEUED_BATCHES = 0               # Max batches in queue (0 = auto, -1 = unlimited).
-DEFAULT_CT2_FLASH_ATTENTION = False              # Use Flash Attention 2 for self-attention layers.
-DEFAULT_CT2_TENSOR_PARALLEL = False              # Run with tensor parallelism across devices.
+    # =========================================================
+    # DEFAULTS — CTranslate2 (all parameters for Translator & translate_batch)
+    # =========================================================
 
-# -- ctranslate2.Translator.translate_batch() --
-DEFAULT_CT2_BEAM_SIZE = 2                        # Beam size (1 = greedy).
-DEFAULT_CT2_PATIENCE = 1.0                       # Beam search patience factor.
-DEFAULT_CT2_NUM_HYPOTHESES = 1                   # Number of hypotheses to return.
-DEFAULT_CT2_LENGTH_PENALTY = 1.0                 # Exponential length penalty constant.
-DEFAULT_CT2_COVERAGE_PENALTY = 0.0               # Coverage penalty weight.
-DEFAULT_CT2_REPETITION_PENALTY = 1.0             # Penalty for repeated tokens (>1 = penalise).
-DEFAULT_CT2_NO_REPEAT_NGRAM_SIZE = 0             # Prevent n-gram repetitions (0 = disabled).
-DEFAULT_CT2_DISABLE_UNK = False                  # Disable generation of the unknown token.
-DEFAULT_CT2_SUPPRESS_SEQUENCES = None            # Suppress specific token sequences.
-DEFAULT_CT2_END_TOKEN = None                     # Stop decoding on these token(s) (None = model EOS).
-DEFAULT_CT2_RETURN_END_TOKEN = False             # Include the end token in the returned result.
-DEFAULT_CT2_PREFIX_BIAS_BETA = 0.0              # Bias translations towards the given prefix.
-DEFAULT_CT2_MAX_INPUT_LENGTH = 1024              # Truncate inputs after this many tokens (0 = disable).
-DEFAULT_CT2_MAX_DECODING_LENGTH = 256            # Maximum prediction length (tokens).
-DEFAULT_CT2_MIN_DECODING_LENGTH = 1              # Minimum prediction length (tokens).
-DEFAULT_CT2_USE_VMAP = False                     # Use vocabulary mapping file saved in the model.
-DEFAULT_CT2_RETURN_SCORES = False                # Include scores in the translation result.
-DEFAULT_CT2_RETURN_LOGITS_VOCAB = False          # Include log-probabilities of each token in the vocabulary.
-DEFAULT_CT2_RETURN_ATTENTION = False             # Include attention vectors in the result.
-DEFAULT_CT2_RETURN_ALTERNATIVES = False          # Return alternatives at first unconstrained decoding position.
-DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB = 0.0  # Min initial probability to expand an alternative.
-DEFAULT_CT2_SAMPLING_TOPK = 1                    # Randomly sample from top K candidates (1 = greedy).
-DEFAULT_CT2_SAMPLING_TOPP = 1.0                  # Nucleus sampling cumulative probability threshold.
-DEFAULT_CT2_SAMPLING_TEMPERATURE = 1.0           # Sampling temperature (>1 = more random, <1 = more greedy).
-DEFAULT_CT2_REPLACE_UNKNOWNS = False             # Replace <unk> with source token of highest attention.
-DEFAULT_CT2_MAX_BATCH_SIZE = 0                   # Max batch size (0 = auto, >0 = split into smaller batches).
-DEFAULT_CT2_BATCH_TYPE = "examples"              # Batching strategy: "examples" or "tokens".
+    # -- ctranslate2.Translator.__init__() --
+    DEFAULT_CT2_DEVICE = "cpu"                       # Device: "cpu", "cuda", "auto".
+    DEFAULT_CT2_DEVICE_INDEX = 0                     # Device ID(s). List for multiple GPUs.
+    DEFAULT_CT2_COMPUTE_TYPE = "default"             # Quantization: "default", "int8", "float16", etc.
+    DEFAULT_CT2_INTER_THREADS = 1                    # Max number of parallel translations.
+    DEFAULT_CT2_INTRA_THREADS = 0                    # OpenMP threads per translator (0 = default).
+    DEFAULT_CT2_MAX_QUEUED_BATCHES = 0               # Max batches in queue (0 = auto, -1 = unlimited).
+    DEFAULT_CT2_FLASH_ATTENTION = False              # Use Flash Attention 2 for self-attention layers.
+    DEFAULT_CT2_TENSOR_PARALLEL = False              # Run with tensor parallelism across devices.
+
+    # -- ctranslate2.Translator.translate_batch() --
+    DEFAULT_CT2_BEAM_SIZE = 2                        # Beam size (1 = greedy).
+    DEFAULT_CT2_PATIENCE = 1.0                       # Beam search patience factor.
+    DEFAULT_CT2_NUM_HYPOTHESES = 1                   # Number of hypotheses to return.
+    DEFAULT_CT2_LENGTH_PENALTY = 1.0                 # Exponential length penalty constant.
+    DEFAULT_CT2_COVERAGE_PENALTY = 0.0               # Coverage penalty weight.
+    DEFAULT_CT2_REPETITION_PENALTY = 1.0             # Penalty for repeated tokens (>1 = penalise).
+    DEFAULT_CT2_NO_REPEAT_NGRAM_SIZE = 0             # Prevent n-gram repetitions (0 = disabled).
+    DEFAULT_CT2_DISABLE_UNK = False                  # Disable generation of the unknown token.
+    DEFAULT_CT2_SUPPRESS_SEQUENCES = None            # Suppress specific token sequences.
+    DEFAULT_CT2_END_TOKEN = None                     # Stop decoding on these token(s) (None = model EOS).
+    DEFAULT_CT2_RETURN_END_TOKEN = False             # Include the end token in the returned result.
+    DEFAULT_CT2_PREFIX_BIAS_BETA = 0.0              # Bias translations towards the given prefix.
+    DEFAULT_CT2_MAX_INPUT_LENGTH = 1024              # Truncate inputs after this many tokens (0 = disable).
+    DEFAULT_CT2_MAX_DECODING_LENGTH = 256            # Maximum prediction length (tokens).
+    DEFAULT_CT2_MIN_DECODING_LENGTH = 1              # Minimum prediction length (tokens).
+    DEFAULT_CT2_USE_VMAP = False                     # Use vocabulary mapping file saved in the model.
+    DEFAULT_CT2_RETURN_SCORES = False                # Include scores in the translation result.
+    DEFAULT_CT2_RETURN_LOGITS_VOCAB = False          # Include log-probabilities of each token in the vocabulary.
+    DEFAULT_CT2_RETURN_ATTENTION = False             # Include attention vectors in the result.
+    DEFAULT_CT2_RETURN_ALTERNATIVES = False          # Return alternatives at first unconstrained decoding position.
+    DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB = 0.0  # Min initial probability to expand an alternative.
+    DEFAULT_CT2_SAMPLING_TOPK = 1                    # Randomly sample from top K candidates (1 = greedy).
+    DEFAULT_CT2_SAMPLING_TOPP = 1.0                  # Nucleus sampling cumulative probability threshold.
+    DEFAULT_CT2_SAMPLING_TEMPERATURE = 1.0           # Sampling temperature (>1 = more random, <1 = more greedy).
+    DEFAULT_CT2_REPLACE_UNKNOWNS = False             # Replace <unk> with source token of highest attention.
+    DEFAULT_CT2_MAX_BATCH_SIZE = 0                   # Max batch size (0 = auto, >0 = split into smaller batches).
+    DEFAULT_CT2_BATCH_TYPE = "examples"              # Batching strategy: "examples" or "tokens".
 
 # =========================================================
 # OVERRIDE — Runtime overrides for Whisper & CTranslate2
@@ -263,42 +270,43 @@ WHISPER_HOTWORDS = DEFAULT_WHISPER_HOTWORDS
 WHISPER_LANGUAGE_DETECTION_THRESHOLD = DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD
 WHISPER_LANGUAGE_DETECTION_SEGMENTS = DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS
 
-# -- CTranslate2 overrides --
-CT2_DEVICE = DEFAULT_CT2_DEVICE
-CT2_DEVICE_INDEX = DEFAULT_CT2_DEVICE_INDEX
-CT2_COMPUTE_TYPE = DEFAULT_CT2_COMPUTE_TYPE
-CT2_INTER_THREADS = DEFAULT_CT2_INTER_THREADS
-CT2_INTRA_THREADS = DEFAULT_CT2_INTRA_THREADS
-CT2_MAX_QUEUED_BATCHES = DEFAULT_CT2_MAX_QUEUED_BATCHES
-CT2_FLASH_ATTENTION = DEFAULT_CT2_FLASH_ATTENTION
-CT2_TENSOR_PARALLEL = DEFAULT_CT2_TENSOR_PARALLEL
-CT2_BEAM_SIZE = 1                                # DEFAULT: 2 — slightly wider beam for better translations
-CT2_PATIENCE = DEFAULT_CT2_PATIENCE
-CT2_NUM_HYPOTHESES = DEFAULT_CT2_NUM_HYPOTHESES
-CT2_LENGTH_PENALTY = 0.2
-CT2_COVERAGE_PENALTY = 0.3
-CT2_REPETITION_PENALTY = 5.0                     # DEFAULT: 1.0 — mild penalty to reduce repetition
-CT2_NO_REPEAT_NGRAM_SIZE = 4
-CT2_DISABLE_UNK = DEFAULT_CT2_DISABLE_UNK
-CT2_SUPPRESS_SEQUENCES = DEFAULT_CT2_SUPPRESS_SEQUENCES
-CT2_END_TOKEN = DEFAULT_CT2_END_TOKEN
-CT2_RETURN_END_TOKEN = DEFAULT_CT2_RETURN_END_TOKEN
-CT2_PREFIX_BIAS_BETA = DEFAULT_CT2_PREFIX_BIAS_BETA
-CT2_MAX_INPUT_LENGTH = DEFAULT_CT2_MAX_INPUT_LENGTH
-CT2_MAX_DECODING_LENGTH = 80                    # DEFAULT: 256 — longer text support
-CT2_MIN_DECODING_LENGTH = DEFAULT_CT2_MIN_DECODING_LENGTH
-CT2_USE_VMAP = DEFAULT_CT2_USE_VMAP
-CT2_RETURN_SCORES = DEFAULT_CT2_RETURN_SCORES
-CT2_RETURN_LOGITS_VOCAB = DEFAULT_CT2_RETURN_LOGITS_VOCAB
-CT2_RETURN_ATTENTION = DEFAULT_CT2_RETURN_ATTENTION
-CT2_RETURN_ALTERNATIVES = DEFAULT_CT2_RETURN_ALTERNATIVES
-CT2_MIN_ALTERNATIVE_EXPANSION_PROB = DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB
-CT2_SAMPLING_TOPK = DEFAULT_CT2_SAMPLING_TOPK
-CT2_SAMPLING_TOPP = DEFAULT_CT2_SAMPLING_TOPP
-CT2_SAMPLING_TEMPERATURE = DEFAULT_CT2_SAMPLING_TEMPERATURE
-CT2_REPLACE_UNKNOWNS = DEFAULT_CT2_REPLACE_UNKNOWNS
-CT2_MAX_BATCH_SIZE = DEFAULT_CT2_MAX_BATCH_SIZE
-CT2_BATCH_TYPE = DEFAULT_CT2_BATCH_TYPE
+if USE_CT2:
+    # -- CTranslate2 overrides --
+    CT2_DEVICE = DEFAULT_CT2_DEVICE
+    CT2_DEVICE_INDEX = DEFAULT_CT2_DEVICE_INDEX
+    CT2_COMPUTE_TYPE = DEFAULT_CT2_COMPUTE_TYPE
+    CT2_INTER_THREADS = DEFAULT_CT2_INTER_THREADS
+    CT2_INTRA_THREADS = DEFAULT_CT2_INTRA_THREADS
+    CT2_MAX_QUEUED_BATCHES = DEFAULT_CT2_MAX_QUEUED_BATCHES
+    CT2_FLASH_ATTENTION = DEFAULT_CT2_FLASH_ATTENTION
+    CT2_TENSOR_PARALLEL = DEFAULT_CT2_TENSOR_PARALLEL
+    CT2_BEAM_SIZE = 1                                # DEFAULT: 2 — slightly wider beam for better translations
+    CT2_PATIENCE = DEFAULT_CT2_PATIENCE
+    CT2_NUM_HYPOTHESES = DEFAULT_CT2_NUM_HYPOTHESES
+    CT2_LENGTH_PENALTY = 0.2
+    CT2_COVERAGE_PENALTY = 0.3
+    CT2_REPETITION_PENALTY = 5.0                     # DEFAULT: 1.0 — mild penalty to reduce repetition
+    CT2_NO_REPEAT_NGRAM_SIZE = 4
+    CT2_DISABLE_UNK = DEFAULT_CT2_DISABLE_UNK
+    CT2_SUPPRESS_SEQUENCES = DEFAULT_CT2_SUPPRESS_SEQUENCES
+    CT2_END_TOKEN = DEFAULT_CT2_END_TOKEN
+    CT2_RETURN_END_TOKEN = DEFAULT_CT2_RETURN_END_TOKEN
+    CT2_PREFIX_BIAS_BETA = DEFAULT_CT2_PREFIX_BIAS_BETA
+    CT2_MAX_INPUT_LENGTH = DEFAULT_CT2_MAX_INPUT_LENGTH
+    CT2_MAX_DECODING_LENGTH = 80                    # DEFAULT: 256 — longer text support
+    CT2_MIN_DECODING_LENGTH = DEFAULT_CT2_MIN_DECODING_LENGTH
+    CT2_USE_VMAP = DEFAULT_CT2_USE_VMAP
+    CT2_RETURN_SCORES = DEFAULT_CT2_RETURN_SCORES
+    CT2_RETURN_LOGITS_VOCAB = DEFAULT_CT2_RETURN_LOGITS_VOCAB
+    CT2_RETURN_ATTENTION = DEFAULT_CT2_RETURN_ATTENTION
+    CT2_RETURN_ALTERNATIVES = DEFAULT_CT2_RETURN_ALTERNATIVES
+    CT2_MIN_ALTERNATIVE_EXPANSION_PROB = DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB
+    CT2_SAMPLING_TOPK = DEFAULT_CT2_SAMPLING_TOPK
+    CT2_SAMPLING_TOPP = DEFAULT_CT2_SAMPLING_TOPP
+    CT2_SAMPLING_TEMPERATURE = DEFAULT_CT2_SAMPLING_TEMPERATURE
+    CT2_REPLACE_UNKNOWNS = DEFAULT_CT2_REPLACE_UNKNOWNS
+    CT2_MAX_BATCH_SIZE = DEFAULT_CT2_MAX_BATCH_SIZE
+    CT2_BATCH_TYPE = DEFAULT_CT2_BATCH_TYPE
 
 
 # =========================================================
@@ -319,11 +327,17 @@ PROMPT_ES = (
 
 # BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path('/usr/lib/traduia')
-MARIAN_CT2_BASE = Path('/opt/ai/traduia/models/ct2')
 
-def _marian_ct2_path(model_name: str) -> str:
-    repo = model_name.split("/")[-1]
-    return str(MARIAN_CT2_BASE / repo)
+if USE_CT2:
+    MARIAN_CT2_BASE = Path('/opt/ai/traduia/models/ct2')
+    def _marian_ct2_path(model_name: str) -> str:
+        repo = model_name.split("/")[-1]
+        return str(MARIAN_CT2_BASE / repo)
+else:
+    MARIAN_LOCAL_BASE = Path('/opt/ai/traduia/models/marian')
+    def _marian_local_path(model_name: str) -> str:
+        repo = model_name.split("/")[-1]
+        return str(MARIAN_LOCAL_BASE / repo)
 
 # =========================================================
 # MARIAN: ES/CA -> EN/FR/DE/RU/AR/UK
@@ -343,33 +357,50 @@ MARIAN_ES_IT = "Helsinki-NLP/opus-mt-es-it"
 MARIAN_CA_EN = "Helsinki-NLP/opus-mt-ca-en"
 MARIAN_CA_ES = "Helsinki-NLP/opus-mt-ca-es"
 
-# Caches
+# Caches (tok compartido, engine depende de USE_CT2)
 _m_es_tok = {}
-_m_es_ct2 = {}
 _m_ca_tok = {}
-_m_ca_ct2 = {}
+
+if USE_CT2:
+    _m_es_ct2 = {}
+    _m_ca_ct2 = {}
+    _engine_cache_es = _m_es_ct2
+    _engine_cache_ca = _m_ca_ct2
+else:
+    _m_es_model = {}
+    _m_ca_model = {}
+    _engine_cache_es = _m_es_model
+    _engine_cache_ca = _m_ca_model
 
 
-def _load_marian_ct2(model_name: str,
-                     cache_tok: dict,
-                     cache_ct2: dict) -> Tuple[MarianTokenizer, ctranslate2.Translator]:
-    if model_name not in cache_tok or model_name not in cache_ct2:
-        ct2_path = _marian_ct2_path(model_name)
-        tok = MarianTokenizer.from_pretrained(ct2_path)
-        translator = ctranslate2.Translator(
-            ct2_path,
-            device=CT2_DEVICE,
-        device_index=CT2_DEVICE_INDEX,
-        compute_type=CT2_COMPUTE_TYPE,
-        inter_threads=CT2_INTER_THREADS,
-        intra_threads=CT2_INTRA_THREADS,
-        max_queued_batches=CT2_MAX_QUEUED_BATCHES,
-        flash_attention=CT2_FLASH_ATTENTION,
-        tensor_parallel=CT2_TENSOR_PARALLEL,
-    )
-        cache_tok[model_name] = tok
-        cache_ct2[model_name] = translator
-    return cache_tok[model_name], cache_ct2[model_name]
+if USE_CT2:
+    def _load_marian(model_name, cache_tok, cache_model):
+        if model_name not in cache_tok or model_name not in cache_model:
+            ct2_path = _marian_ct2_path(model_name)
+            tok = MarianTokenizer.from_pretrained(ct2_path)
+            translator = ctranslate2.Translator(
+                ct2_path,
+                device=CT2_DEVICE,
+                device_index=CT2_DEVICE_INDEX,
+                compute_type=CT2_COMPUTE_TYPE,
+                inter_threads=CT2_INTER_THREADS,
+                intra_threads=CT2_INTRA_THREADS,
+                max_queued_batches=CT2_MAX_QUEUED_BATCHES,
+                flash_attention=CT2_FLASH_ATTENTION,
+                tensor_parallel=CT2_TENSOR_PARALLEL,
+            )
+            cache_tok[model_name] = tok
+            cache_model[model_name] = translator
+        return cache_tok[model_name], cache_model[model_name]
+else:
+    def _load_marian(model_name, cache_tok, cache_model):
+        if model_name not in cache_tok or model_name not in cache_model:
+            local_path = _marian_local_path(model_name)
+            tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
+            model = MarianMTModel.from_pretrained(local_path, local_files_only=True)
+            cache_tok[model_name] = tok
+            cache_model[model_name] = model
+        return cache_tok[model_name], cache_model[model_name]
 
 def _detect_low_diversity(words, window=12, threshold=0.45):
     if len(words) < window:
@@ -431,44 +462,51 @@ def sanitize_translation(source: str, translated: str) -> str:
 
     return translated
 
-def _translate_text(text: str, tok: MarianTokenizer, translator: ctranslate2.Translator) -> str:
-    source_tokens = tok.tokenize(text)
-    if not source_tokens:
-        return ""
-    results = translator.translate_batch(
-        [source_tokens],
-        beam_size=CT2_BEAM_SIZE,
-        patience=CT2_PATIENCE,
-        num_hypotheses=CT2_NUM_HYPOTHESES,
-        length_penalty=CT2_LENGTH_PENALTY,
-        coverage_penalty=CT2_COVERAGE_PENALTY,
-        repetition_penalty=CT2_REPETITION_PENALTY,
-        no_repeat_ngram_size=CT2_NO_REPEAT_NGRAM_SIZE,
-        max_batch_size=CT2_MAX_BATCH_SIZE,
-        batch_type=CT2_BATCH_TYPE,
-        max_input_length=CT2_MAX_INPUT_LENGTH,
-        max_decoding_length=CT2_MAX_DECODING_LENGTH,
-        min_decoding_length=CT2_MIN_DECODING_LENGTH,
-        sampling_topk=CT2_SAMPLING_TOPK,
-        sampling_topp=CT2_SAMPLING_TOPP,
-        sampling_temperature=CT2_SAMPLING_TEMPERATURE,
-        return_scores=CT2_RETURN_SCORES,
-        return_logits_vocab=CT2_RETURN_LOGITS_VOCAB,
-        return_attention=CT2_RETURN_ATTENTION,
-        return_alternatives=CT2_RETURN_ALTERNATIVES,
-        min_alternative_expansion_prob=CT2_MIN_ALTERNATIVE_EXPANSION_PROB,
-        suppress_sequences=CT2_SUPPRESS_SEQUENCES,
-        end_token=CT2_END_TOKEN,
-        return_end_token=CT2_RETURN_END_TOKEN,
-        prefix_bias_beta=CT2_PREFIX_BIAS_BETA,
-        use_vmap=CT2_USE_VMAP,
-        replace_unknowns=CT2_REPLACE_UNKNOWNS,
-    )
-    translated = tok.decode(
-        tok.convert_tokens_to_ids(results[0].hypotheses[0]),
-        skip_special_tokens=True,
-    )
-    return sanitize_translation(text,translated)
+if USE_CT2:
+    def _translate_text(text, tok, engine):
+        source_tokens = tok.tokenize(text)
+        if not source_tokens:
+            return ""
+        results = engine.translate_batch(
+            [source_tokens],
+            beam_size=CT2_BEAM_SIZE,
+            patience=CT2_PATIENCE,
+            num_hypotheses=CT2_NUM_HYPOTHESES,
+            length_penalty=CT2_LENGTH_PENALTY,
+            coverage_penalty=CT2_COVERAGE_PENALTY,
+            repetition_penalty=CT2_REPETITION_PENALTY,
+            no_repeat_ngram_size=CT2_NO_REPEAT_NGRAM_SIZE,
+            max_batch_size=CT2_MAX_BATCH_SIZE,
+            batch_type=CT2_BATCH_TYPE,
+            max_input_length=CT2_MAX_INPUT_LENGTH,
+            max_decoding_length=CT2_MAX_DECODING_LENGTH,
+            min_decoding_length=CT2_MIN_DECODING_LENGTH,
+            sampling_topk=CT2_SAMPLING_TOPK,
+            sampling_topp=CT2_SAMPLING_TOPP,
+            sampling_temperature=CT2_SAMPLING_TEMPERATURE,
+            return_scores=CT2_RETURN_SCORES,
+            return_logits_vocab=CT2_RETURN_LOGITS_VOCAB,
+            return_attention=CT2_RETURN_ATTENTION,
+            return_alternatives=CT2_RETURN_ALTERNATIVES,
+            min_alternative_expansion_prob=CT2_MIN_ALTERNATIVE_EXPANSION_PROB,
+            suppress_sequences=CT2_SUPPRESS_SEQUENCES,
+            end_token=CT2_END_TOKEN,
+            return_end_token=CT2_RETURN_END_TOKEN,
+            prefix_bias_beta=CT2_PREFIX_BIAS_BETA,
+            use_vmap=CT2_USE_VMAP,
+            replace_unknowns=CT2_REPLACE_UNKNOWNS,
+        )
+        translated = tok.decode(
+            tok.convert_tokens_to_ids(results[0].hypotheses[0]),
+            skip_special_tokens=True,
+        )
+        return sanitize_translation(text, translated)
+else:
+    def _translate_text(text, tok, engine):
+        batch = tok([text], return_tensors="pt", padding=True, truncation=True)
+        gen = engine.generate(**batch, max_length=512)
+        out = tok.batch_decode(gen, skip_special_tokens=True)
+        return out[0] if out else ""
 
 
 def translate_from_es(text: str, target: str) -> str:
@@ -484,8 +522,8 @@ def translate_from_es(text: str, target: str) -> str:
     }
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
-    tok, translator = _load_marian_ct2(mapping[target], _m_es_tok, _m_es_ct2)
-    return _translate_text(text, tok, translator)
+    tok, engine = _load_marian(mapping[target], _m_es_tok, _engine_cache_es)
+    return _translate_text(text, tok, engine)
 
 
 def translate_from_ca(text: str, target: str) -> str:
@@ -498,11 +536,11 @@ def translate_from_ca(text: str, target: str) -> str:
         return ""
 
     if target == "en":
-        tok, translator = _load_marian_ct2(MARIAN_CA_EN, _m_ca_tok, _m_ca_ct2)
-        return _translate_text(txt, tok, translator)
+        tok, engine = _load_marian(MARIAN_CA_EN, _m_ca_tok, _engine_cache_ca)
+        return _translate_text(txt, tok, engine)
 
-    tok_ca_es, translator_ca_es = _load_marian_ct2(MARIAN_CA_ES, _m_ca_tok, _m_ca_ct2)
-    text_es = _translate_text(txt, tok_ca_es, translator_ca_es)
+    tok_ca_es, engine_ca_es = _load_marian(MARIAN_CA_ES, _m_ca_tok, _engine_cache_ca)
+    text_es = _translate_text(txt, tok_ca_es, engine_ca_es)
     return translate_from_es(text_es, target) if text_es else ""
 
 
