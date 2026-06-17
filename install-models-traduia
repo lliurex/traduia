@@ -12,7 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
 
-USE_CT2=false  # true=CTranslate2; false=vanilla MarianMT
+if [ "${1:-}" = "optimized" ]; then
+    USE_CT2=true
+else
+    USE_CT2=false
+fi
 
 SHARED_HF="/opt/ai/traduia/models"
 TRADUIA_DIR="/usr/lib/traduia"
@@ -274,6 +278,7 @@ for pair in MARIAN_PAIRS:
 
 print("[CT2] All Marian models converted.")
 PY
+    touch /opt/ai/traduia/models/.use_ct2
 fi
 
 echo ""

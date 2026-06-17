@@ -104,7 +104,7 @@ if INPUT_LANG not in ("es", "ca"):
 # =========================================================
 # USE_CT2: True = CTranslate2; False = MarianMT nativo (transformers)
 # =========================================================
-USE_CT2 = False
+USE_CT2 = Path('/opt/ai/traduia/models/.use_ct2').exists()
 
 
 # =========================================================
