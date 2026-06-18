@@ -1,3 +1,9 @@
+traduia (0.8.5) noble; urgency=medium
+
+  * Port from jammy
+
+ -- M.Angel Juan <lliurex@25dev>  Thu, 18 Jun 2026 13:26:03 +0200
+
 traduia (0.7.3) noble; urgency=medium
 
   * Removed subtitle
