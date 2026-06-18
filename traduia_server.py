@@ -48,6 +48,8 @@ import subprocess
 import signal
 import fcntl
 import psutil
+import re
+from collections import deque
 from typing import Iterator, List, Tuple, Optional
 
 import numpy as np
@@ -63,7 +65,7 @@ from starlette.responses import (
     FileResponse,
 )
 from faster_whisper import WhisperModel
-from transformers import MarianMTModel, MarianTokenizer
+from transformers import MarianTokenizer, MarianMTModel
 from pathlib import Path
 dist_packages_paths=set()
 for path in Path('/usr/lib').glob('python*/dist-packages'):
@@ -99,21 +101,244 @@ INPUT_LANG = (os.getenv("ALICIA_INPUT_LANG", "es") or "es").strip().split("|")[0
 if INPUT_LANG not in ("es", "ca"):
     INPUT_LANG = "es"
 
+# =========================================================
+# USE_CT2: True = CTranslate2; False = MarianMT nativo (transformers)
+# =========================================================
+USE_CT2 = Path('/opt/ai/traduia/models/.use_ct2').exists()
+
+
+# =========================================================
+# DEFAULTS — Whisper (all parameters for WhisperModel & transcribe)
+# =========================================================
+
+# -- WhisperModel.__init__() --
+DEFAULT_WHISPER_MODEL_NAME = "small"            # Model size/path: tiny, base, small, medium, large, large-v3, turbo, or HF ID.
+DEFAULT_WHISPER_DEVICE = "auto"                  # Device: "cpu", "cuda", "auto".
+DEFAULT_WHISPER_DEVICE_INDEX = 0                 # GPU device index. List for multiple GPUs.
+DEFAULT_WHISPER_COMPUTE_TYPE = "default"         # Quantization: "default", "int8", "float16", "float32", "bfloat16", etc.
+DEFAULT_WHISPER_CPU_THREADS = 0                  # CPU threads (0 = default / OMP_NUM_THREADS).
+DEFAULT_WHISPER_NUM_WORKERS = 1                  # Parallel workers for generate() calls.
+DEFAULT_WHISPER_DOWNLOAD_ROOT = None             # Custom model download directory (None = HF cache).
+DEFAULT_WHISPER_LOCAL_FILES_ONLY = False         # Avoid downloading, use local cache only.
+DEFAULT_WHISPER_REVISION = None                  # HF Hub revision (tag, branch, commit hash).
+DEFAULT_WHISPER_USE_AUTH_TOKEN = None            # HF auth token or True to use cached token.
+
+# -- WhisperModel.transcribe() --
+DEFAULT_WHISPER_LANGUAGE = None                  # Language code (None = auto-detect; overridden by INPUT_LANG in code).
+DEFAULT_WHISPER_TASK = "transcribe"              # Task: "transcribe" or "translate".
+DEFAULT_WHISPER_LOG_PROGRESS = False             # Show progress bar during transcription.
+DEFAULT_WHISPER_BEAM_SIZE = 5                    # Beam size (larger = better quality, slower).
+DEFAULT_WHISPER_BEST_OF = 5                      # Candidates when sampling with non-zero temperature.
+DEFAULT_WHISPER_PATIENCE = 1.0                   # Beam search patience factor.
+DEFAULT_WHISPER_LENGTH_PENALTY = 1.0             # Exponential length penalty constant.
+DEFAULT_WHISPER_REPETITION_PENALTY = 1.0         # Penalty for repeated tokens (>1 = penalise).
+DEFAULT_WHISPER_NO_REPEAT_NGRAM_SIZE = 0         # Prevent n-gram repetitions (0 = disabled).
+DEFAULT_WHISPER_TEMPERATURE = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]  # Sampling temperature(s); list = fallback on failure.
+DEFAULT_WHISPER_COMPRESSION_RATIO_THRESHOLD = 2.4   # Max gzip compression ratio to accept segment.
+DEFAULT_WHISPER_LOG_PROB_THRESHOLD = -1.0            # Min avg log-probability to accept segment.
+DEFAULT_WHISPER_NO_SPEECH_THRESHOLD = 0.6            # Skip segment if no_speech_prob > this and log_prob < threshold.
+DEFAULT_WHISPER_CONDITION_ON_PREVIOUS_TEXT = True    # Provide previous output as prompt for next window.
+DEFAULT_WHISPER_PROMPT_RESET_ON_TEMPERATURE = 0.5    # Reset prompt cache above this temperature.
+DEFAULT_WHISPER_INITIAL_PROMPT = None            # Text prompt for first window (overridden per-language in code).
+DEFAULT_WHISPER_PREFIX = None                    # Text prefix forced at start of first window.
+DEFAULT_WHISPER_SUPPRESS_BLANK = True            # Suppress blank outputs at start of sampling.
+DEFAULT_WHISPER_SUPPRESS_TOKENS = [-1]           # Token IDs to suppress (-1 = default Whisper set).
+DEFAULT_WHISPER_WITHOUT_TIMESTAMPS = False       # Only sample text tokens (no timestamps).
+DEFAULT_WHISPER_MAX_INITIAL_TIMESTAMP = 1.0      # Initial timestamp cannot be later than this (seconds).
+DEFAULT_WHISPER_WORD_TIMESTAMPS = False          # Extract word-level timestamps via cross-attention.
+DEFAULT_WHISPER_PREPEND_PUNCTUATIONS = "\"'\"¿([{-"  # Merge these punct. symbols with next word.
+DEFAULT_WHISPER_APPEND_PUNCTUATIONS = "\"\'.。，!！?？:：”)]}、"  # Merge these punct. with previous word.
+DEFAULT_WHISPER_MULTILINGUAL = False             # Run language detection on every segment.
+DEFAULT_WHISPER_VAD_FILTER = False               # Enable Silero VAD to filter non-speech.
+DEFAULT_WHISPER_VAD_PARAMETERS = {               # VAD options (dict).
+    "threshold": 0.5,                            #   Speech probability threshold.
+    "neg_threshold": None,                       #   Silence threshold (None = auto max(threshold-0.15, 0.01)).
+    "min_speech_duration_ms": 0,                 #   Drop speech chunks shorter than this (ms).
+    "max_speech_duration_s": float("inf"),       #   Split speech chunks longer than this (s).
+    "min_silence_duration_ms": 2000,             #   Silence duration to separate speech chunks (ms).
+    "speech_pad_ms": 400,                        #   Pad each speech chunk on both sides (ms).
+}
+DEFAULT_WHISPER_MAX_NEW_TOKENS = None            # Max new tokens per chunk (None = model default).
+DEFAULT_WHISPER_CHUNK_LENGTH = None              # Override feature-extractor chunk length (seconds).
+DEFAULT_WHISPER_CLIP_TIMESTAMPS = "0"            # Clip timestamps (comma-separated or float list).
+DEFAULT_WHISPER_HALLUCINATION_SILENCE_THRESHOLD = None  # Skip silent gaps longer than this (s).
+DEFAULT_WHISPER_HOTWORDS = None                  # Hotwords / hint phrases (no effect if prefix is set).
+DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD = 0.5  # Language detection confidence threshold.
+DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS = 1      # Segments used for language detection.
+
+if USE_CT2:
+    import ctranslate2
+
+    # =========================================================
+    # DEFAULTS — CTranslate2 (all parameters for Translator & translate_batch)
+    # =========================================================
+
+    # -- ctranslate2.Translator.__init__() --
+    DEFAULT_CT2_DEVICE = "cpu"                       # Device: "cpu", "cuda", "auto".
+    DEFAULT_CT2_DEVICE_INDEX = 0                     # Device ID(s). List for multiple GPUs.
+    DEFAULT_CT2_COMPUTE_TYPE = "default"             # Quantization: "default", "int8", "float16", etc.
+    DEFAULT_CT2_INTER_THREADS = 1                    # Max number of parallel translations.
+    DEFAULT_CT2_INTRA_THREADS = 0                    # OpenMP threads per translator (0 = default).
+    DEFAULT_CT2_MAX_QUEUED_BATCHES = 0               # Max batches in queue (0 = auto, -1 = unlimited).
+    DEFAULT_CT2_FLASH_ATTENTION = False              # Use Flash Attention 2 for self-attention layers.
+    DEFAULT_CT2_TENSOR_PARALLEL = False              # Run with tensor parallelism across devices.
+
+    # -- ctranslate2.Translator.translate_batch() --
+    DEFAULT_CT2_BEAM_SIZE = 2                        # Beam size (1 = greedy).
+    DEFAULT_CT2_PATIENCE = 1.0                       # Beam search patience factor.
+    DEFAULT_CT2_NUM_HYPOTHESES = 1                   # Number of hypotheses to return.
+    DEFAULT_CT2_LENGTH_PENALTY = 1.0                 # Exponential length penalty constant.
+    DEFAULT_CT2_COVERAGE_PENALTY = 0.0               # Coverage penalty weight.
+    DEFAULT_CT2_REPETITION_PENALTY = 1.0             # Penalty for repeated tokens (>1 = penalise).
+    DEFAULT_CT2_NO_REPEAT_NGRAM_SIZE = 0             # Prevent n-gram repetitions (0 = disabled).
+    DEFAULT_CT2_DISABLE_UNK = False                  # Disable generation of the unknown token.
+    DEFAULT_CT2_SUPPRESS_SEQUENCES = None            # Suppress specific token sequences.
+    DEFAULT_CT2_END_TOKEN = None                     # Stop decoding on these token(s) (None = model EOS).
+    DEFAULT_CT2_RETURN_END_TOKEN = False             # Include the end token in the returned result.
+    DEFAULT_CT2_PREFIX_BIAS_BETA = 0.0              # Bias translations towards the given prefix.
+    DEFAULT_CT2_MAX_INPUT_LENGTH = 1024              # Truncate inputs after this many tokens (0 = disable).
+    DEFAULT_CT2_MAX_DECODING_LENGTH = 256            # Maximum prediction length (tokens).
+    DEFAULT_CT2_MIN_DECODING_LENGTH = 1              # Minimum prediction length (tokens).
+    DEFAULT_CT2_USE_VMAP = False                     # Use vocabulary mapping file saved in the model.
+    DEFAULT_CT2_RETURN_SCORES = False                # Include scores in the translation result.
+    DEFAULT_CT2_RETURN_LOGITS_VOCAB = False          # Include log-probabilities of each token in the vocabulary.
+    DEFAULT_CT2_RETURN_ATTENTION = False             # Include attention vectors in the result.
+    DEFAULT_CT2_RETURN_ALTERNATIVES = False          # Return alternatives at first unconstrained decoding position.
+    DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB = 0.0  # Min initial probability to expand an alternative.
+    DEFAULT_CT2_SAMPLING_TOPK = 1                    # Randomly sample from top K candidates (1 = greedy).
+    DEFAULT_CT2_SAMPLING_TOPP = 1.0                  # Nucleus sampling cumulative probability threshold.
+    DEFAULT_CT2_SAMPLING_TEMPERATURE = 1.0           # Sampling temperature (>1 = more random, <1 = more greedy).
+    DEFAULT_CT2_REPLACE_UNKNOWNS = False             # Replace <unk> with source token of highest attention.
+    DEFAULT_CT2_MAX_BATCH_SIZE = 0                   # Max batch size (0 = auto, >0 = split into smaller batches).
+    DEFAULT_CT2_BATCH_TYPE = "examples"              # Batching strategy: "examples" or "tokens".
+
+# =========================================================
+# OVERRIDE — Runtime overrides for Whisper & CTranslate2
+# Modify values below to change behaviour without touching defaults.
+# =========================================================
+
+# -- Whisper overrides --
+WHISPER_MODEL_NAME = DEFAULT_WHISPER_MODEL_NAME
+WHISPER_DEVICE = "cpu"                           # DEFAULT: "auto" — override for CPU-only
+WHISPER_DEVICE_INDEX = DEFAULT_WHISPER_DEVICE_INDEX
+WHISPER_COMPUTE_TYPE = "int8"                    # DEFAULT: "default" — override for int8 quant
+WHISPER_CPU_THREADS = DEFAULT_WHISPER_CPU_THREADS
+WHISPER_NUM_WORKERS = DEFAULT_WHISPER_NUM_WORKERS
+WHISPER_DOWNLOAD_ROOT = DEFAULT_WHISPER_DOWNLOAD_ROOT
+WHISPER_LOCAL_FILES_ONLY = DEFAULT_WHISPER_LOCAL_FILES_ONLY
+WHISPER_REVISION = DEFAULT_WHISPER_REVISION
+WHISPER_USE_AUTH_TOKEN = DEFAULT_WHISPER_USE_AUTH_TOKEN
+WHISPER_LANGUAGE = DEFAULT_WHISPER_LANGUAGE
+WHISPER_TASK = DEFAULT_WHISPER_TASK
+WHISPER_LOG_PROGRESS = DEFAULT_WHISPER_LOG_PROGRESS
+WHISPER_BEAM_SIZE = DEFAULT_WHISPER_BEAM_SIZE
+WHISPER_BEST_OF = DEFAULT_WHISPER_BEST_OF
+WHISPER_PATIENCE = DEFAULT_WHISPER_PATIENCE
+WHISPER_LENGTH_PENALTY = DEFAULT_WHISPER_LENGTH_PENALTY
+WHISPER_REPETITION_PENALTY = 1.3
+WHISPER_NO_REPEAT_NGRAM_SIZE = 4
+WHISPER_TEMPERATURE = DEFAULT_WHISPER_TEMPERATURE
+WHISPER_COMPRESSION_RATIO_THRESHOLD = 1.5
+WHISPER_LOG_PROB_THRESHOLD = -0.8
+WHISPER_NO_SPEECH_THRESHOLD = DEFAULT_WHISPER_NO_SPEECH_THRESHOLD
+WHISPER_CONDITION_ON_PREVIOUS_TEXT = False       # DEFAULT: True — reduce hallucination carry-over
+WHISPER_PROMPT_RESET_ON_TEMPERATURE = DEFAULT_WHISPER_PROMPT_RESET_ON_TEMPERATURE
+WHISPER_INITIAL_PROMPT = DEFAULT_WHISPER_INITIAL_PROMPT
+WHISPER_PREFIX = DEFAULT_WHISPER_PREFIX
+WHISPER_SUPPRESS_BLANK = DEFAULT_WHISPER_SUPPRESS_BLANK
+WHISPER_SUPPRESS_TOKENS = DEFAULT_WHISPER_SUPPRESS_TOKENS
+WHISPER_WITHOUT_TIMESTAMPS = DEFAULT_WHISPER_WITHOUT_TIMESTAMPS
+WHISPER_MAX_INITIAL_TIMESTAMP = DEFAULT_WHISPER_MAX_INITIAL_TIMESTAMP
+WHISPER_WORD_TIMESTAMPS = DEFAULT_WHISPER_WORD_TIMESTAMPS
+WHISPER_PREPEND_PUNCTUATIONS = DEFAULT_WHISPER_PREPEND_PUNCTUATIONS
+WHISPER_APPEND_PUNCTUATIONS = DEFAULT_WHISPER_APPEND_PUNCTUATIONS
+WHISPER_MULTILINGUAL = DEFAULT_WHISPER_MULTILINGUAL
+WHISPER_VAD_FILTER = True                        # DEFAULT: False — filter non-speech with Silero VAD
+WHISPER_VAD_PARAMETERS = {                       # DEFAULT: min_silence=2000, pad=400 — tighter for speech detection
+    "threshold": DEFAULT_WHISPER_VAD_PARAMETERS["threshold"],
+    "neg_threshold": DEFAULT_WHISPER_VAD_PARAMETERS["neg_threshold"],
+    "min_speech_duration_ms": DEFAULT_WHISPER_VAD_PARAMETERS["min_speech_duration_ms"],
+    "max_speech_duration_s": DEFAULT_WHISPER_VAD_PARAMETERS["max_speech_duration_s"],
+    "min_silence_duration_ms": 300,
+    "speech_pad_ms": 200,
+}
+WHISPER_MAX_NEW_TOKENS = DEFAULT_WHISPER_MAX_NEW_TOKENS
+WHISPER_CHUNK_LENGTH = DEFAULT_WHISPER_CHUNK_LENGTH
+WHISPER_CLIP_TIMESTAMPS = DEFAULT_WHISPER_CLIP_TIMESTAMPS
+WHISPER_HALLUCINATION_SILENCE_THRESHOLD = DEFAULT_WHISPER_HALLUCINATION_SILENCE_THRESHOLD
+WHISPER_HOTWORDS = DEFAULT_WHISPER_HOTWORDS
+WHISPER_LANGUAGE_DETECTION_THRESHOLD = DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD
+WHISPER_LANGUAGE_DETECTION_SEGMENTS = DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS
+
+if USE_CT2:
+    # -- CTranslate2 overrides --
+    CT2_DEVICE = DEFAULT_CT2_DEVICE
+    CT2_DEVICE_INDEX = DEFAULT_CT2_DEVICE_INDEX
+    CT2_COMPUTE_TYPE = DEFAULT_CT2_COMPUTE_TYPE
+    CT2_INTER_THREADS = DEFAULT_CT2_INTER_THREADS
+    CT2_INTRA_THREADS = DEFAULT_CT2_INTRA_THREADS
+    CT2_MAX_QUEUED_BATCHES = DEFAULT_CT2_MAX_QUEUED_BATCHES
+    CT2_FLASH_ATTENTION = DEFAULT_CT2_FLASH_ATTENTION
+    CT2_TENSOR_PARALLEL = DEFAULT_CT2_TENSOR_PARALLEL
+    CT2_BEAM_SIZE = 1                                # DEFAULT: 2 — slightly wider beam for better translations
+    CT2_PATIENCE = DEFAULT_CT2_PATIENCE
+    CT2_NUM_HYPOTHESES = DEFAULT_CT2_NUM_HYPOTHESES
+    CT2_LENGTH_PENALTY = 0.2
+    CT2_COVERAGE_PENALTY = 0.3
+    CT2_REPETITION_PENALTY = 5.0                     # DEFAULT: 1.0 — mild penalty to reduce repetition
+    CT2_NO_REPEAT_NGRAM_SIZE = 4
+    CT2_DISABLE_UNK = DEFAULT_CT2_DISABLE_UNK
+    CT2_SUPPRESS_SEQUENCES = DEFAULT_CT2_SUPPRESS_SEQUENCES
+    CT2_END_TOKEN = DEFAULT_CT2_END_TOKEN
+    CT2_RETURN_END_TOKEN = DEFAULT_CT2_RETURN_END_TOKEN
+    CT2_PREFIX_BIAS_BETA = DEFAULT_CT2_PREFIX_BIAS_BETA
+    CT2_MAX_INPUT_LENGTH = DEFAULT_CT2_MAX_INPUT_LENGTH
+    CT2_MAX_DECODING_LENGTH = 80                    # DEFAULT: 256 — longer text support
+    CT2_MIN_DECODING_LENGTH = DEFAULT_CT2_MIN_DECODING_LENGTH
+    CT2_USE_VMAP = DEFAULT_CT2_USE_VMAP
+    CT2_RETURN_SCORES = DEFAULT_CT2_RETURN_SCORES
+    CT2_RETURN_LOGITS_VOCAB = DEFAULT_CT2_RETURN_LOGITS_VOCAB
+    CT2_RETURN_ATTENTION = DEFAULT_CT2_RETURN_ATTENTION
+    CT2_RETURN_ALTERNATIVES = DEFAULT_CT2_RETURN_ALTERNATIVES
+    CT2_MIN_ALTERNATIVE_EXPANSION_PROB = DEFAULT_CT2_MIN_ALTERNATIVE_EXPANSION_PROB
+    CT2_SAMPLING_TOPK = DEFAULT_CT2_SAMPLING_TOPK
+    CT2_SAMPLING_TOPP = DEFAULT_CT2_SAMPLING_TOPP
+    CT2_SAMPLING_TEMPERATURE = DEFAULT_CT2_SAMPLING_TEMPERATURE
+    CT2_REPLACE_UNKNOWNS = DEFAULT_CT2_REPLACE_UNKNOWNS
+    CT2_MAX_BATCH_SIZE = DEFAULT_CT2_MAX_BATCH_SIZE
+    CT2_BATCH_TYPE = DEFAULT_CT2_BATCH_TYPE
+
+
+# =========================================================
+# MONITOR DE ACTIVIDAD (10 MINUTOS)
+# =========================================================
+MONITOR_WINDOW_MINS = 10
+CHUNK_DURATION = 5.0  # Coincide con MIN_SECONDS en stt_worker
+MAX_WINDOW_SIZE = int((MONITOR_WINDOW_MINS * 60) // CHUNK_DURATION)
+activity_window: deque = deque(maxlen=MAX_WINDOW_SIZE)
+INACTIVITY_RATIO = 0.1  # umbral de actividad (10%): systray, /activity y auto-shutdown
+
 PROMPT_CA = (
-    "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, "
-    "llepolies, orxata, espenta, menut, celler."
+   "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, llepolies, orxata, espenta, menut, celler, gerundi, conjugació, subjuntiu, pretèrit, sintaxi, verb, oració, paràgraf, literatura, Cervantes, Numància, Lorca, Quixot."
 )
 PROMPT_ES = (
-    "Español de España, con palabras como coche, ordenador, móvil, "
-    "vámonos, trabajo, gafas, libreta."
+   "Español de España, con palabras como coche, ordenador, móvil, vámonos, trabajo, gafas, libreta, gerundio, conjugación, subjuntivo, pretérito, sintaxis, verbo, oración, párrafo, literatura, Cervantes, Numancia, Lorca, Quijote."
 )
-
-WHISPER_MODEL_NAME = "small"
-WHISPER_DEVICE = "cpu"
-WHISPER_COMPUTE_TYPE = "int8"
 
 # BASE_DIR = Path(__file__).resolve().parent
 BASE_DIR = Path('/usr/lib/traduia')
+
+if USE_CT2:
+    MARIAN_CT2_BASE = Path('/opt/ai/traduia/models/ct2')
+    def _marian_ct2_path(model_name: str) -> str:
+        repo = model_name.split("/")[-1]
+        return str(MARIAN_CT2_BASE / repo)
+else:
+    MARIAN_LOCAL_BASE = Path('/opt/ai/traduia/models/marian')
+    def _marian_local_path(model_name: str) -> str:
+        repo = model_name.split("/")[-1]
+        return str(MARIAN_LOCAL_BASE / repo)
+
 # =========================================================
 # MARIAN: ES/CA -> EN/FR/DE/RU/AR/UK
 # =========================================================
@@ -132,22 +357,156 @@ MARIAN_ES_IT = "Helsinki-NLP/opus-mt-es-it"
 MARIAN_CA_EN = "Helsinki-NLP/opus-mt-ca-en"
 MARIAN_CA_ES = "Helsinki-NLP/opus-mt-ca-es"
 
-# Caches
+# Caches (tok compartido, engine depende de USE_CT2)
 _m_es_tok = {}
-_m_es_model = {}
 _m_ca_tok = {}
-_m_ca_model = {}
+
+if USE_CT2:
+    _m_es_ct2 = {}
+    _m_ca_ct2 = {}
+    _engine_cache_es = _m_es_ct2
+    _engine_cache_ca = _m_ca_ct2
+else:
+    _m_es_model = {}
+    _m_ca_model = {}
+    _engine_cache_es = _m_es_model
+    _engine_cache_ca = _m_ca_model
 
 
-def _load_marian(model_name: str,
-                 cache_tok: dict,
-                 cache_model: dict) -> Tuple[MarianTokenizer, MarianMTModel]:
-    if model_name not in cache_tok or model_name not in cache_model:
-        tok = MarianTokenizer.from_pretrained(model_name)
-        model = MarianMTModel.from_pretrained(model_name)
-        cache_tok[model_name] = tok
-        cache_model[model_name] = model
-    return cache_tok[model_name], cache_model[model_name]
+if USE_CT2:
+    def _load_marian(model_name, cache_tok, cache_model):
+        if model_name not in cache_tok or model_name not in cache_model:
+            ct2_path = _marian_ct2_path(model_name)
+            tok = MarianTokenizer.from_pretrained(ct2_path)
+            translator = ctranslate2.Translator(
+                ct2_path,
+                device=CT2_DEVICE,
+                device_index=CT2_DEVICE_INDEX,
+                compute_type=CT2_COMPUTE_TYPE,
+                inter_threads=CT2_INTER_THREADS,
+                intra_threads=CT2_INTRA_THREADS,
+                max_queued_batches=CT2_MAX_QUEUED_BATCHES,
+                flash_attention=CT2_FLASH_ATTENTION,
+                tensor_parallel=CT2_TENSOR_PARALLEL,
+            )
+            cache_tok[model_name] = tok
+            cache_model[model_name] = translator
+        return cache_tok[model_name], cache_model[model_name]
+else:
+    def _load_marian(model_name, cache_tok, cache_model):
+        if model_name not in cache_tok or model_name not in cache_model:
+            local_path = _marian_local_path(model_name)
+            tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
+            model = MarianMTModel.from_pretrained(local_path, local_files_only=True)
+            cache_tok[model_name] = tok
+            cache_model[model_name] = model
+        return cache_tok[model_name], cache_model[model_name]
+
+def _detect_low_diversity(words, window=12, threshold=0.45):
+    if len(words) < window:
+        return -1
+    for i in range(len(words) - window + 1):
+        chunk = words[i:i+window]
+        if len(set(chunk)) / len(chunk) < threshold:
+            return i
+    return -1
+
+def sanitize_translation(source: str, translated: str) -> str:
+    if not translated or not source:
+        return translated or ""
+
+    translated = re.sub(r'[\s.]{3,}$', '', translated).strip()
+
+    src_words = len(source.split())
+    trans_words = len(translated.split())
+
+    if trans_words > 2.0 * src_words:
+        limit = int(2.0 * src_words)
+        words = translated.split()
+        truncated = ' '.join(words[:limit])
+        for sep in ['. ', ', ', '; ', ': ']:
+            idx = truncated.rfind(sep)
+            if idx > len(truncated) // 3:
+                truncated = truncated[:idx + 1]
+                break
+        translated = truncated.strip()
+
+    words = translated.lower().split()
+    if len(words) >= 6:
+        for n in (3, 4, 5):
+            ngram_counts = {}
+            first_repeat_pos = len(words)
+            for i in range(len(words) - n + 1):
+                ngram = tuple(words[i:i+n])
+                if ngram in ngram_counts:
+                    ngram_counts[ngram] += 1
+                    if ngram_counts[ngram] >= 3:
+                        first_repeat_pos = min(first_repeat_pos, i)
+                else:
+                    ngram_counts[ngram] = 1
+            if first_repeat_pos < len(words):
+                translated = ' '.join(translated.split()[:first_repeat_pos]).strip()
+                break
+
+    words = translated.lower().split()
+    div_pos = _detect_low_diversity(words)
+    if div_pos > 0:
+        translated = ' '.join(translated.split()[:div_pos]).strip()
+
+    translated = re.sub(r'(\.{2,}\s*){2,}', '', translated)
+    translated = re.sub(r'\s*\.{3,}\s*$', '', translated)
+    translated = re.sub(r'\s{2,}', ' ', translated).strip()
+
+    if len(translated.split()) < 2:
+        return ""
+
+    return translated
+
+if USE_CT2:
+    def _translate_text(text, tok, engine):
+        source_tokens = tok.tokenize(text)
+        if not source_tokens:
+            return ""
+        results = engine.translate_batch(
+            [source_tokens],
+            beam_size=CT2_BEAM_SIZE,
+            patience=CT2_PATIENCE,
+            num_hypotheses=CT2_NUM_HYPOTHESES,
+            length_penalty=CT2_LENGTH_PENALTY,
+            coverage_penalty=CT2_COVERAGE_PENALTY,
+            repetition_penalty=CT2_REPETITION_PENALTY,
+            no_repeat_ngram_size=CT2_NO_REPEAT_NGRAM_SIZE,
+            max_batch_size=CT2_MAX_BATCH_SIZE,
+            batch_type=CT2_BATCH_TYPE,
+            max_input_length=CT2_MAX_INPUT_LENGTH,
+            max_decoding_length=CT2_MAX_DECODING_LENGTH,
+            min_decoding_length=CT2_MIN_DECODING_LENGTH,
+            sampling_topk=CT2_SAMPLING_TOPK,
+            sampling_topp=CT2_SAMPLING_TOPP,
+            sampling_temperature=CT2_SAMPLING_TEMPERATURE,
+            return_scores=CT2_RETURN_SCORES,
+            return_logits_vocab=CT2_RETURN_LOGITS_VOCAB,
+            return_attention=CT2_RETURN_ATTENTION,
+            return_alternatives=CT2_RETURN_ALTERNATIVES,
+            min_alternative_expansion_prob=CT2_MIN_ALTERNATIVE_EXPANSION_PROB,
+            suppress_sequences=CT2_SUPPRESS_SEQUENCES,
+            end_token=CT2_END_TOKEN,
+            return_end_token=CT2_RETURN_END_TOKEN,
+            prefix_bias_beta=CT2_PREFIX_BIAS_BETA,
+            use_vmap=CT2_USE_VMAP,
+            replace_unknowns=CT2_REPLACE_UNKNOWNS,
+        )
+        translated = tok.decode(
+            tok.convert_tokens_to_ids(results[0].hypotheses[0]),
+            skip_special_tokens=True,
+        )
+        return sanitize_translation(text, translated)
+else:
+    def _translate_text(text, tok, engine):
+        batch = tok([text], return_tensors="pt", padding=True, truncation=True)
+        gen = engine.generate(**batch, max_length=512)
+        out = tok.batch_decode(gen, skip_special_tokens=True)
+        return out[0] if out else ""
 
 
 def translate_from_es(text: str, target: str) -> str:
@@ -163,12 +522,8 @@ def translate_from_es(text: str, target: str) -> str:
     }
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
-    model_name = mapping[target]
-    tok, model = _load_marian(model_name, _m_es_tok, _m_es_model)
-    batch = tok([text], return_tensors="pt", padding=True, truncation=True)
-    gen = model.generate(**batch, max_length=512)
-    out = tok.batch_decode(gen, skip_special_tokens=True)
-    return out[0] if out else ""
+    tok, engine = _load_marian(mapping[target], _m_es_tok, _engine_cache_es)
+    return _translate_text(text, tok, engine)
 
 
 def translate_from_ca(text: str, target: str) -> str:
@@ -180,25 +535,13 @@ def translate_from_ca(text: str, target: str) -> str:
     if not txt:
         return ""
 
-    # CA -> EN
     if target == "en":
-        tok, model = _load_marian(MARIAN_CA_EN, _m_ca_tok, _m_ca_model)
-        batch = tok([txt], return_tensors="pt", padding=True, truncation=True)
-        gen = model.generate(**batch, max_length=512)
-        out = tok.batch_decode(gen, skip_special_tokens=True)
-        return out[0] if out else ""
+        tok, engine = _load_marian(MARIAN_CA_EN, _m_ca_tok, _engine_cache_ca)
+        return _translate_text(txt, tok, engine)
 
-    # CA -> ES
-    tok_ca_es, model_ca_es = _load_marian(MARIAN_CA_ES, _m_ca_tok, _m_ca_model)
-    batch_es = tok_ca_es([txt], return_tensors="pt", padding=True, truncation=True)
-    gen_es = model_ca_es.generate(**batch_es, max_length=512)
-    out_es = tok_ca_es.batch_decode(gen_es, skip_special_tokens=True)
-    if not out_es:
-        return ""
-    text_es = out_es[0]
-
-    # ES -> target
-    return translate_from_es(text_es, target)
+    tok_ca_es, engine_ca_es = _load_marian(MARIAN_CA_ES, _m_ca_tok, _engine_cache_ca)
+    text_es = _translate_text(txt, tok_ca_es, engine_ca_es)
+    return translate_from_es(text_es, target) if text_es else ""
 
 
 def translate_text(text: str, target: str) -> str:
@@ -774,7 +1117,14 @@ def stt_worker():
     model = WhisperModel(
         WHISPER_MODEL_NAME,
         device=WHISPER_DEVICE,
+        device_index=WHISPER_DEVICE_INDEX,
         compute_type=WHISPER_COMPUTE_TYPE,
+        cpu_threads=WHISPER_CPU_THREADS,
+        num_workers=WHISPER_NUM_WORKERS,
+        download_root=WHISPER_DOWNLOAD_ROOT,
+        local_files_only=WHISPER_LOCAL_FILES_ONLY,
+        revision=WHISPER_REVISION,
+        use_auth_token=WHISPER_USE_AUTH_TOKEN,
     )
 
     audio_q: "queue.Queue[np.ndarray]" = queue.Queue()
@@ -788,9 +1138,8 @@ def stt_worker():
         audio_q.put(indata.copy())
 
     buf: List[np.ndarray] = []
-    total = 0
 
-    MIN_SECONDS = 3.0
+    MIN_SECONDS = 5.0
     MIN_SAMPLES = int(MIN_SECONDS * RATE)
 
     # =========================================================
@@ -851,11 +1200,6 @@ def stt_worker():
     ]
 
 
-    # Si llevamos muchos chunks sin voz, reseteamos el buffer de "contexto"
-    # (en nuestro caso, al no arrastrar contexto, simplemente sirve para estadísticas/log).
-    silence_streak = 0
-    last_log = 0.0
-
     def looks_like_voice(x: np.ndarray) -> bool:
         """Heurística rápida para decidir si merece la pena transcribir."""
         if x.size == 0:
@@ -891,13 +1235,121 @@ def stt_worker():
 
     prompt = PROMPT_ES if INPUT_LANG == "es" else PROMPT_CA
 
-    # =========================================================
-    # FUENTE DE AUDIO
-    # - Por defecto: sounddevice (PortAudio) -> micrófonos
-    # - Si ALICIA_PULSE_MONITOR está definido: capturamos audio del sistema
-    #   (lo que suena por los altavoces) vía `parec` (PipeWire/PulseAudio).
-    #   Esto evita el problema de que PortAudio no exponga los *.monitor.
-    # =========================================================
+    def _transcription_loop(proc: Optional[subprocess.Popen] = None):
+        """Bucle común de transcripción: lee de audio_q, procesa y transcribe."""
+        last_log = 0.0
+
+        while not _stop_event.is_set():
+            if proc is not None and proc.poll() is not None:
+                if _stop_event.is_set() or proc.returncode == 0:
+                    break
+                err = b""
+                if proc.stderr is not None:
+                    try:
+                        err = proc.stderr.read() or b""
+                    except Exception:
+                        err = b""
+                raise RuntimeError(
+                    f"parec terminó (code={proc.returncode}).\n{err.decode(errors='ignore')}"
+                )
+
+            try:
+                data = audio_q.get(timeout=0.5)
+            except queue.Empty:
+                if _stop_event.is_set():
+                    break
+                continue
+
+            if data.ndim == 2:
+                data = data[:, 0]
+            data = data.astype(np.float32, copy=False)
+
+            buf.append(data)
+            total = sum(b.shape[0] for b in buf)
+
+            if total < MIN_SAMPLES:
+                continue
+
+            chunk = np.concatenate(buf, axis=0)
+            buf.clear()
+
+            if chunk.size == 0:
+                continue
+
+            is_voice = looks_like_voice(chunk)
+            activity_window.append(1 if is_voice else 0)
+
+            if not is_voice:
+                continue
+
+            try:
+                segments, info = model.transcribe(
+                    chunk,
+                    language=INPUT_LANG,
+                    task=WHISPER_TASK,
+                    log_progress=WHISPER_LOG_PROGRESS,
+                    beam_size=WHISPER_BEAM_SIZE,
+                    best_of=WHISPER_BEST_OF,
+                    patience=WHISPER_PATIENCE,
+                    length_penalty=WHISPER_LENGTH_PENALTY,
+                    repetition_penalty=WHISPER_REPETITION_PENALTY,
+                    no_repeat_ngram_size=WHISPER_NO_REPEAT_NGRAM_SIZE,
+                    temperature=WHISPER_TEMPERATURE,
+                    compression_ratio_threshold=WHISPER_COMPRESSION_RATIO_THRESHOLD,
+                    log_prob_threshold=WHISPER_LOG_PROB_THRESHOLD,
+                    no_speech_threshold=WHISPER_NO_SPEECH_THRESHOLD,
+                    condition_on_previous_text=WHISPER_CONDITION_ON_PREVIOUS_TEXT,
+                    prompt_reset_on_temperature=WHISPER_PROMPT_RESET_ON_TEMPERATURE,
+                    initial_prompt=prompt,
+                    prefix=WHISPER_PREFIX,
+                    suppress_blank=WHISPER_SUPPRESS_BLANK,
+                    suppress_tokens=WHISPER_SUPPRESS_TOKENS,
+                    without_timestamps=WHISPER_WITHOUT_TIMESTAMPS,
+                    max_initial_timestamp=WHISPER_MAX_INITIAL_TIMESTAMP,
+                    word_timestamps=WHISPER_WORD_TIMESTAMPS,
+                    prepend_punctuations=WHISPER_PREPEND_PUNCTUATIONS,
+                    append_punctuations=WHISPER_APPEND_PUNCTUATIONS,
+                    multilingual=WHISPER_MULTILINGUAL,
+                    vad_filter=WHISPER_VAD_FILTER,
+                    vad_parameters=WHISPER_VAD_PARAMETERS,
+                    max_new_tokens=WHISPER_MAX_NEW_TOKENS,
+                    chunk_length=WHISPER_CHUNK_LENGTH,
+                    clip_timestamps=WHISPER_CLIP_TIMESTAMPS,
+                    hallucination_silence_threshold=WHISPER_HALLUCINATION_SILENCE_THRESHOLD,
+                    hotwords=WHISPER_HOTWORDS,
+                    language_detection_threshold=WHISPER_LANGUAGE_DETECTION_THRESHOLD,
+                    language_detection_segments=WHISPER_LANGUAGE_DETECTION_SEGMENTS,
+                )
+
+                segs = list(segments)
+                if not segs:
+                    continue
+                text = "".join(s.text for s in segs).strip()
+
+                if INPUT_LANG == "es":
+                    text = clean_spanish_line(text)
+
+                if not text or is_hallucination_line(text):
+                    continue
+
+                # print(f"[STT][{INPUT_LANG}]", text)
+                broadcast_line(text)
+
+            except ValueError as e:
+                msg = str(e).lower()
+                if "too short" in msg or "max() iterable argument is empty" in msg:
+                    continue
+                now = time.time()
+                if now - last_log > 5:
+                    print("[STT][ERROR]", e)
+                    last_log = now
+                continue
+            except Exception as e:
+                now = time.time()
+                if now - last_log > 5:
+                    print("[STT][ERROR]", e)
+                    last_log = now
+                continue
 
     pulse_source = (os.getenv("ALICIA_PULSE_SOURCE") or "").strip()
     pulse_monitor = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
@@ -929,68 +1381,13 @@ def stt_worker():
         t.start()
         return proc
 
-    def _run_pulse_loop(label: str, pulse_dev: str, beam_size: int):
+    def _run_pulse_loop(label: str, pulse_dev: str):
         print(_("[STT] Audio source: {} -> {}").format(label, pulse_dev))
         proc = start_pulse_producer(pulse_dev)
         print(_("[STT] Capturing audio (Pulse). Ctrl+C to stop."))
 
         try:
-            while not _stop_event.is_set():
-                try:
-                    data = audio_q.get(timeout=0.5)
-                except queue.Empty:
-                    if _stop_event.is_set():
-                        break
-                    if proc.poll() is not None:
-                        # If the process finished with code 0 and we are stopping, it's normal.
-                        if _stop_event.is_set() or proc.returncode == 0:
-                            break
-                        
-                        err = b""
-                        if proc.stderr is not None:
-                            try:
-                                err = proc.stderr.read() or b""
-                            except Exception:
-                                err = b""
-                        raise RuntimeError(
-                            f"parec terminó (code={proc.returncode}).\n{err.decode(errors='ignore')}"
-                        )
-                    continue
-
-                data = data.astype(np.float32, copy=False)
-                buf.append(data)
-                total_samples = sum(b.shape[0] for b in buf)
-                if total_samples < MIN_SAMPLES:
-                    continue
-
-                chunk = np.concatenate(buf, axis=0)
-                buf.clear()
-
-                if chunk.size == 0 or not looks_like_voice(chunk):
-                    continue
-
-                try:
-                    segments, info = model.transcribe(
-                        chunk,
-                        language=INPUT_LANG,
-                        task="transcribe",
-                        vad_filter=True,
-                        vad_parameters=dict(
-                            min_silence_duration_ms=300,
-                            speech_pad_ms=200,
-                        ),
-                        beam_size=beam_size,
-                        condition_on_previous_text=False,
-                        initial_prompt=prompt,
-                    )
-                    text = " ".join([s.text.strip() for s in segments]).strip()
-                    if INPUT_LANG == "es":
-                        text = clean_spanish_line(text)
-                    if is_hallucination_line(text):
-                        continue
-                    broadcast_line(text)
-                except Exception as e:
-                    print("[STT][ERROR]", repr(e))
+            _transcription_loop(proc=proc)
         finally:
             try:
                 proc.terminate()
@@ -1006,14 +1403,13 @@ def stt_worker():
 
     # Prioridad: MIC por Pulse (source) -> Altavoces (monitor) -> PortAudio
     if pulse_source:
-        _run_pulse_loop("MIC (Pulse source)", pulse_source, beam_size=5)
+        _run_pulse_loop("MIC (Pulse source)", pulse_source)
         return
 
     if pulse_monitor:
-        _run_pulse_loop("ALTAVOCES (monitor PipeWire/Pulse)", pulse_monitor, beam_size=1)
+        _run_pulse_loop("ALTAVOCES (monitor PipeWire/Pulse)", pulse_monitor)
         return
 
-# ---- MICRÓFONO (PortAudio) ----
     with sd.InputStream(
         samplerate=RATE,
         channels=CHANNELS,
@@ -1022,87 +1418,7 @@ def stt_worker():
         blocksize=BLOCK,
     ):
         print(_("[STT] Microphone open. Ctrl+C to stop."))
-        while True:
-            try:
-                data = audio_q.get(timeout=0.5)
-            except queue.Empty:
-                if _stop_event.is_set():
-                    break
-                continue
-
-            if data.ndim == 2:
-                data = data[:, 0]
-            data = data.astype(np.float32, copy=False)
-
-            buf.append(data)
-            total += data.shape[0]
-
-            if total < MIN_SAMPLES:
-                continue
-
-            chunk = np.concatenate(buf, axis=0)
-            buf.clear()
-            total = 0
-
-            if chunk.size == 0:
-                continue
-
-            if not looks_like_voice(chunk):
-                silence_streak += 1
-                # No transcribimos ruido/ambigüedad -> reduce alucinaciones.
-                continue
-            else:
-                silence_streak = 0
-
-
-            try:
-                segments, info = model.transcribe(
-                    chunk,
-                    language=INPUT_LANG,
-                    task="transcribe",
-                    vad_filter=True,
-                    vad_parameters=dict(
-                        min_silence_duration_ms=300,
-                        speech_pad_ms=200,
-                    ),
-                    beam_size=5,
-                    condition_on_previous_text=False,  # streaming: evita arrastre de alucinaciones
-                    initial_prompt=prompt,
-                )
-
-                segs = list(segments)
-                if not segs:
-                    continue
-                line = "".join(s.text for s in segs).strip()
-
-                if INPUT_LANG == "es":
-                    line = clean_spanish_line(line)
-
-                if not line:
-                    continue
-
-                # Defensa extra: filtrar patrones típicos de alucinación en ruido/silencio.
-                if is_hallucination_line(line):
-                    continue
-
-                print(f"[STT][{INPUT_LANG}]", line)
-                broadcast_line(line)
-
-            except ValueError as e:
-                msg = str(e).lower()
-                if "too short" in msg or "max() iterable argument is empty" in msg:
-                    continue
-                now = time.time()
-                if now - last_log > 5:
-                    print("[STT][ERROR]", e)
-                    last_log = now
-                continue
-            except Exception as e:
-                now = time.time()
-                if now - last_log > 5:
-                    print("[STT][ERROR]", e)
-                    last_log = now
-                continue
+        _transcription_loop()
 
 
 def start_stt_if_needed():
@@ -1112,6 +1428,22 @@ def start_stt_if_needed():
     _stt_thread = threading.Thread(target=stt_worker, daemon=True)
     _stt_thread.start()
     _stt_started = True
+
+    # Monitor de auto-apagado por inactividad
+    def auto_shutdown_check():
+        while not _stop_event.is_set():
+            time.sleep(10)
+            if len(activity_window) < 20:
+                continue
+            ratio = sum(activity_window) / len(activity_window)
+            if ratio < INACTIVITY_RATIO:
+                print(_("[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})").format(ratio))
+                _stop_event.set()
+                os.kill(os.getpid(), signal.SIGINT)
+                break
+
+    t_shutdown = threading.Thread(target=auto_shutdown_check, daemon=True)
+    t_shutdown.start()
 
 def start_system_tray():
     tray = TrayIcon()
@@ -1134,7 +1466,7 @@ app,_stt_thread,_subscribers = init_app()
 # DEPRECATED
 # @app.on_event("startup")
 # def on_startup():
-    
+
 # @app.on_event("shutdown")
 # def on_shutdown():
 #     # Ctrl+C fix: señalamos parada para que el hilo STT cierre el InputStream
@@ -1143,6 +1475,20 @@ app,_stt_thread,_subscribers = init_app()
 def health():
     return {"ok": True, "input_lang": INPUT_LANG}
 
+@app.get("/activity")
+def get_activity():
+    if not activity_window:
+        return {"ratio": 0.0, "is_active": False, "samples": 0}
+
+    ratio = sum(activity_window) / len(activity_window)
+    is_active = ratio > INACTIVITY_RATIO
+
+    return {
+        "ratio": round(ratio, 4),
+        "is_active": is_active,
+        "samples": len(activity_window),
+        "window_mins": MONITOR_WINDOW_MINS
+    }
 
 @app.get("/", include_in_schema=False)
 def root():
@@ -1249,7 +1595,26 @@ class TrayIcon(QSystemTrayIcon):
         self._setup_menu()
         self.activated.connect(self._on_tray_activated)
         self.api_thread = FastApiThread()
-        
+
+        # Timer para actualizar el ratio de actividad en el widget
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._update_activity_info)
+        self.timer.start(10000)  # 10 segundos
+        self._update_activity_info()
+
+    def _update_activity_info(self):
+        if not activity_window:
+            status_text = _("Activity: Wait...")
+        else:
+            ratio = sum(activity_window) / len(activity_window)
+            is_active = ratio > INACTIVITY_RATIO
+            status = _("Active") if is_active else _("Inactive")
+            status_text = _("Activity: {} ({:.1%})").format(status, ratio)
+
+        self.setToolTip(f"{_('TraduIA Server')}\n{status_text}")
+        if hasattr(self, "status_action"):
+            self.status_action.setText(status_text)
+
     def _setup_icon(self):
         image_path = '/usr/share/icons/hicolor/128x128/apps/traduia.png'
 
@@ -1263,6 +1628,11 @@ class TrayIcon(QSystemTrayIcon):
 
     def _setup_menu(self):
         menu = QMenu()
+
+        self.status_action = menu.addAction(_("Activity: Wait..."))
+        self.status_action.setDisabled(True)
+        menu.addSeparator()
+
         exit_action = menu.addAction(_("Exit"))
         exit_action.triggered.connect(self._on_exit)
         self.setContextMenu(menu)
@@ -1309,13 +1679,13 @@ def _ensure_single_instance():
         try:
             if proc.pid == current_pid:
                 continue
-            
+
             should_kill = False
             # Check cmdline
             cmdline = proc.info.get('cmdline')
             if cmdline and any("traduia_server.py" in arg for arg in cmdline):
                 should_kill = True
-            
+
             # Check port (if possible)
             if not should_kill:
                 try:
@@ -1325,7 +1695,7 @@ def _ensure_single_instance():
                             break
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     pass
-            
+
             if should_kill:
                 print(_("[INFO] Stopping previous instance (PID {})...").format(proc.pid))
                 proc.terminate()
@@ -1369,7 +1739,7 @@ if __name__ == "__main__":
 
     tray = TrayIcon()
     tray.show()
-    
+
     # Small delay to ensure the previous instance has fully released the port
     # before we attempt to bind to it in the background thread.
     QTimer.singleShot(500, tray.api_thread.start)
@@ -1378,7 +1748,7 @@ if __name__ == "__main__":
         res = qt_tray.exec()
     except:
         res = qt_tray.exec_()
-    
+
     # Clean shutdown
     print(_("[INFO] Cleaning up..."))
     tray.hide()

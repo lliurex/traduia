@@ -12,11 +12,11 @@ _() {
 ACTION="$1"
 
 function remove_models(){
-    models='/usr/lib/ai/traduia_models'
+    models='/opt/ai/traduia/models'
     if [ -e "$models" ]; then
         rm -rf "$models"
     fi
-    venv='/usr/lib/traduia/venv'
+    venv='/opt/ai/traduia/venv'
     if [ -e "$venv" ]; then
         rm -rf "$venv"
     fi
@@ -56,6 +56,20 @@ case $ACTION in
         done
         # Guardamos el valor interno, no el traducido
         echo "$mode" > /tmp/.traduia_install_mode
+
+        # Pregunta de optimización (solo si Server)
+        if [ "$mode" == "Server" ]; then
+            OPT_TITLE=$(_ "Model Optimization?")
+            OPT_LABEL=$(_ "Optimization mode:")
+            OPT_NO=$(_ "No")
+            OPT_YES=$(_ "Yes (Experimental)")
+
+            selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "" "$OPT_NO" "$OPT_YES")
+            ret=$?
+            if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
+                echo "optimized" > /tmp/.traduia_optimize_model
+            fi
+        fi
     ;;
 
     postInstall)
@@ -64,14 +78,18 @@ case $ACTION in
             if [ "$mode" == "Server" ]; then
                 # Aquí la comparación con "Server" sigue funcionando
                 echo "$(_ "Downloading models...")"
-                /usr/sbin/install-models-traduia
+                if [ -f /tmp/.traduia_optimize_model ] && grep -q "optimized" /tmp/.traduia_optimize_model; then
+                    /usr/sbin/install-models-traduia optimized
+                else
+                    /usr/sbin/install-models-traduia
+                fi
                 echo "$(_ "Setting server desktop")"
                 sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
             else
                remove_models
             fi
         fi
-        rm -f /tmp/.traduia_install_mode || true
+        rm -f /tmp/.traduia_install_mode /tmp/.traduia_optimize_model || true
     ;;
     remove)
         rm -f /tmp/.traduia_install_mode || true
