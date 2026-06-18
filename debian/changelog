@@ -1,3 +1,9 @@
+traduia (0.8.6) jammy; urgency=medium
+
+  * Remove share-ai-server from depends
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Thu, 18 Jun 2026 14:22:38 +0200
+
 traduia (0.8.5) jammy; urgency=medium
 
   * New question for easy install model selection
