@@ -218,7 +218,11 @@ if USE_CT2:
 # =========================================================
 
 # -- Whisper overrides --
-WHISPER_MODEL_NAME = DEFAULT_WHISPER_MODEL_NAME
+WHISPER_LOCAL_DIR = Path('/opt/ai/traduia/models/whisper-small')
+if WHISPER_LOCAL_DIR.exists() and any(WHISPER_LOCAL_DIR.iterdir()):
+    WHISPER_MODEL_NAME = str(WHISPER_LOCAL_DIR)
+else:
+    raise RuntimeError(f"Whisper model not found at {WHISPER_LOCAL_DIR}. Run install-models-traduia first.")
 WHISPER_DEVICE = "cpu"                           # DEFAULT: "auto" — override for CPU-only
 WHISPER_DEVICE_INDEX = DEFAULT_WHISPER_DEVICE_INDEX
 WHISPER_COMPUTE_TYPE = "int8"                    # DEFAULT: "default" — override for int8 quant

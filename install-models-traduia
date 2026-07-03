@@ -57,27 +57,48 @@ function download_inet_models(){
     export USE_CT2_MODE="$USE_CT2"
     python - <<'PY'
 import os
-from huggingface_hub import snapshot_download
-from huggingface_hub.utils import disable_progress_bars
+from huggingface_hub import snapshot_download, model_info
+from huggingface_hub.utils import disable_progress_bars, RepositoryNotFoundError
 disable_progress_bars()
 
 print("[preload] HF_HOME:", os.environ.get("HF_HOME"))
 print("[preload] HF_HUB_CACHE:", os.environ.get("HF_HUB_CACHE"))
 
-# faster-whisper small => repo
-repos = [
-    "Systran/faster-whisper-small",
-]
+# === WHISPER MODEL ===
+# Primary: mijuanlo/whisper-small-ct2-int8
+# Fallback: Systran/faster-whisper-small
+# To force original method: comment mijuanlo block, uncomment Systran block below
 
-for repo in repos:
-    print(f"[preload] Downloading/caching: {repo}")
-    snapshot_download(
-        repo_id=repo,
-        cache_dir=os.environ.get("HF_HUB_CACHE"),
-        local_dir=None,
-    )
+WHISPER_LOCAL = "/opt/ai/traduia/models/whisper-small"
+_whisper_repo = None
+try:
+    model_info("mijuanlo/whisper-small-ct2-int8")
+    _whisper_repo = "mijuanlo/whisper-small-ct2-int8"
+    print(f"[preload] Using whisper from: {_whisper_repo}")
+except (RepositoryNotFoundError, Exception):
+    _whisper_repo = "Systran/faster-whisper-small"
+    print(f"[preload] mijuanlo whisper not available, fallback to: {_whisper_repo}")
 
-# MarianMT models (only when not using CTranslate2)
+print(f"[preload] Downloading: {_whisper_repo} -> {WHISPER_LOCAL}")
+snapshot_download(repo_id=_whisper_repo, local_dir=WHISPER_LOCAL)
+
+# --- ORIGINAL CODE (commented for reference - uncomment to restore) ---
+# repos = [
+#     "Systran/faster-whisper-small",
+# ]
+# for repo in repos:
+#     print(f"[preload] Downloading/caching: {repo}")
+#     snapshot_download(
+#         repo_id=repo,
+#         cache_dir=os.environ.get("HF_HUB_CACHE"),
+#         local_dir=None,
+#     )
+
+# === MARIANMT MODELS (only when not using CTranslate2) ===
+# Primary: mijuanlo/opus-mt-{pair}
+# Fallback: Helsinki-NLP/opus-mt-{pair}
+# To force original method: comment mijuanlo block, uncomment Helsinki-NLP block below
+
 use_ct2 = os.environ.get("USE_CT2_MODE", "false").strip().lower() == "true"
 if not use_ct2:
     marian_pairs = [
@@ -86,10 +107,23 @@ if not use_ct2:
     ]
     marian_base = "/opt/ai/traduia/models/marian"
     for pair in marian_pairs:
-        repo = f"Helsinki-NLP/opus-mt-{pair}"
         local = f"{marian_base}/opus-mt-{pair}"
-        print(f"[preload] Downloading: {repo} -> {local}")
-        snapshot_download(repo_id=repo, local_dir=local)
+        try:
+            repo = f"mijuanlo/opus-mt-{pair}"
+            model_info(repo)
+            print(f"[preload] Downloading: {repo} -> {local}")
+            snapshot_download(repo_id=repo, local_dir=local)
+        except (RepositoryNotFoundError, Exception):
+            repo = f"Helsinki-NLP/opus-mt-{pair}"
+            print(f"[preload] Fallback: {repo} -> {local}")
+            snapshot_download(repo_id=repo, local_dir=local)
+
+    # --- ORIGINAL CODE (commented for reference - uncomment to restore) ---
+    # for pair in marian_pairs:
+    #     repo = f"Helsinki-NLP/opus-mt-{pair}"
+    #     local = f"{marian_base}/opus-mt-{pair}"
+    #     print(f"[preload] Downloading: {repo} -> {local}")
+    #     snapshot_download(repo_id=repo, local_dir=local)
 
 print("[preload] OK. Models cached.")
 PY
@@ -169,18 +203,17 @@ fi
 pip install --no-cache-dir sacremoses  > /dev/null 2>&1
 
 if [ "$USE_CT2" = "true" ]; then
-    echo "[setup] $(_ "Converting Marian models to CTranslate2...")"
+    echo "[setup] $(_ "Downloading/Converting Marian models to CTranslate2...")"
     mkdir -p "$SHARED_HF/ct2"
 
     python - <<'PY'
-import os, json, subprocess, shutil
-from huggingface_hub import snapshot_download
-from huggingface_hub.utils import disable_progress_bars
+import os, json, subprocess, shutil, tempfile
+from huggingface_hub import snapshot_download, model_info
+from huggingface_hub.utils import disable_progress_bars, RepositoryNotFoundError
 disable_progress_bars()
 
 HF_HOME = os.environ.get("HF_HOME", "/opt/ai/traduia/models")
 CT2_BASE = os.path.join(HF_HOME, "ct2")
-HUB_CACHE = os.environ.get("HF_HUB_CACHE", os.path.join(HF_HOME, "hub"))
 
 MARIAN_PAIRS = [
     "es-en", "es-fr", "es-de", "es-ru", "es-ar",
@@ -207,13 +240,28 @@ def _has_ct2_model(out_dir):
 
 
 for pair in MARIAN_PAIRS:
-    model_id = f"Helsinki-NLP/opus-mt-{pair}"
     out_dir = os.path.join(CT2_BASE, f"opus-mt-{pair}")
-    os.makedirs(out_dir, exist_ok=True)
 
     if _has_ct2_model(out_dir):
-        print(f"[CT2] opus-mt-{pair} already converted, skipping.")
+        print(f"[CT2] opus-mt-{pair} already available, skipping.")
         continue
+
+    # === Primary: download pre-converted from mijuanlo ===
+    # Repo: mijuanlo/opus-mt-{pair}-ct2-int8
+    # To force original method: comment this block, uncomment fallback block below
+    try:
+        repo = f"mijuanlo/opus-mt-{pair}-ct2-int8"
+        model_info(repo)
+        print(f"[CT2] Downloading pre-converted: {repo} -> {out_dir}")
+        snapshot_download(repo_id=repo, local_dir=out_dir)
+        print(f"[CT2] Done: opus-mt-{pair}")
+        continue
+    except (RepositoryNotFoundError, Exception):
+        print(f"[CT2] mijuanlo pre-converted not available for {pair}, falling back to conversion.")
+
+    # === Fallback: download from Helsinki-NLP and convert ===
+    model_id = f"Helsinki-NLP/opus-mt-{pair}"
+    os.makedirs(out_dir, exist_ok=True)
 
     print(f"[CT2] Converting {model_id} ...")
     subprocess.run([
@@ -224,59 +272,62 @@ for pair in MARIAN_PAIRS:
         "--force",
     ], check=True)
 
-    local_path = snapshot_download(
-        repo_id=model_id,
-        cache_dir=HUB_CACHE,
-        local_dir=None,
-    )
+    temp_dir = tempfile.mkdtemp(prefix=f"marian-{pair}-")
+    try:
+        snapshot_download(repo_id=model_id, local_dir=temp_dir)
 
-    for fname in TOKENIZER_FILES:
-        src = os.path.join(local_path, fname)
-        if not os.path.exists(src):
-            continue
-        dst = os.path.join(out_dir, fname)
-        if os.path.exists(dst):
-            if fname.endswith(".json"):
-                with open(src, encoding="utf-8") as f_src, \
-                     open(dst, encoding="utf-8") as f_dst:
-                    src_data = json.load(f_src)
-                    dst_data = json.load(f_dst)
-                merged = {**src_data, **dst_data}
-                with open(dst, "w", encoding="utf-8") as f_out:
-                    json.dump(merged, f_out, indent=2, ensure_ascii=False)
-                print(f"[CT2]   Merged {fname}")
+        for fname in TOKENIZER_FILES:
+            src = os.path.join(temp_dir, fname)
+            if not os.path.exists(src):
+                continue
+            dst = os.path.join(out_dir, fname)
+            if os.path.exists(dst):
+                if fname.endswith(".json"):
+                    with open(src, encoding="utf-8") as f_src, \
+                         open(dst, encoding="utf-8") as f_dst:
+                        src_data = json.load(f_src)
+                        dst_data = json.load(f_dst)
+                    merged = {**src_data, **dst_data}
+                    with open(dst, "w", encoding="utf-8") as f_out:
+                        json.dump(merged, f_out, indent=2, ensure_ascii=False)
+                    print(f"[CT2]   Merged {fname}")
+                else:
+                    print(f"[CT2]   Skipped {fname} (CT2 already has it)")
             else:
-                print(f"[CT2]   Skipped {fname} (CT2 already has it)")
-        else:
-            shutil.copy2(src, dst)
-            print(f"[CT2]   Copied {fname}")
+                shutil.copy2(src, dst)
+                print(f"[CT2]   Copied {fname}")
 
-    hf_config = os.path.join(local_path, "config.json")
-    ct2_config = os.path.join(out_dir, "config.json")
-    if os.path.exists(hf_config) and os.path.exists(ct2_config):
-        with open(hf_config, encoding="utf-8") as f_src, \
-             open(ct2_config, encoding="utf-8") as f_dst:
-            hf_data = json.load(f_src)
-            ct2_data = json.load(f_dst)
-        merged = {**hf_data, **ct2_data}
-        with open(ct2_config, "w", encoding="utf-8") as f_out:
-            json.dump(merged, f_out, indent=2, ensure_ascii=False)
-        print(f"[CT2]   Merged config.json")
+        hf_config = os.path.join(temp_dir, "config.json")
+        ct2_config = os.path.join(out_dir, "config.json")
+        if os.path.exists(hf_config) and os.path.exists(ct2_config):
+            with open(hf_config, encoding="utf-8") as f_src, \
+                 open(ct2_config, encoding="utf-8") as f_dst:
+                hf_data = json.load(f_src)
+                ct2_data = json.load(f_dst)
+            merged = {**hf_data, **ct2_data}
+            with open(ct2_config, "w", encoding="utf-8") as f_out:
+                json.dump(merged, f_out, indent=2, ensure_ascii=False)
+            print(f"[CT2]   Merged config.json")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
-    # Liberar espacio: borrar el modelo original del caché HF
-    hub_repo_dir = os.path.join(HUB_CACHE, f"models--{model_id.replace('/', '--')}")
-    if os.path.exists(hub_repo_dir):
-        shutil.rmtree(hub_repo_dir, ignore_errors=True)
-        print(f"[CT2]   Deleted HF Hub cache: {hub_repo_dir}")
+    # --- ORIGINAL CODE (commented for reference - uncomment to restore) ---
+    # local_path = snapshot_download(
+    #     repo_id=model_id,
+    #     cache_dir=HUB_CACHE,
+    #     local_dir=None,
+    # )
+    # ... (tokenizer merge from local_path) ...
+    # hub_repo_dir = os.path.join(HUB_CACHE, f"models--{model_id.replace('/', '--')}")
+    # if os.path.exists(hub_repo_dir):
+    #     shutil.rmtree(hub_repo_dir, ignore_errors=True)
+    # tf_cache = os.environ.get("TRANSFORMERS_CACHE")
+    # if tf_cache:
+    #     tf_repo_dir = os.path.join(tf_cache, f"models--{model_id.replace('/', '--')}")
+    #     if os.path.exists(tf_repo_dir):
+    #         shutil.rmtree(tf_repo_dir, ignore_errors=True)
 
-    tf_cache = os.environ.get("TRANSFORMERS_CACHE")
-    if tf_cache:
-        tf_repo_dir = os.path.join(tf_cache, f"models--{model_id.replace('/', '--')}")
-        if os.path.exists(tf_repo_dir):
-            shutil.rmtree(tf_repo_dir, ignore_errors=True)
-            print(f"[CT2]   Deleted transformers cache: {tf_repo_dir}")
-
-print("[CT2] All Marian models converted.")
+print("[CT2] All Marian models ready.")
 PY
     touch /opt/ai/traduia/models/.use_ct2
 fi
