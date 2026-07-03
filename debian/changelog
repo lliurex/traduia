@@ -1,3 +1,11 @@
+traduia (0.8.7) noble; urgency=medium
+
+  * Change repository path
+  * Don't use cache format for models
+  * download converted models
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 03 Jul 2026 15:47:06 +0200
+
 traduia (0.8.6) noble; urgency=medium
 
   * Remove share ai server dependency
