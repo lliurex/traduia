@@ -90,6 +90,47 @@ except:
 import uvicorn
 
 # =========================================================
+# ENVIRONMENT SETTINGS (runtime-adjustable knobs)
+# Every tunable environment variable is read once, here.
+# =========================================================
+
+# ALICIA_INPUT_LANG: language of the teacher's speech: "es" (Spanish) or
+# "ca" (Valencian). Any other value falls back to "es". Default: "es".
+ENV_INPUT_LANG = (os.getenv("ALICIA_INPUT_LANG", "es") or "es").strip().split("|")[0].strip()
+
+# ALICIA_VAD_THRESHOLD: VAD speech probability threshold [0.0-1.0].
+# Higher values reject more ambient noise but may cut soft speech. Default: 0.65.
+ENV_VAD_THRESHOLD = float(os.getenv("ALICIA_VAD_THRESHOLD", "0.65"))
+
+# ALICIA_SILENCE_PEAK: minimum peak amplitude [0.0-1.0] for a chunk to be
+# considered non-silence and sent to Whisper. Default: 0.0015.
+ENV_SILENCE_PEAK = float(os.getenv("ALICIA_SILENCE_PEAK", "0.0015"))
+
+# ALICIA_SILENCE_RMS: minimum RMS energy for a chunk to be considered voice
+# (typical mic range: 0.002-0.008 depending on input gain). Default: 0.0040.
+ENV_SILENCE_RMS = float(os.getenv("ALICIA_SILENCE_RMS", "0.0040"))
+
+# ALICIA_MAX_NOSPEECH: discard transcribed segments whose no-speech probability
+# is >= this value (typical of noise-only audio). Default: 0.55.
+ENV_MAX_NOSPEECH = float(os.getenv("ALICIA_MAX_NOSPEECH", "0.55"))
+
+# ALICIA_MIN_LOGPROB: discard transcribed segments whose average log-probability
+# is below this value. More negative = more permissive. Out-of-vocabulary words
+# (e.g. "LliureX") lower segment confidence, so do not set this too strict. Default: -0.9.
+ENV_MIN_LOGPROB = float(os.getenv("ALICIA_MIN_LOGPROB", "-0.9"))
+
+# ALICIA_DEBUG: set to "1" to log every discarded segment with its metrics. Default: "0".
+ENV_DEBUG = os.getenv("ALICIA_DEBUG", "0") == "1"
+
+# ALICIA_PULSE_SOURCE: PulseAudio microphone source to capture from (via parec).
+# If empty, ALICIA_PULSE_MONITOR or the default PortAudio input is used instead.
+ENV_PULSE_SOURCE = (os.getenv("ALICIA_PULSE_SOURCE") or "").strip()
+
+# ALICIA_PULSE_MONITOR: PulseAudio monitor (speakers) device to capture from.
+# Only used when ALICIA_PULSE_SOURCE is not set.
+ENV_PULSE_MONITOR = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
+
+# =========================================================
 # CONFIG GENERAL
 # =========================================================
 
@@ -97,7 +138,7 @@ RATE = 16000
 CHANNELS = 1
 BLOCK = RATE // 10  # ~100 ms
 
-INPUT_LANG = (os.getenv("ALICIA_INPUT_LANG", "es") or "es").strip().split("|")[0].strip()
+INPUT_LANG = ENV_INPUT_LANG
 if INPUT_LANG not in ("es", "ca"):
     INPUT_LANG = "es"
 
@@ -151,12 +192,12 @@ DEFAULT_WHISPER_APPEND_PUNCTUATIONS = "\"\'.。，!！?？:：”)]}、"  # Merg
 DEFAULT_WHISPER_MULTILINGUAL = False             # Run language detection on every segment.
 DEFAULT_WHISPER_VAD_FILTER = False               # Enable Silero VAD to filter non-speech.
 DEFAULT_WHISPER_VAD_PARAMETERS = {               # VAD options (dict).
-    "threshold": 0.5,                            #   Speech probability threshold.
+    "threshold": 0.65,                            #   Speech probability threshold.
     "neg_threshold": None,                       #   Silence threshold (None = auto max(threshold-0.15, 0.01)).
-    "min_speech_duration_ms": 0,                 #   Drop speech chunks shorter than this (ms).
+    "min_speech_duration_ms": 250,               #   Drop speech chunks shorter than this (ms).
     "max_speech_duration_s": float("inf"),       #   Split speech chunks longer than this (s).
-    "min_silence_duration_ms": 2000,             #   Silence duration to separate speech chunks (ms).
-    "speech_pad_ms": 400,                        #   Pad each speech chunk on both sides (ms).
+    "min_silence_duration_ms": 500,             #   Silence duration to separate speech chunks (ms).
+    "speech_pad_ms": 150,                        #   Pad each speech chunk on both sides (ms).
 }
 DEFAULT_WHISPER_MAX_NEW_TOKENS = None            # Max new tokens per chunk (None = model default).
 DEFAULT_WHISPER_CHUNK_LENGTH = None              # Override feature-extractor chunk length (seconds).
@@ -258,8 +299,8 @@ WHISPER_PREPEND_PUNCTUATIONS = DEFAULT_WHISPER_PREPEND_PUNCTUATIONS
 WHISPER_APPEND_PUNCTUATIONS = DEFAULT_WHISPER_APPEND_PUNCTUATIONS
 WHISPER_MULTILINGUAL = DEFAULT_WHISPER_MULTILINGUAL
 WHISPER_VAD_FILTER = True                        # DEFAULT: False — filter non-speech with Silero VAD
-WHISPER_VAD_PARAMETERS = {                       # DEFAULT: min_silence=2000, pad=400 — tighter for speech detection
-    "threshold": DEFAULT_WHISPER_VAD_PARAMETERS["threshold"],
+WHISPER_VAD_PARAMETERS = {                       # DEFAULT: min_silence=500, pad=150 — tighter for speech detection
+    "threshold": ENV_VAD_THRESHOLD,
     "neg_threshold": DEFAULT_WHISPER_VAD_PARAMETERS["neg_threshold"],
     "min_speech_duration_ms": DEFAULT_WHISPER_VAD_PARAMETERS["min_speech_duration_ms"],
     "max_speech_duration_s": DEFAULT_WHISPER_VAD_PARAMETERS["max_speech_duration_s"],
@@ -270,7 +311,7 @@ WHISPER_MAX_NEW_TOKENS = DEFAULT_WHISPER_MAX_NEW_TOKENS
 WHISPER_CHUNK_LENGTH = DEFAULT_WHISPER_CHUNK_LENGTH
 WHISPER_CLIP_TIMESTAMPS = DEFAULT_WHISPER_CLIP_TIMESTAMPS
 WHISPER_HALLUCINATION_SILENCE_THRESHOLD = DEFAULT_WHISPER_HALLUCINATION_SILENCE_THRESHOLD
-WHISPER_HOTWORDS = DEFAULT_WHISPER_HOTWORDS
+WHISPER_HOTWORDS = "LliureX, TraduIA, AlicIA"   # DEFAULT: None — SOLO nombres propios (aplicable a es y ca)
 WHISPER_LANGUAGE_DETECTION_THRESHOLD = DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD
 WHISPER_LANGUAGE_DETECTION_SEGMENTS = DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS
 
@@ -323,10 +364,10 @@ activity_window: deque = deque(maxlen=MAX_WINDOW_SIZE)
 INACTIVITY_RATIO = 0.1  # umbral de actividad (10%): systray, /activity y auto-shutdown
 
 PROMPT_CA = (
-   "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, llepolies, orxata, espenta, menut, celler, gerundi, conjugació, subjuntiu, pretèrit, sintaxi, verb, oració, paràgraf, literatura, Cervantes, Numància, Lorca, Quixot."
+   "Classe en un aula amb LliureX i TraduIA. Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, llepolies, orxata, espenta, menut, celler, gerundi, conjugació, subjuntiu, pretèrit, sintaxi, verb, oració, paràgraf, literatura, Cervantes, Numància, Lorca, Quixot."
 )
 PROMPT_ES = (
-   "Español de España, con palabras como coche, ordenador, móvil, vámonos, trabajo, gafas, libreta, gerundio, conjugación, subjuntivo, pretérito, sintaxis, verbo, oración, párrafo, literatura, Cervantes, Numancia, Lorca, Quijote."
+   "Clase en un aula con LliureX y TraduIA. Español de España, con palabras como coche, ordenador, móvil, vámonos, trabajo, gafas, libreta, gerundio, conjugación, subjuntivo, pretérito, sintaxis, verbo, oración, párrafo, literatura, Cervantes, Numancia, Lorca, Quijote."
 )
 
 # BASE_DIR = Path(__file__).resolve().parent
@@ -1161,8 +1202,14 @@ def stt_worker():
     # - SILENCE_PEAK: pico máximo por debajo del cual consideramos silencio.
     # - SILENCE_RMS : energía RMS por debajo del cual consideramos silencio/ruido bajo.
     # Valores razonables para micrófonos típicos en aula.
-    SILENCE_PEAK = float(os.getenv("ALICIA_SILENCE_PEAK", "0.0015"))
-    SILENCE_RMS  = float(os.getenv("ALICIA_SILENCE_RMS",  "0.0040"))
+    # Umbrales ajustables por entorno; valores definidos en ENVIRONMENT SETTINGS
+    # (inicio del fichero): ALICIA_SILENCE_PEAK, ALICIA_SILENCE_RMS,
+    # ALICIA_MAX_NOSPEECH, ALICIA_MIN_LOGPROB y ALICIA_DEBUG.
+    SILENCE_PEAK      = ENV_SILENCE_PEAK
+    SILENCE_RMS       = ENV_SILENCE_RMS
+    MAX_NOSPEECH_PROB = ENV_MAX_NOSPEECH
+    MIN_AVG_LOGPROB   = ENV_MIN_LOGPROB
+    DEBUG_STT         = ENV_DEBUG
 
     # Lista de patrones típicos de alucinación en silencio/ruido.
     # Se puede ampliar sin riesgo.
@@ -1328,7 +1375,24 @@ def stt_worker():
                 segs = list(segments)
                 if not segs:
                     continue
-                text = "".join(s.text for s in segs).strip()
+
+                # Filtro de calidad por segmento: descarta los que probablemente
+                # no contienen voz o tienen confianza muy baja (típico de ruido).
+                valid_segs = []
+                for s in segs:
+                    if s.no_speech_prob < MAX_NOSPEECH_PROB and s.avg_logprob >= MIN_AVG_LOGPROB:
+                        valid_segs.append(s)
+                    elif DEBUG_STT:
+                        print(
+                            "[STT][DROP] no_speech={:.2f} logprob={:.2f} :: {}".format(
+                                s.no_speech_prob, s.avg_logprob, s.text.strip()
+                            )
+                        )
+
+                if not valid_segs:
+                    continue
+
+                text = "".join(s.text for s in valid_segs).strip()
 
                 if INPUT_LANG == "es":
                     text = clean_spanish_line(text)
@@ -1355,8 +1419,8 @@ def stt_worker():
                     last_log = now
                 continue
 
-    pulse_source = (os.getenv("ALICIA_PULSE_SOURCE") or "").strip()
-    pulse_monitor = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
+    pulse_source = ENV_PULSE_SOURCE
+    pulse_monitor = ENV_PULSE_MONITOR
 
     def start_pulse_producer(pulse_dev: str) -> subprocess.Popen:
         # `parec` entrega PCM raw; lo convertimos a float32 [-1,1]
