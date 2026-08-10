@@ -38,7 +38,12 @@ def open_web_with_ip(html_path, port=None):
 
     print(_("[INFO] Opening: {}").format(url))
 
-    webbrowser.open(url)
+    # Abrir a través del wrapper que garantiza un navegador por defecto
+    # (en caso contrario xdg-open fallaría silenciosamente).
+    try:
+        subprocess.Popen(["/usr/bin/traduia-open-url", url])
+    except Exception:
+        webbrowser.open(url)
 
 import json
 import queue
@@ -103,8 +108,98 @@ if INPUT_LANG not in ("es", "ca"):
 
 # =========================================================
 # USE_CT2: True = CTranslate2; False = MarianMT nativo (transformers)
+#
+# Resolución del modo de traducción:
+#   - Marcadores explícitos: .use_ct2 (CT2) / .use_marian (Marian)
+#     Un marcador único actúa como override (se valida contra el disco).
+#     Ambos marcadores presentes => prioridad Marian.
+#   - Sin marcadores: detección desde disco. Si ambos sets están
+#     completos => prioridad Marian.
 # =========================================================
-USE_CT2 = Path('/opt/ai/traduia/models/.use_ct2').exists()
+
+MODEL_ROOT = Path('/opt/ai/traduia/models')
+MARKER_CT2 = MODEL_ROOT / '.use_ct2'
+MARKER_MARIAN = MODEL_ROOT / '.use_marian'
+
+MARIAN_PAIRS = (
+    "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+    "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+)
+
+
+def _set_complete(subdir: str, file_name: str) -> bool:
+    """True si los 10 pares <subdir>/opus-mt-{pair}/<file_name> existen y no están vacíos."""
+    for pair in MARIAN_PAIRS:
+        f = MODEL_ROOT / subdir / f"opus-mt-{pair}" / file_name
+        try:
+            if not f.is_file() or f.stat().st_size == 0:
+                return False
+        except OSError:
+            return False
+    return True
+
+
+def _resolve_use_ct2() -> bool:
+    """Resuelve el modo de traducción y devuelve True si se usa CTranslate2."""
+    m_ct2 = MARKER_CT2.exists()
+    m_mar = MARKER_MARIAN.exists()
+    d_ct2 = _set_complete("ct2", "model.bin")
+    d_mar = _set_complete("marian", "pytorch_model.bin")
+
+    if not d_ct2 and not d_mar and not m_ct2 and not m_mar:
+        print(_("[ERROR] No translation models found on disk. Run install-models-traduia."))
+        raise RuntimeError(_("No translation models found on disk. Run install-models-traduia."))
+
+    # --- Override explícito por marcador único ---
+    if m_ct2 and not m_mar:
+        if not d_ct2:
+            print(_("[WARN] CT2 marker present but CT2 models are not complete on disk."))
+            if d_mar:
+                print(_("[WARN] Falling back to Marian models."))
+                print(_("[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"))
+                return False
+            print(_("[ERROR] No complete model set found. Run install-models-traduia."))
+            raise RuntimeError(_("No complete model set found on disk. Run install-models-traduia."))
+        print(_("[INFO] Translation mode: CT2 (override via .use_ct2 marker)"))
+        return True
+
+    if m_mar and not m_ct2:
+        if not d_mar:
+            print(_("[WARN] Marian marker present but Marian models are not complete on disk."))
+            if d_ct2:
+                print(_("[WARN] Falling back to CT2 models."))
+                print(_("[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"))
+                return True
+            print(_("[ERROR] No complete model set found. Run install-models-traduia."))
+            raise RuntimeError(_("No complete model set found on disk. Run install-models-traduia."))
+        print(_("[INFO] Translation mode: Marian (override via .use_marian marker)"))
+        return False
+
+    # --- Ambos marcadores: prioridad Marian ---
+    if m_ct2 and m_mar:
+        if not d_mar:
+            if d_ct2:
+                print(_("[WARN] Both markers present but Marian models are not complete; falling back to CT2."))
+                print(_("[INFO] Translation mode: CT2 (fallback, Marian unavailable)"))
+                return True
+            print(_("[ERROR] No complete model set found. Run install-models-traduia."))
+            raise RuntimeError(_("No complete model set found on disk. Run install-models-traduia."))
+        print(_("[INFO] Translation mode: Marian (both markers present, Marian priority)"))
+        return False
+
+    # --- Sin marcadores: detección desde disco (Marian prioridad si ambos) ---
+    if d_mar:
+        if d_ct2:
+            print(_("[INFO] Translation mode: Marian (detected from disk, Marian priority)"))
+        else:
+            print(_("[INFO] Translation mode: Marian (detected from disk)"))
+        return False
+
+    print(_("[INFO] Translation mode: CT2 (detected from disk)"))
+    return True
+
+
+USE_CT2 = _resolve_use_ct2()
 
 
 # =========================================================
@@ -381,18 +476,22 @@ if USE_CT2:
     def _load_marian(model_name, cache_tok, cache_model):
         if model_name not in cache_tok or model_name not in cache_model:
             ct2_path = _marian_ct2_path(model_name)
-            tok = MarianTokenizer.from_pretrained(ct2_path)
-            translator = ctranslate2.Translator(
-                ct2_path,
-                device=CT2_DEVICE,
-                device_index=CT2_DEVICE_INDEX,
-                compute_type=CT2_COMPUTE_TYPE,
-                inter_threads=CT2_INTER_THREADS,
-                intra_threads=CT2_INTRA_THREADS,
-                max_queued_batches=CT2_MAX_QUEUED_BATCHES,
-                flash_attention=CT2_FLASH_ATTENTION,
-                tensor_parallel=CT2_TENSOR_PARALLEL,
-            )
+            try:
+                tok = MarianTokenizer.from_pretrained(ct2_path)
+                translator = ctranslate2.Translator(
+                    ct2_path,
+                    device=CT2_DEVICE,
+                    device_index=CT2_DEVICE_INDEX,
+                    compute_type=CT2_COMPUTE_TYPE,
+                    inter_threads=CT2_INTER_THREADS,
+                    intra_threads=CT2_INTRA_THREADS,
+                    max_queued_batches=CT2_MAX_QUEUED_BATCHES,
+                    flash_attention=CT2_FLASH_ATTENTION,
+                    tensor_parallel=CT2_TENSOR_PARALLEL,
+                )
+            except Exception as e:
+                print(_("[WARN] Failed to load CT2 model {}: {}").format(ct2_path, e))
+                raise
             cache_tok[model_name] = tok
             cache_model[model_name] = translator
         return cache_tok[model_name], cache_model[model_name]
@@ -400,8 +499,12 @@ else:
     def _load_marian(model_name, cache_tok, cache_model):
         if model_name not in cache_tok or model_name not in cache_model:
             local_path = _marian_local_path(model_name)
-            tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
-            model = MarianMTModel.from_pretrained(local_path, local_files_only=True)
+            try:
+                tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
+                model = MarianMTModel.from_pretrained(local_path, local_files_only=True)
+            except Exception as e:
+                print(_("[WARN] Failed to load Marian model {}: {}").format(local_path, e))
+                raise
             cache_tok[model_name] = tok
             cache_model[model_name] = model
         return cache_tok[model_name], cache_model[model_name]
@@ -1118,18 +1221,22 @@ def broadcast_line(text: str) -> None:
 
 def stt_worker():
     print(_("[STT] Starting Whisper ({}) for input language: {}").format(WHISPER_MODEL_NAME, INPUT_LANG))
-    model = WhisperModel(
-        WHISPER_MODEL_NAME,
-        device=WHISPER_DEVICE,
-        device_index=WHISPER_DEVICE_INDEX,
-        compute_type=WHISPER_COMPUTE_TYPE,
-        cpu_threads=WHISPER_CPU_THREADS,
-        num_workers=WHISPER_NUM_WORKERS,
-        download_root=WHISPER_DOWNLOAD_ROOT,
-        local_files_only=WHISPER_LOCAL_FILES_ONLY,
-        revision=WHISPER_REVISION,
-        use_auth_token=WHISPER_USE_AUTH_TOKEN,
-    )
+    try:
+        model = WhisperModel(
+            WHISPER_MODEL_NAME,
+            device=WHISPER_DEVICE,
+            device_index=WHISPER_DEVICE_INDEX,
+            compute_type=WHISPER_COMPUTE_TYPE,
+            cpu_threads=WHISPER_CPU_THREADS,
+            num_workers=WHISPER_NUM_WORKERS,
+            download_root=WHISPER_DOWNLOAD_ROOT,
+            local_files_only=WHISPER_LOCAL_FILES_ONLY,
+            revision=WHISPER_REVISION,
+            use_auth_token=WHISPER_USE_AUTH_TOKEN,
+        )
+    except Exception as e:
+        print(_("[WARN] Failed to load Whisper model {}: {}").format(WHISPER_MODEL_NAME, e))
+        raise
 
     audio_q: "queue.Queue[np.ndarray]" = queue.Queue()
 

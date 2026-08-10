@@ -16,10 +16,16 @@ function remove_models(){
     if [ -e "$models" ]; then
         rm -rf "$models"
     fi
+}
+
+function remove_venv(){
     venv='/opt/ai/traduia/venv'
     if [ -e "$venv" ]; then
         rm -rf "$venv"
     fi
+}
+
+function remove_execcode(){
     d='/usr/lib/traduia'
     if [ -d "$d" ]; then
         rmdir "$d" || true
@@ -59,15 +65,22 @@ case $ACTION in
 
         # Pregunta de optimización (solo si Server)
         if [ "$mode" == "Server" ]; then
-            OPT_TITLE=$(_ "Model Optimization?")
-            OPT_LABEL=$(_ "Optimization mode:")
-            OPT_NO=$(_ "No")
-            OPT_YES=$(_ "Yes (Experimental)")
+            # Si los modelos ya están completos en disco, no se pregunta:
+            # el instalador deriva el modo (ct2/marian) de lo que haya copiado.
+            DETECT_STATE=$(/usr/sbin/install-models-traduia --detect 2>/dev/null || true)
+            if [[ "$DETECT_STATE" == complete:* ]]; then
+                echo "$(_ "Models already present on disk. Optimization mode will be derived from them.")"
+            else
+                OPT_TITLE=$(_ "Model Optimization?")
+                OPT_LABEL=$(_ "Optimization mode:")
+                OPT_NO=$(_ "No")
+                OPT_YES=$(_ "Yes (Experimental)")
 
-            selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "" "$OPT_NO" "$OPT_YES")
-            ret=$?
-            if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
-                echo "optimized" > /tmp/.traduia_optimize_model
+                selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "" "$OPT_NO" "$OPT_YES")
+                ret=$?
+                if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
+                    echo "optimized" > /tmp/.traduia_optimize_model
+                fi
             fi
         fi
     ;;
@@ -86,19 +99,40 @@ case $ACTION in
                 echo "$(_ "Setting server desktop")"
                 sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
             else
-               remove_models
+                # Modo cliente: no se descargan ni se borran modelos.
+                # Si los modelos existen en disco (instalación previa como
+                # servidor), se conservan.
+                true
             fi
         fi
         rm -f /tmp/.traduia_install_mode /tmp/.traduia_optimize_model || true
     ;;
     remove)
         rm -f /tmp/.traduia_install_mode || true
+
+        # Solo se pregunta sobre los modelos si existen en disco.
+        REMOVE_MODELS=false
+        if [ -d /opt/ai/traduia/models ] && [ -n "$(ls -A /opt/ai/traduia/models)" ]; then
+            KEEP_LABEL=$(_ "Keep")
+            DELETE_LABEL=$(_ "Delete")
+            selected=$(kdialog --title "$(_ "Remove models?")" --combobox "$(_ "Do you want to delete the downloaded models?")" "$KEEP_LABEL" "$DELETE_LABEL")
+            ret=$?
+            if [ $ret -eq 0 ] && [ "$selected" == "$DELETE_LABEL" ]; then
+                REMOVE_MODELS=true
+            fi
+        fi
+
         apt-get remove -y traduia
         TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
         if [ "$TEST" == 'installed' ];then
             exit 1
         else
-            remove_models
+            if [ "$REMOVE_MODELS" = "true" ]; then
+                remove_models
+            fi
+            # El venv (regenerable) y el código se limpian siempre.
+            remove_venv
+            remove_execcode
         fi
     ;;	
 esac

@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =========================================================
+# traduia-open-url
+# Abre una URL con xdg-open garantizando que existe un
+# navegador web por defecto configurado.
+#
+# Uso:
+#   traduia-open-url [URL]
+#   sin argumentos -> resuelve la URL del servidor TraduIA
+#   (client) via check-traduia-server
+# =========================================================
+
+CHECK_SERVER="/usr/bin/check-traduia-server"
+if [ $# -gt 0 ]; then
+    URL="$1"
+elif [ -x "$CHECK_SERVER" ]; then
+    URL="$("$CHECK_SERVER")"
+else
+    echo "$(_ "Error: check-traduia-server not found.")" >&2
+    exit 1
+fi
+
+export TEXTDOMAIN="traduia"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+_() {
+    gettext "$1"
+}
+
+has_valid_default_browser() {
+    local browser
+    browser="$(xdg-settings get default-web-browser 2>/dev/null || true)"
+    if [ -z "$browser" ]; then
+        return 1
+    fi
+    # Comprobar que el .desktop del navegador por defecto existe
+    local apps_dirs="/usr/share/applications:$HOME/.local/share/applications:/usr/local/share/applications"
+    local found=0
+    IFS=':' read -r -a dirs <<< "$apps_dirs"
+    for d in "${dirs[@]}"; do
+        if [ -f "$d/$browser" ]; then
+            found=1
+            break
+        fi
+    done
+    [ "$found" -eq 1 ]
+}
+
+ensure_default_browser() {
+    if has_valid_default_browser; then
+        return 0
+    fi
+
+    echo "$(_ "No default web browser configured. Trying to set one...")" >&2
+
+    local codename=""
+    if command -v lsb_release >/dev/null 2>&1; then
+        codename="$(lsb_release -cs 2>/dev/null || true)"
+    fi
+
+    local candidates=()
+    case "$codename" in
+        jammy)
+            candidates=("firefox.desktop" "firefox_firefox.desktop")
+            ;;
+        noble)
+            candidates=("chromium.desktop" "chromium-browser.desktop" "chromium_chromium.desktop")
+            ;;
+        *)
+            candidates=("firefox.desktop" "chromium.desktop")
+            ;;
+    esac
+
+    local apps_dirs="/usr/share/applications:$HOME/.local/share/applications:/usr/local/share/applications"
+    local chosen=""
+    for c in "${candidates[@]}"; do
+        IFS=':' read -r -a dirs <<< "$apps_dirs"
+        for d in "${dirs[@]}"; do
+            if [ -f "$d/$c" ]; then
+                chosen="$c"
+                break 2
+            fi
+        done
+    done
+
+    if [ -n "$chosen" ]; then
+        echo "$(_ "Setting default web browser to:") $chosen" >&2
+        if xdg-settings set default-web-browser "$chosen" 2>/dev/null; then
+            return 0
+        fi
+        echo "$(_ "Warning: could not set default web browser:") $chosen" >&2
+    else
+        echo "$(_ "Warning: no suitable browser (.desktop) found on this system.")" >&2
+    fi
+
+    return 0
+}
+
+if ! command -v xdg-open >/dev/null 2>&1; then
+    echo "$(_ "Error: xdg-open not found.")" >&2
+    exit 1
+fi
+
+ensure_default_browser
+
+exec xdg-open "$URL"

@@ -1,5 +1,7 @@
 install-models-traduia /usr/sbin/
+traduia-make-repo /usr/sbin/
 traduia /usr/bin
+traduia-open-url /usr/bin/
 traduia_server.py /usr/lib/traduia
 traduia.desktop /usr/share/applications
 traduia-server.desktop /usr/share/applications
@@ -8,6 +10,7 @@ traduia.png /usr/share/icons/hicolor/128x128/apps/
 check-traduia-server /usr/bin/
 not-available.html /usr/share/doc/traduia/
 show-server.html /usr/share/doc/traduia/
+docs/* /usr/share/doc/traduia/
 i18n/locale/es/LC_MESSAGES/* /usr/share/locale/es/LC_MESSAGES/
 i18n/locale/ca/LC_MESSAGES/* /usr/share/locale/ca/LC_MESSAGES/
 i18n/locale/ca/LC_MESSAGES/* /usr/share/locale/ca_ES@valencia/LC_MESSAGES/

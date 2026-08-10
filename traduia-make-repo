@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export TEXTDOMAIN="traduia"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+_() {
+    gettext "$1"
+}
+
+MODELS_DIR="/opt/ai/traduia/models"
+
+WHISPER_PREFIX="whisper-small"
+MARIAN_PAIRS=(
+    "es-en" "es-fr" "es-de" "es-ru" "es-ar"
+    "es-uk" "es-ro" "es-it" "ca-en" "ca-es"
+)
+
+usage() {
+    echo "$(_ "Usage:") traduia-make-repo <models_dir> <ct2|marian> <output_dir> [--copy]"
+    echo ""
+    echo "$(_ "Generates a static manifest.json (with size+sha256) for a TraduIA model repo.")"
+    echo "$(_ "The output directory is shared: whisper-small/ + one or both model sets + manifest.json")"
+    echo "$(_ "It can be served statically over HTTP or copied to a USB drive.")"
+    echo ""
+    echo "$(_ "The tool is additive: run it once per set you want in the same output")"
+    echo "$(_ "directory. whisper-small is only copied on the first run (never duplicated).")"
+    echo ""
+    echo "$(_ "Hardlinks are used when source and destination are on the same filesystem;")"
+    echo "$(_ "otherwise files are copied automatically (e.g. to a USB drive).")"
+    echo ""
+    echo "$(_ "Options:")"
+    echo "  --copy    $(_ "Force copying instead of hardlinking (optional; auto-detected by default)")"
+}
+
+SCRIPT_NAME="$(basename "$0")"
+
+COPY_MODE=false
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --copy)
+            COPY_MODE=true
+            ;;
+        *)
+            POSITIONAL+=("$arg")
+            ;;
+    esac
+done
+
+if [ "${#POSITIONAL[@]}" -lt 3 ] || [ "${#POSITIONAL[@]}" -gt 3 ]; then
+    usage
+    exit 1
+fi
+
+SRC_DIR="$(cd "$(dirname "${POSITIONAL[0]}")" && pwd)/$(basename "${POSITIONAL[0]}")"
+MODE="${POSITIONAL[1]}"
+OUT_DIR="${POSITIONAL[2]}"
+
+if [ "$MODE" != "ct2" ] && [ "$MODE" != "marian" ]; then
+    echo "$(_ "Error: mode must be 'ct2' or 'marian'.")" >&2
+    exit 1
+fi
+
+if [ ! -d "$SRC_DIR" ]; then
+    echo "$(_ "Error: models directory does not exist:") $SRC_DIR" >&2
+    exit 1
+fi
+
+WHISPER_DIR="$SRC_DIR/$WHISPER_PREFIX"
+SET_DIR="$SRC_DIR/$MODE"
+
+missing_files=()
+expected_files=()
+
+# --- Build expected file lists ---
+WHISPER_FILES=(
+    "model.bin"
+    "config.json"
+)
+for f in "${WHISPER_FILES[@]}"; do
+    expected_files+=("$WHISPER_PREFIX/$f")
+done
+
+if [ "$MODE" = "ct2" ]; then
+    CT2_REQUIRED_FILES=(
+        "model.bin"
+        "config.json"
+        "vocabulary.txt"
+        "source.spm"
+        "target.spm"
+    )
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        for f in "${CT2_REQUIRED_FILES[@]}"; do
+            expected_files+=("ct2/opus-mt-$pair/$f")
+        done
+    done
+else
+    MARIAN_REQUIRED_FILES=(
+        "pytorch_model.bin"
+        "config.json"
+        "source.spm"
+        "target.spm"
+        "vocab.json"
+    )
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        for f in "${MARIAN_REQUIRED_FILES[@]}"; do
+            expected_files+=("marian/opus-mt-$pair/$f")
+        done
+    done
+fi
+
+# --- Validate expected files ---
+for rel in "${expected_files[@]}"; do
+    abs="$SRC_DIR/$rel"
+    if [ ! -f "$abs" ] || [ ! -s "$abs" ]; then
+        missing_files+=("$rel")
+    fi
+done
+
+if [ "${#missing_files[@]}" -gt 0 ]; then
+    echo "$(_ "Error: the following required files are missing or empty:")" >&2
+    for m in "${missing_files[@]}"; do
+        echo "  - $m" >&2
+    done
+    echo "$(_ "Refusing to generate an incomplete repository.")" >&2
+    exit 1
+fi
+
+# --- Assemble output tree (aditivo: whisper compartido, sets acumulativos) ---
+echo "$(_ "Assembling repository in:") $OUT_DIR"
+mkdir -p "$OUT_DIR"
+
+# Autodetección hardlink vs copia: mismo filesystem (device) => hardlink.
+# Se puede forzar la copia con --copy.
+USE_COPY=false
+if [ "$COPY_MODE" = "true" ]; then
+    USE_COPY=true
+    echo "$(_ "Copying files (forced by --copy)...")"
+elif [ "$(stat -c %d "$SRC_DIR" 2>/dev/null)" = "$(stat -c %d "$OUT_DIR" 2>/dev/null)" ] \
+    && [ -n "$(stat -c %d "$SRC_DIR" 2>/dev/null)" ]; then
+    echo "$(_ "Source and destination are on the same filesystem: using hardlinks.")"
+else
+    USE_COPY=true
+    echo "$(_ "Source and destination are on different filesystems: copying files.")"
+fi
+
+copy_or_link() {
+    local src="$1"
+    local dst="$2"
+    if [ "$USE_COPY" = "true" ]; then
+        cp -a "$src" "$dst"
+    else
+        ln -f "$src" "$dst" 2>/dev/null || cp -a "$src" "$dst"
+    fi
+}
+
+if [ -d "$OUT_DIR/$WHISPER_PREFIX" ]; then
+    echo "$(_ "whisper-small already present, skipping copy.")"
+else
+    if [ "$USE_COPY" = "true" ]; then
+        cp -a "$WHISPER_DIR" "$OUT_DIR/"
+    else
+        cp -al "$WHISPER_DIR" "$OUT_DIR/" 2>/dev/null || cp -a "$WHISPER_DIR" "$OUT_DIR/"
+    fi
+fi
+
+# Copiar/refrescar el set solicitado (idempotente)
+mkdir -p "$OUT_DIR/$MODE"
+for pair in "${MARIAN_PAIRS[@]}"; do
+    src_pair="$SET_DIR/opus-mt-$pair"
+    dst_pair="$OUT_DIR/$MODE/opus-mt-$pair"
+    mkdir -p "$dst_pair"
+    for f in "$src_pair"/*; do
+        [ -e "$f" ] || continue
+        copy_or_link "$f" "$dst_pair/"
+    done
+done
+
+# Aviso: sets en el directorio de salida que parecen incompletos
+check_output_set() {
+    local set_name="$1"
+    local file_name="$2"
+    if [ -d "$OUT_DIR/$set_name" ]; then
+        local incomplete=false
+        for pair in "${MARIAN_PAIRS[@]}"; do
+            if [ ! -s "$OUT_DIR/$set_name/opus-mt-$pair/$file_name" ]; then
+                incomplete=true
+            fi
+        done
+        if [ "$incomplete" = "true" ]; then
+            echo "[WARN] $(_ "The {} set in the output directory seems incomplete (missing some pairs).")" | sed "s|{}|$set_name|"
+        fi
+    fi
+}
+check_output_set "ct2" "model.bin"
+check_output_set "marian" "pytorch_model.bin"
+
+# --- Generate manifest.json with full sha256 hashing ---
+echo "$(_ "Hashing files (sha256)...")"
+MANIFEST="$OUT_DIR/manifest.json"
+python3 - "$OUT_DIR" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+out_dir = sys.argv[1]
+
+
+def _has_set(sub):
+    sub_dir = os.path.join(out_dir, sub)
+    if not os.path.isdir(sub_dir):
+        return False
+    return any(os.path.isdir(os.path.join(sub_dir, d)) for d in os.listdir(sub_dir))
+
+
+ct2_set = _has_set("ct2")
+marian_set = _has_set("marian")
+if ct2_set and marian_set:
+    mode = "both"
+elif ct2_set:
+    mode = "ct2"
+elif marian_set:
+    mode = "marian"
+else:
+    mode = "none"
+
+files = []
+for root, dirs, fnames in os.walk(out_dir):
+    dirs.sort()
+    for fname in sorted(fnames):
+        abs_path = os.path.join(root, fname)
+        rel_path = os.path.relpath(abs_path, out_dir)
+        if rel_path == "manifest.json":
+            continue
+        size = os.path.getsize(abs_path)
+        sha = hashlib.sha256()
+        with open(abs_path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                sha.update(chunk)
+        files.append({"path": rel_path, "size": size, "sha256": sha.hexdigest()})
+        print(f"[hash] {rel_path} ({size} bytes)")
+
+manifest = {
+    "version": 1,
+    "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "mode": mode,
+    "files": files,
+}
+
+with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
+    json.dump(manifest, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+
+print(f"[ok] manifest.json written with {len(files)} files (mode={mode})")
+PY
+
+echo ""
+echo "$(_ "Repository ready:") $OUT_DIR"
+echo "$(_ "Publish it statically over HTTP or copy it to a USB drive.")"
+echo ""
+echo "$(_ "Example rsync to a server:")"
+echo "  rsync -a $OUT_DIR/ server:/var/www/public/models/traduia/"

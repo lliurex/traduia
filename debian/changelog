@@ -1,3 +1,14 @@
+traduia (0.8.8) jammy; urgency=medium
+
+  * Allow to use HTTP repository for models set from CLI/env/config
+  * Model on disk detection
+  * traduia-make-repo helper to generate local repo from downloaded model
+  * traduia-open-url wrapper ensure that xdg-open works with valid installed browser
+  * Installation from zero-center skipping downloads when already on disk
+  * Uninstall from zero-center without remove models
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 10 Aug 2026 12:00:00 +0200
+
 traduia (0.8.7) jammy; urgency=medium
 
   * Change repository path

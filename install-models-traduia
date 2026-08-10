@@ -12,15 +12,169 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
 
-if [ "${1:-}" = "optimized" ]; then
-    USE_CT2=true
-else
-    USE_CT2=false
-fi
-
-SHARED_HF="/opt/ai/traduia/models"
+SHARED_HF="${TRADUIA_MODELS_DIR:-/opt/ai/traduia/models}"
 TRADUIA_DIR="/usr/lib/traduia"
 TRADUIA_VENV="/opt/ai/traduia/venv"
+CONFIG_FILE="/etc/traduia/models-repo.conf"
+
+MARIAN_PAIRS=(
+    "es-en" "es-fr" "es-de" "es-ru" "es-ar"
+    "es-uk" "es-ro" "es-it" "ca-en" "ca-es"
+)
+
+# =========================================================
+# Argumentos
+# =========================================================
+USE_CT2=false
+CLI_URL=""
+DETECT_ONLY=false
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        optimized)
+            USE_CT2=true
+            shift
+            ;;
+        --url)
+            if [ $# -lt 2 ]; then
+                echo "[ERROR] $(_ "--url requires a value: --url http://host/path")" >&2
+                exit 1
+            fi
+            CLI_URL="$2"
+            shift 2
+            ;;
+        --url=*)
+            CLI_URL="${1#--url=}"
+            shift
+            ;;
+        --detect)
+            DETECT_ONLY=true
+            shift
+            ;;
+        *)
+            echo "[ERROR] $(_ "Unknown argument:") $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# =========================================================
+# Configuración: /etc/traduia/models-repo.conf
+# Formato: TRADUIA_MODELS_URL=http://servidor:puerto/public/models/traduia
+# Prioridad de URL: CLI > variable de entorno > fichero de config
+# =========================================================
+if [ -z "${TRADUIA_MODELS_URL:-}" ] && [ -f "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+fi
+
+MODELS_URL="${CLI_URL:-${TRADUIA_MODELS_URL:-}}"
+
+# =========================================================
+# Detección de modelos ya presentes en disco
+# =========================================================
+MISSING_FILES=()
+DETECT_TMP="$(mktemp)"
+trap 'rm -f "$DETECT_TMP"' EXIT
+
+detect_local_models() {
+    MISSING_FILES=()
+    local whisper_ok=false
+    local ct2_ok=true
+    local marian_ok=true
+    local any=false
+
+    if [ -s "$SHARED_HF/whisper-small/model.bin" ] && [ -s "$SHARED_HF/whisper-small/config.json" ]; then
+        whisper_ok=true
+    else
+        MISSING_FILES+=("whisper-small/model.bin (y/o config.json)")
+    fi
+
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        if [ ! -s "$SHARED_HF/ct2/opus-mt-$pair/model.bin" ]; then
+            ct2_ok=false
+            MISSING_FILES+=("ct2/opus-mt-$pair/model.bin")
+        fi
+        if [ ! -s "$SHARED_HF/marian/opus-mt-$pair/pytorch_model.bin" ]; then
+            marian_ok=false
+            MISSING_FILES+=("marian/opus-mt-$pair/pytorch_model.bin")
+        fi
+    done
+
+    for d in whisper-small ct2 marian; do
+        if [ -d "$SHARED_HF/$d" ] && [ -n "$(ls -A "$SHARED_HF/$d" 2>/dev/null)" ]; then
+            any=true
+        fi
+    done
+
+    printf '%s\n' "${MISSING_FILES[@]}" > "$DETECT_TMP"
+
+    if $whisper_ok && $ct2_ok && $marian_ok; then
+        echo "complete:both"
+    elif $whisper_ok && $ct2_ok; then
+        echo "complete:ct2"
+    elif $whisper_ok && $marian_ok; then
+        echo "complete:marian"
+    elif $any; then
+        echo "partial"
+    else
+        echo "none"
+    fi
+}
+
+DETECT_STATE="$(detect_local_models)"
+mapfile -t MISSING_FILES < "$DETECT_TMP"
+
+# =========================================================
+# Modo --detect (consumido por el zero-center para decidir
+# si se muestran las preguntas de modelos)
+# =========================================================
+if [ "$DETECT_ONLY" = "true" ]; then
+    echo "$DETECT_STATE"
+    exit 0
+fi
+
+# =========================================================
+# Modelos incompletos: fallar con aviso (no descarga parcial)
+# =========================================================
+if [ "$DETECT_STATE" = "partial" ]; then
+    echo "[ERROR] $(_ "Incomplete models found on disk. The following files are missing:")" >&2
+    for m in "${MISSING_FILES[@]}"; do
+        echo "  - $m" >&2
+    done
+    echo "" >&2
+    echo "$(_ "Copy the complete models (whisper-small/ and ct2/ or marian/) to:") $SHARED_HF" >&2
+    echo "$(_ "See /usr/share/doc/traduia/howto-usb.md for details.")" >&2
+    exit 1
+fi
+
+# =========================================================
+# Modelos completos en disco: no descargar nada.
+# El modo (ct2/marian) se deriva de lo que haya en disco.
+# =========================================================
+set_mode_marker() {
+    if [ "$USE_CT2" = "true" ]; then
+        touch "$SHARED_HF/.use_ct2"
+        rm -f "$SHARED_HF/.use_marian"
+    else
+        touch "$SHARED_HF/.use_marian"
+        rm -f "$SHARED_HF/.use_ct2"
+    fi
+}
+
+if [ "$DETECT_STATE" != "none" ]; then
+    if [ "$DETECT_STATE" = "complete:ct2" ] && [ "$USE_CT2" != "true" ]; then
+        echo "[setup] $(_ "Only CTranslate2 (optimized) models found on disk. Using them.")"
+        USE_CT2=true
+    elif [ "$DETECT_STATE" = "complete:marian" ] && [ "$USE_CT2" = "true" ]; then
+        echo "[setup] $(_ "Optimized models not found on disk; only Marian models available. Using them without optimization.")"
+        USE_CT2=false
+    elif [ "$DETECT_STATE" = "complete:both" ]; then
+        : # Se respeta el flag solicitado
+    fi
+    echo "[setup] $(_ "Models already present on disk. Skipping downloads.")"
+    set_mode_marker
+fi
 
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
@@ -69,7 +223,7 @@ print("[preload] HF_HUB_CACHE:", os.environ.get("HF_HUB_CACHE"))
 # Fallback: Systran/faster-whisper-small
 # To force original method: comment mijuanlo block, uncomment Systran block below
 
-WHISPER_LOCAL = "/opt/ai/traduia/models/whisper-small"
+WHISPER_LOCAL = os.environ.get("TRADUIA_MODELS_DIR", "/opt/ai/traduia/models") + "/whisper-small"
 _whisper_repo = None
 try:
     model_info("mijuanlo/whisper-small-ct2-int8")
@@ -82,22 +236,9 @@ except (RepositoryNotFoundError, Exception):
 print(f"[preload] Downloading: {_whisper_repo} -> {WHISPER_LOCAL}")
 snapshot_download(repo_id=_whisper_repo, local_dir=WHISPER_LOCAL)
 
-# --- ORIGINAL CODE (commented for reference - uncomment to restore) ---
-# repos = [
-#     "Systran/faster-whisper-small",
-# ]
-# for repo in repos:
-#     print(f"[preload] Downloading/caching: {repo}")
-#     snapshot_download(
-#         repo_id=repo,
-#         cache_dir=os.environ.get("HF_HUB_CACHE"),
-#         local_dir=None,
-#     )
-
 # === MARIANMT MODELS (only when not using CTranslate2) ===
 # Primary: mijuanlo/opus-mt-{pair}
 # Fallback: Helsinki-NLP/opus-mt-{pair}
-# To force original method: comment mijuanlo block, uncomment Helsinki-NLP block below
 
 use_ct2 = os.environ.get("USE_CT2_MODE", "false").strip().lower() == "true"
 if not use_ct2:
@@ -105,7 +246,7 @@ if not use_ct2:
         "es-en", "es-fr", "es-de", "es-ru", "es-ar",
         "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
     ]
-    marian_base = "/opt/ai/traduia/models/marian"
+    marian_base = os.environ.get("TRADUIA_MODELS_DIR", "/opt/ai/traduia/models") + "/marian"
     for pair in marian_pairs:
         local = f"{marian_base}/opus-mt-{pair}"
         try:
@@ -118,71 +259,149 @@ if not use_ct2:
             print(f"[preload] Fallback: {repo} -> {local}")
             snapshot_download(repo_id=repo, local_dir=local)
 
-    # --- ORIGINAL CODE (commented for reference - uncomment to restore) ---
-    # for pair in marian_pairs:
-    #     repo = f"Helsinki-NLP/opus-mt-{pair}"
-    #     local = f"{marian_base}/opus-mt-{pair}"
-    #     print(f"[preload] Downloading: {repo} -> {local}")
-    #     snapshot_download(repo_id=repo, local_dir=local)
-
 print("[preload] OK. Models cached.")
 PY
 }
 
-URL_BASE="http://server:4141/traduia_models"
-LOCALDIR="/opt/ai/traduia/models"
+function download_http_models(){
+    local base_url="$1"
+    local mode="$2"
+    echo "[setup] $(_ "Downloading models from HTTP repository:") $base_url"
+    echo "[setup] $(_ "Fetching manifest:") $base_url/manifest.json"
 
-function download_lan_models(){
-    mkdir -p "$LOCALDIR"
-    echo "[setup] $(_ "Getting structure and downloading files from LAN...")"
+    local tmp_manifest
+    tmp_manifest="$(mktemp)"
+    if ! curl -fsSL --connect-timeout 15 -o "$tmp_manifest" "$base_url/manifest.json"; then
+        rm -f "$tmp_manifest"
+        echo "[ERROR] $(_ "Could not fetch manifest.json from:") $base_url/manifest.json" >&2
+        echo "[ERROR] $(_ "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf")" >&2
+        exit 1
+    fi
 
-    curl -sSL "$URL_BASE" | python3 -c '
-import sys, json, os, urllib.request
+    python3 "$tmp_manifest" "$base_url" "$SHARED_HF" "$mode" <<'PY'
+import hashlib
+import json
+import os
+import subprocess
+import sys
 
-base_url = sys.argv[1].rstrip("/")
-local_base = sys.argv[2]
+manifest_path, base_url, local_base, mode = sys.argv[1], sys.argv[2].rstrip("/"), sys.argv[3], sys.argv[4]
+
+MARIAN_PAIRS = [
+    "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+    "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+]
+WHISPER_FILES = ["model.bin", "config.json"]
+CT2_REQUIRED_FILES = ["model.bin", "config.json", "vocabulary.txt", "source.spm", "target.spm"]
+MARIAN_REQUIRED_FILES = ["pytorch_model.bin", "config.json", "source.spm", "target.spm", "vocab.json"]
 
 try:
-    data = json.load(sys.stdin)
-except json.JSONDecodeError:
-    print("Error: Could not parse JSON. Check server response.", file=sys.stderr)
+    with open(manifest_path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+except (json.JSONDecodeError, OSError) as e:
+    print(f"[ERROR] Invalid manifest.json: {e}", file=sys.stderr)
     sys.exit(1)
 
-for item in data:
-    rel_path = item["path"].lstrip("/")
-    local_path = os.path.join(local_base, rel_path)
+files = manifest.get("files", [])
+if not files:
+    print("[ERROR] manifest.json contains no files.", file=sys.stderr)
+    sys.exit(1)
 
-    if item["type"] == "dir":
-        os.makedirs(local_path, exist_ok=True)
-        print(f"[ DIR ] Created: {local_path}")
+print(f"[manifest] version={manifest.get('version')} mode={manifest.get('mode')} files={len(files)}")
 
-    elif item["type"] == "file":
-        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+# --- Validación de completitud del set pedido (antes de descargar) ---
+required_files = [f"whisper-small/{x}" for x in WHISPER_FILES]
+if mode == "ct2":
+    for pair in MARIAN_PAIRS:
+        for x in CT2_REQUIRED_FILES:
+            required_files.append(f"ct2/opus-mt-{pair}/{x}")
+else:
+    for pair in MARIAN_PAIRS:
+        for x in MARIAN_REQUIRED_FILES:
+            required_files.append(f"marian/opus-mt-{pair}/{x}")
 
-        remote_url = f"{base_url}/{rel_path}"
+manifest_paths = {f["path"] for f in files}
+missing = [p for p in required_files if p not in manifest_paths]
+if missing:
+    print(f"[ERROR] Repository does not contain the complete '{mode}' model set. Missing:", file=sys.stderr)
+    for m in missing:
+        print(f"  - {m}", file=sys.stderr)
+    print("[ERROR] Publish the set with traduia-make-repo or fix TRADUIA_MODELS_URL.", file=sys.stderr)
+    sys.exit(1)
 
-        print(f"[FILE ] Downloading: {remote_url}")
-        try:
-            urllib.request.urlretrieve(remote_url, local_path)
-        except Exception as e:
-            print(f"[ERROR] Failed to download {remote_url}: {e}", file=sys.stderr)
-' "$URL_BASE" "$LOCALDIR"
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
-    echo "[setup] $(_ "LAN download finished.")"
+def wanted(rel):
+    return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
+
+for entry in files:
+    rel = entry["path"]
+    if not wanted(rel):
+        print(f"[SKIP ] {rel} (not in mode {mode})")
+        continue
+    size = entry.get("size")
+    sha = entry.get("sha256")
+    local = os.path.join(local_base, rel)
+    os.makedirs(os.path.dirname(local), exist_ok=True)
+
+    # Si el fichero ya está completo y verificado, no se descarga.
+    if os.path.exists(local) and size is not None and os.path.getsize(local) == size:
+        if sha and sha256_file(local) == sha:
+            print(f"[SKIP ] {rel} (already present and verified)")
+            continue
+        if not sha:
+            print(f"[SKIP ] {rel} (already present, size OK)")
+            continue
+
+    url = f"{base_url}/{rel}"
+    print(f"[FILE ] {rel}")
+
+    # Intento con reanudación; si falla, descarga completa.
+    rc = subprocess.run(
+        ["curl", "-fSL", "-C", "-", "--connect-timeout", "15", "-o", local, url]
+    ).returncode
+    if rc != 0:
+        subprocess.run(["rm", "-f", local])
+        rc = subprocess.run(
+            ["curl", "-fSL", "--connect-timeout", "15", "-o", local, url]
+        ).returncode
+    if rc != 0:
+        print(f"[ERROR] Failed to download {url}", file=sys.stderr)
+        sys.exit(1)
+
+    if size is not None and os.path.getsize(local) != size:
+        print(f"[ERROR] Size mismatch for {rel}: expected {size}, got {os.path.getsize(local)}", file=sys.stderr)
+        sys.exit(1)
+
+    if sha and sha256_file(local) != sha:
+        print(f"[ERROR] SHA256 mismatch for {rel}", file=sys.stderr)
+        print("[ERROR] The repository may be corrupted or served by a stale proxy cache.", file=sys.stderr)
+        sys.exit(1)
+
+print("[download] OK. All files downloaded and verified.")
+PY
+
+    rm -f "$tmp_manifest"
+    echo "[setup] $(_ "HTTP download finished.")"
 }
 
-check_code=$(check-traduia-server 2>&1 >/dev/null)
-if echo $check_code|grep -q http &>/dev/null;then
-    has_http_available=0
-else
-    has_http_available=1
-fi
-
+# =========================================================
+# Descarga de modelos
+# =========================================================
 echo "$(_ "Downloading models")"
 export USE_CT2_MODE="$USE_CT2"
-if [ $has_http_available -eq 0 ]; then
-    download_lan_models
-else
+if [ "$DETECT_STATE" = "none" ] && [ -n "$MODELS_URL" ]; then
+    if [ "$USE_CT2" = "true" ]; then
+        download_http_models "$MODELS_URL" "ct2"
+    else
+        download_http_models "$MODELS_URL" "marian"
+    fi
+elif [ "$DETECT_STATE" = "none" ]; then
     download_inet_models
 fi
 echo "$(_ "Models downloaded!")"
@@ -311,26 +530,12 @@ for pair in MARIAN_PAIRS:
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-    # --- ORIGINAL CODE (commented for reference - uncomment to restore) ---
-    # local_path = snapshot_download(
-    #     repo_id=model_id,
-    #     cache_dir=HUB_CACHE,
-    #     local_dir=None,
-    # )
-    # ... (tokenizer merge from local_path) ...
-    # hub_repo_dir = os.path.join(HUB_CACHE, f"models--{model_id.replace('/', '--')}")
-    # if os.path.exists(hub_repo_dir):
-    #     shutil.rmtree(hub_repo_dir, ignore_errors=True)
-    # tf_cache = os.environ.get("TRANSFORMERS_CACHE")
-    # if tf_cache:
-    #     tf_repo_dir = os.path.join(tf_cache, f"models--{model_id.replace('/', '--')}")
-    #     if os.path.exists(tf_repo_dir):
-    #         shutil.rmtree(tf_repo_dir, ignore_errors=True)
-
 print("[CT2] All Marian models ready.")
 PY
-    touch /opt/ai/traduia/models/.use_ct2
 fi
+
+# Marcador del modo efectivo (ct2 => .use_ct2, marian => .use_marian)
+set_mode_marker
 
 echo ""
 echo "[setup] $(_ "Ready.")"
