@@ -22,16 +22,19 @@ install-models-traduia
 install-models-traduia optimized
 ```
 
+> Los dos comandos son **alternativos**. Si se ejecutan ambos en secuencia,
+> el marcador queda el del **último** modo ejecutado (el instalador crea uno
+> y elimina el otro — son excluyentes).
+
 Los modelos quedan en `/opt/ai/traduia/models` con esta estructura:
 
 ```
 /opt/ai/traduia/models/
-├── .use_ct2               # marcador de modo (ct2) — creado por el instalador
-├── .use_marian            # marcador de modo (marian) — creado por el instalador
-├── whisper-small/          # STT (faster-whisper, formato ct2)
-├── ct2/                    # solo si se instaló optimized
+├── .use_ct2 (o .use_marian)   # marcador del modo efectivo — SOLO uno, excluyente
+├── whisper-small/              # STT (faster-whisper, formato ct2)
+├── ct2/                        # solo si se instaló optimized
 │   └── opus-mt-{par}/
-└── marian/                 # solo si se instaló sin optimized
+└── marian/                     # solo si se instaló sin optimized
     └── opus-mt-{par}/
 ```
 

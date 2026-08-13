@@ -24,7 +24,8 @@ install-models-traduia optimized
 ```
 
 Los modelos quedan en `/opt/ai/traduia/models` (`whisper-small/` + `ct2/` o
-`marian/` + los marcadores `.use_ct2`/`.use_marian`).
+`marian/` + el marcador correspondiente — `.use_ct2` o `.use_marian`, **solo
+uno**, lo crea el instalador según el último modo ejecutado).
 
 ## 2. Generar el contenido para el USB
 
@@ -224,6 +225,12 @@ Al arrancar, `traduia_server.py` muestra en consola qué modo usa y por qué:
   completos, **prioridad Marian**.
 - **Sin ningún set completo** → error claro al arrancar indicando que se
   ejecute `install-models-traduia`.
+
+> **Nota**: el instalador **nunca deja ambos marcadores** (son excluyentes).
+> La situación "ambos presentes" solo puede darse si se crean manualmente
+> (p.ej. `touch /opt/ai/traduia/models/.use_marian` junto a un `.use_ct2`
+> existente) — en ese caso actúa el desempate: prioridad Marian, con fallback
+> a CT2 si Marian no está completo en disco.
 
 Cualquier problema al cargar un modelo (Whisper, Marian o CT2) se muestra
 como `[WARN]` en la consola.
