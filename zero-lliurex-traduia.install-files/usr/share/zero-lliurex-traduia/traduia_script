@@ -32,6 +32,56 @@ function remove_execcode(){
     fi
 }
 
+# Sitios Easy-Sites
+TRADUIA_EASY_CARDS_FILE="/var/www/cards.js"
+
+# Extrae el JSON de "window.LLX_CARDS = { ... };"
+function cards_extract_json() {
+    sed -e 's/^[[:space:]]*window[[:space:]]*\.LLX_CARDS[[:space:]]*=[[:space:]]*//' \
+        -e 's/;[[:space:]]*$//' "$1"
+}
+
+function cards_write_json() {
+    { printf 'window.LLX_CARDS = %s;\n' "$(cat "$1")"; } > "${TRADUIA_EASY_CARDS_FILE}.tmp" \
+        && mv "${TRADUIA_EASY_CARDS_FILE}.tmp" "$TRADUIA_EASY_CARDS_FILE" \
+        || rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"
+}
+
+function create_easy_conf() {
+    if [ -f "$TRADUIA_EASY_CARDS_FILE" ]; then
+        local json
+        json="$(cards_extract_json "$TRADUIA_EASY_CARDS_FILE" \
+            | jq '.cards |= ( map(select(.title != "Traduia" and .url != "http://server:8000")) + [{"title":"Traduia","url":"http://server:8000"}] )' 2>/dev/null)" \
+            && cards_write_json <(printf '%s\n' "$json") \
+            || rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"
+    fi
+}
+
+function configure_easy_sites() {
+    create_easy_conf
+}
+
+function check_easy_metas() {
+    EASY_PACKAGES=( "lliurex-meta-adi" "lliurex-meta-lab-pro" )
+    for pkg in "${EASY_PACKAGES[@]}"; do
+        # Solo si está instalado y configurado
+        if dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: install ok installed'; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+function remove_easy_conf(){
+    if [ -f "$TRADUIA_EASY_CARDS_FILE" ]; then
+        local json
+        json="$(cards_extract_json "$TRADUIA_EASY_CARDS_FILE" \
+            | jq '.cards |= map( if (.title == "Traduia" or .url == "http://server:8000") then {"title":"Traduia","_url":"uninstalled"} else . end )' 2>/dev/null)" \
+            && cards_write_json <(printf '%s\n' "$json") \
+            || rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"
+    fi
+}
+
 case $ACTION in
 
     preInstall)
@@ -98,6 +148,11 @@ case $ACTION in
                 fi
                 echo "$(_ "Setting server desktop")"
                 sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
+
+                # Sitios Easy si hay metas
+                if check_easy_metas; then
+                    configure_easy_sites
+                fi
             else
                 # Modo cliente: no se descargan ni se borran modelos.
                 # Si los modelos existen en disco (instalación previa como
@@ -133,6 +188,7 @@ case $ACTION in
             # El venv (regenerable) y el código se limpian siempre.
             remove_venv
             remove_execcode
+            remove_easy_conf
         fi
     ;;	
 esac

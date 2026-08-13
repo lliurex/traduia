@@ -36,6 +36,7 @@ Depends:
  ${shlibs:Depends},
  ${misc:Depends},
  zero-center,
- epi-gtk
+ epi-gtk,
+ jq
 Description: TraduIA installer
  Easy installer for TraduIA built for zero-center.
