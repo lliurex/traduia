@@ -83,15 +83,14 @@ for f in "${WHISPER_FILES[@]}"; do
 done
 
 if [ "$MODE" = "ct2" ]; then
-    CT2_REQUIRED_FILES=(
+    CT2_MANDATORY_FILES=(
         "model.bin"
         "config.json"
-        "vocabulary.txt"
         "source.spm"
         "target.spm"
     )
     for pair in "${MARIAN_PAIRS[@]}"; do
-        for f in "${CT2_REQUIRED_FILES[@]}"; do
+        for f in "${CT2_MANDATORY_FILES[@]}"; do
             expected_files+=("ct2/opus-mt-$pair/$f")
         done
     done
@@ -117,6 +116,16 @@ for rel in "${expected_files[@]}"; do
         missing_files+=("$rel")
     fi
 done
+
+# Vocabulario ct2: vocabulary.txt (conversión local) o vocab.json (pre-convertido)
+if [ "$MODE" = "ct2" ]; then
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        base="ct2/opus-mt-$pair"
+        if [ ! -s "$SRC_DIR/$base/vocabulary.txt" ] && [ ! -s "$SRC_DIR/$base/vocab.json" ]; then
+            missing_files+=("$base/vocabulary.txt o vocab.json")
+        fi
+    done
+fi
 
 if [ "${#missing_files[@]}" -gt 0 ]; then
     echo "$(_ "Error: the following required files are missing or empty:")" >&2

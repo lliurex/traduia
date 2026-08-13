@@ -259,7 +259,7 @@ MARIAN_PAIRS = [
     "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
 ]
 WHISPER_FILES = ["model.bin", "config.json"]
-CT2_REQUIRED_FILES = ["model.bin", "config.json", "vocabulary.txt", "source.spm", "target.spm"]
+CT2_MANDATORY_FILES = ["model.bin", "config.json", "source.spm", "target.spm"]
 MARIAN_REQUIRED_FILES = ["pytorch_model.bin", "config.json", "source.spm", "target.spm", "vocab.json"]
 
 try:
@@ -280,7 +280,7 @@ print(f"[manifest] version={manifest.get('version')} mode={manifest.get('mode')}
 required_files = [f"whisper-small/{x}" for x in WHISPER_FILES]
 if mode == "ct2":
     for pair in MARIAN_PAIRS:
-        for x in CT2_REQUIRED_FILES:
+        for x in CT2_MANDATORY_FILES:
             required_files.append(f"ct2/opus-mt-{pair}/{x}")
 else:
     for pair in MARIAN_PAIRS:
@@ -289,6 +289,14 @@ else:
 
 manifest_paths = {f["path"] for f in files}
 missing = [p for p in required_files if p not in manifest_paths]
+
+# Vocabulario ct2: vocabulary.txt (conversión local) o vocab.json (pre-convertido)
+if mode == "ct2":
+    for pair in MARIAN_PAIRS:
+        base = f"ct2/opus-mt-{pair}"
+        if f"{base}/vocabulary.txt" not in manifest_paths and f"{base}/vocab.json" not in manifest_paths:
+            missing.append(f"{base}/vocabulary.txt o vocab.json")
+
 if missing:
     print(f"[ERROR] Repository does not contain the complete '{mode}' model set. Missing:", file=sys.stderr)
     for m in missing:
