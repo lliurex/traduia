@@ -174,6 +174,31 @@ sudo install-models-traduia          # set marian (skip si ya está en disco)
 sudo install-models-traduia optimized # set ct2 (skip si ya está en disco)
 ```
 
+### 5.2.1 Instalación rápida desde un directorio o URL (`--dir` / `--from`)
+
+No es necesario copiar manualmente los modelos: `install-models-traduia` puede
+copiar desde un directorio local (por ejemplo el contenido generado por
+`traduia-make-repo` en un USB) o descargar desde una URL, de la misma forma
+que con `--url`:
+
+```bash
+# Copia desde un directorio local (salida de traduia-make-repo):
+sudo install-models-traduia --dir /media/usuario/USB/traduia
+sudo install-models-traduia optimized --dir /media/usuario/USB/traduia
+
+# Autodetección url/ruta local:
+sudo install-models-traduia --from http://servidor:puerto/public/models/traduia
+sudo install-models-traduia --from /media/usuario/USB/traduia
+```
+
+- El origen debe tener la estructura estándar (`whisper-small/` + `ct2/` o
+  `marian/` + `manifest.json`) — es decir, la salida de `traduia-make-repo`.
+- Se copian solo los ficheros que falten o no estén verificados (sha256 del
+  manifest); si el set pedido ya está completo en el sistema, se hace skip.
+- Si el origen no contiene el set pedido → error claro con sugerencia.
+- `--url`, `--dir` y `--from` son mutuamente excluyentes; `--from` detecta
+  `http(s)://` (URL) frente a ruta local (`file://` también aceptada).
+
 ### 5.3 Si falta algo: el instalador completa la descarga
 
 Si en el disco hay modelos **incompletos** (p.ej. falta un `opus-mt-*` del

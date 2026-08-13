@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 10:23+0200\n"
+"POT-Creation-Date: 2026-08-13 11:08+0200\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -374,91 +374,115 @@ msgstr "Entrada (micròfon) per defecte:"
 msgid "--url requires a value: --url http://host/path"
 msgstr "--url requerix un valor: --url http://host/path"
 
-#: install-models-traduia:55
+#: install-models-traduia:52
+msgid "--dir requires a value: --dir /path/to/models/repo"
+msgstr "--dir requerix un valor: --dir /ruta/al/repositori/models"
+
+#: install-models-traduia:64
+msgid "--from requires a value: --from <url|path>"
+msgstr "--from requerix un valor: --from <url|ruta>"
+
+#: install-models-traduia:79
 msgid "Unknown argument:"
 msgstr "Argument desconegut:"
 
-#: install-models-traduia:148
+#: install-models-traduia:91
+msgid "Options --url, --dir and --from are mutually exclusive."
+msgstr "Les opcions --url, --dir i --from són mútuament excloents."
+
+#: install-models-traduia:111
+msgid "Source directory does not exist:"
+msgstr "El directori d'origen no existeix:"
+
+#: install-models-traduia:203
 msgid "Creating venv"
 msgstr "Creant venv"
 
-#: install-models-traduia:151
+#: install-models-traduia:206
 msgid "Activating venv"
 msgstr "Activant venv"
 
-#: install-models-traduia:155
+#: install-models-traduia:210
 msgid "Updating pip/setuptools/wheel"
 msgstr "Actualitzant pip/setuptools/wheel"
 
-#: install-models-traduia:158
+#: install-models-traduia:213
 msgid "Installing Python dependencies"
 msgstr "Instal·lant dependències de Python"
 
-#: install-models-traduia:165
+#: install-models-traduia:220
 msgid "Exporting shared cache variables (for this process)"
 msgstr "Exportant variables de caché compartida (per a este procés)"
 
-#: install-models-traduia:177
+#: install-models-traduia:232
 msgid "Preloading models into shared cache..."
 msgstr "Precarregant models en la caché compartida..."
 
-#: install-models-traduia:236
+#: install-models-traduia:291
 msgid "Downloading models from HTTP repository:"
 msgstr "Descarregant models des del repositori HTTP:"
 
-#: install-models-traduia:237
+#: install-models-traduia:292
 msgid "Fetching manifest:"
 msgstr "Obtenint manifest:"
 
-#: install-models-traduia:243
+#: install-models-traduia:298
 msgid "Could not fetch manifest.json from:"
 msgstr "No s'ha pogut obtindre manifest.json de:"
 
-#: install-models-traduia:244
+#: install-models-traduia:299
 msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
 msgstr "Comproveu TRADUIA_MODELS_URL o /etc/traduia/models-repo.conf"
 
-#: install-models-traduia:357
+#: install-models-traduia:420
 msgid "HTTP download finished."
 msgstr "Descàrrega HTTP finalitzada."
 
-#: install-models-traduia:364
+#: install-models-traduia:426
+msgid "Copying models from local directory:"
+msgstr "Copiant models des del directori local:"
+
+#: install-models-traduia:530
+msgid "Local copy finished."
+msgstr "Còpia local finalitzada."
+
+#: install-models-traduia:537
 msgid "Downloading models"
 msgstr "Descarregant models"
 
-#: install-models-traduia:376
+#: install-models-traduia:549
 msgid "{} models already present on disk. Skipping downloads."
 msgstr "Models {} ja presents al disc. S'ometen les descàrregues."
 
-#: install-models-traduia:379
+#: install-models-traduia:552
 msgid "{} models incomplete on disk; completing download."
 msgstr "Models {} incomplets al disc; completant la descàrrega."
 
-#: install-models-traduia:387
+#: install-models-traduia:562
 msgid "Models downloaded!"
 msgstr "Models descarregats!"
 
-#: install-models-traduia:396
+#: install-models-traduia:571
 msgid "Torch already installed, skipping."
 msgstr ""
 
-#: install-models-traduia:398
+#: install-models-traduia:573
 msgid "Downloading torch"
 msgstr "Descarregant torch"
 
-#: install-models-traduia:400
+#: install-models-traduia:575
 msgid "Torch downloaded!"
 msgstr "Torch descarregat!"
 
-#: install-models-traduia:405
+#: install-models-traduia:580
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr ""
 
-#: install-models-traduia:521
+#: install-models-traduia:696
 msgid "Ready."
 msgstr "Enllestit."
 
-#: install-models-traduia:523
+#: install-models-traduia:698
 msgid "Offline execution (the launcher already exports it):"
 msgstr "Execució fora de línia (el llançador ja ho exporta):"
 
@@ -527,57 +551,57 @@ msgstr "Error: el mode ha de ser 'ct2' o 'marian'."
 msgid "Error: models directory does not exist:"
 msgstr "Error: el directori de models no existeix:"
 
-#: traduia-make-repo:122
+#: traduia-make-repo:131
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: falten els fitxers requerits següents o estan buits:"
 
-#: traduia-make-repo:126
+#: traduia-make-repo:135
 msgid "Refusing to generate an incomplete repository."
 msgstr "Es rebutja generar un repositori incomplet."
 
-#: traduia-make-repo:131
+#: traduia-make-repo:140
 msgid "Assembling repository in:"
 msgstr "Muntant el repositori a:"
 
-#: traduia-make-repo:139
+#: traduia-make-repo:148
 msgid "Copying files (forced by --copy)..."
 msgstr "Copiant fitxers (forçat amb --copy)..."
 
-#: traduia-make-repo:142
+#: traduia-make-repo:151
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 "Origen i destinació estan en el mateix sistema de fitxers: s'usen hardlinks."
 
-#: traduia-make-repo:145
+#: traduia-make-repo:154
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 "Origen i destinació estan en sistemes de fitxers diferents: es copien els "
 "fitxers."
 
-#: traduia-make-repo:159
+#: traduia-make-repo:168
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ja present, s'omet la còpia."
 
-#: traduia-make-repo:192
+#: traduia-make-repo:201
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El conjunt {} del directori d'eixida sembla incomplet (falten alguns "
 "parells)."
 
-#: traduia-make-repo:200
+#: traduia-make-repo:209
 msgid "Hashing files (sha256)..."
 msgstr "Calculant hash dels fitxers (sha256)..."
 
-#: traduia-make-repo:261
+#: traduia-make-repo:270
 msgid "Repository ready:"
 msgstr "Repositori a punt:"
 
-#: traduia-make-repo:262
+#: traduia-make-repo:271
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publiqueu-lo estàticament per HTTP o copieu-lo a un disc USB."
 
-#: traduia-make-repo:264
+#: traduia-make-repo:273
 msgid "Example rsync to a server:"
 msgstr "Exemple d'rsync a un servidor:"
 

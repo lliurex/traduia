@@ -5,7 +5,7 @@ export TEXTDOMAIN="traduia"
 export TEXTDOMAINDIR="/usr/share/locale"
 
 _() {
-    gettext "$1"
+    gettext -- "$1"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,6 +47,30 @@ while [ $# -gt 0 ]; do
             CLI_URL="${1#--url=}"
             shift
             ;;
+        --dir)
+            if [ $# -lt 2 ]; then
+                echo "[ERROR] $(_ "--dir requires a value: --dir /path/to/models/repo")" >&2
+                exit 1
+            fi
+            CLI_DIR="$2"
+            shift 2
+            ;;
+        --dir=*)
+            CLI_DIR="${1#--dir=}"
+            shift
+            ;;
+        --from)
+            if [ $# -lt 2 ]; then
+                echo "[ERROR] $(_ "--from requires a value: --from <url|path>")" >&2
+                exit 1
+            fi
+            CLI_FROM="$2"
+            shift 2
+            ;;
+        --from=*)
+            CLI_FROM="${1#--from=}"
+            shift
+            ;;
         --detect)
             DETECT_ONLY=true
             shift
@@ -57,6 +81,36 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+# --url, --dir y --from son mutuamente excluyentes
+SOURCE_OPTS=0
+[ -n "${CLI_URL:-}" ] && SOURCE_OPTS=$((SOURCE_OPTS + 1))
+[ -n "${CLI_DIR:-}" ] && SOURCE_OPTS=$((SOURCE_OPTS + 1))
+[ -n "${CLI_FROM:-}" ] && SOURCE_OPTS=$((SOURCE_OPTS + 1))
+if [ "$SOURCE_OPTS" -gt 1 ]; then
+    echo "[ERROR] $(_ "Options --url, --dir and --from are mutually exclusive.")" >&2
+    exit 1
+fi
+
+# --from: autodetección url vs ruta local
+if [ -n "${CLI_FROM:-}" ]; then
+    case "$CLI_FROM" in
+        http://*|https://*)
+            CLI_URL="$CLI_FROM"
+            ;;
+        file://*)
+            CLI_DIR="${CLI_FROM#file://}"
+            ;;
+        *)
+            CLI_DIR="$CLI_FROM"
+            ;;
+    esac
+fi
+
+if [ -n "${CLI_DIR:-}" ] && [ ! -d "$CLI_DIR" ]; then
+    echo "[ERROR] $(_ "Source directory does not exist:") $CLI_DIR" >&2
+    exit 1
+fi
 
 # =========================================================
 # Configuración: /etc/traduia/models-repo.conf
@@ -69,6 +123,7 @@ if [ -z "${TRADUIA_MODELS_URL:-}" ] && [ -f "$CONFIG_FILE" ]; then
 fi
 
 MODELS_URL="${CLI_URL:-${TRADUIA_MODELS_URL:-}}"
+MODELS_DIR="${CLI_DIR:-}"
 
 # =========================================================
 # Detección de modelos ya presentes en disco
@@ -245,7 +300,7 @@ function download_http_models(){
         exit 1
     fi
 
-    python3 "$tmp_manifest" "$base_url" "$SHARED_HF" "$mode" <<'PY'
+    python3 - "$tmp_manifest" "$base_url" "$SHARED_HF" "$mode" <<'PY'
 import hashlib
 import json
 import os
@@ -365,6 +420,116 @@ PY
     echo "[setup] $(_ "HTTP download finished.")"
 }
 
+function copy_from_dir(){
+    local src_dir="$1"
+    local mode="$2"
+    echo "[setup] $(_ "Copying models from local directory:") $src_dir"
+    python3 - "$src_dir" "$SHARED_HF" "$mode" <<'PY'
+import hashlib
+import json
+import os
+import shutil
+import sys
+
+src_dir, local_base, mode = sys.argv[1].rstrip("/"), sys.argv[2], sys.argv[3]
+
+MARIAN_PAIRS = [
+    "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+    "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+]
+WHISPER_FILES = ["model.bin", "config.json"]
+CT2_MANDATORY_FILES = ["model.bin", "config.json", "source.spm", "target.spm"]
+MARIAN_REQUIRED_FILES = ["pytorch_model.bin", "config.json", "source.spm", "target.spm", "vocab.json"]
+
+manifest_path = os.path.join(src_dir, "manifest.json")
+if not os.path.exists(manifest_path):
+    print(f"[ERROR] No manifest.json found in source directory: {src_dir}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    with open(manifest_path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+except (json.JSONDecodeError, OSError) as e:
+    print(f"[ERROR] Invalid manifest.json: {e}", file=sys.stderr)
+    sys.exit(1)
+
+files = manifest.get("files", [])
+if not files:
+    print("[ERROR] manifest.json contains no files.", file=sys.stderr)
+    sys.exit(1)
+
+# --- Validación de completitud del set pedido (igual que el cliente HTTP) ---
+required = [f"whisper-small/{x}" for x in WHISPER_FILES]
+if mode == "ct2":
+    for pair in MARIAN_PAIRS:
+        for x in CT2_MANDATORY_FILES:
+            required.append(f"ct2/opus-mt-{pair}/{x}")
+else:
+    for pair in MARIAN_PAIRS:
+        for x in MARIAN_REQUIRED_FILES:
+            required.append(f"marian/opus-mt-{pair}/{x}")
+
+manifest_paths = {f["path"] for f in files}
+missing = [p for p in required if p not in manifest_paths]
+if mode == "ct2":
+    for pair in MARIAN_PAIRS:
+        base = f"ct2/opus-mt-{pair}"
+        if f"{base}/vocabulary.txt" not in manifest_paths and f"{base}/vocab.json" not in manifest_paths:
+            missing.append(f"{base}/vocabulary.txt o vocab.json")
+
+if missing:
+    print(f"[ERROR] Source directory does not contain the complete '{mode}' model set. Missing:", file=sys.stderr)
+    for m in missing:
+        print(f"  - {m}", file=sys.stderr)
+    if mode == "ct2":
+        print("[ERROR] Use 'optimized' or point to a source that contains the ct2 set.", file=sys.stderr)
+    else:
+        print("[ERROR] Run without 'optimized' or point to a source that contains the marian set.", file=sys.stderr)
+    sys.exit(1)
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+def wanted(rel):
+    return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
+
+copied = 0
+skipped = 0
+for entry in files:
+    rel = entry["path"]
+    if not wanted(rel):
+        continue
+    size = entry.get("size")
+    sha = entry.get("sha256")
+    src = os.path.join(src_dir, rel)
+    dst = os.path.join(local_base, rel)
+    if not os.path.exists(src):
+        print(f"[ERROR] File listed in manifest but missing in source: {rel}", file=sys.stderr)
+        sys.exit(1)
+    # Si el fichero ya está completo y verificado en el destino, no se copia.
+    if os.path.exists(dst) and size is not None and os.path.getsize(dst) == size:
+        if sha and sha256_file(dst) == sha:
+            print(f"[SKIP ] {rel} (already present and verified)")
+            skipped += 1
+            continue
+        if not sha:
+            print(f"[SKIP ] {rel} (already present, size OK)")
+            skipped += 1
+            continue
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copy2(src, dst)
+    print(f"[COPY ] {rel}")
+    copied += 1
+
+print(f"[ok] {copied} copied, {skipped} skipped")
+PY
+    echo "[setup] $(_ "Local copy finished.")"
+}
+
 # =========================================================
 # Descarga de modelos (por-set: skip solo si el set pedido
 # ya está completo en disco; si no, se descarga/completa)
@@ -386,7 +551,9 @@ else
     if [ "$REQUESTED_SET_OK" != "true" ]; then
         echo "[setup] $(_ "{} models incomplete on disk; completing download.")" | sed "s|{}|$REQUESTED_SET|"
     fi
-    if [ -n "$MODELS_URL" ]; then
+    if [ -n "$MODELS_DIR" ]; then
+        copy_from_dir "$MODELS_DIR" "$REQUESTED_SET"
+    elif [ -n "$MODELS_URL" ]; then
         download_http_models "$MODELS_URL" "$REQUESTED_SET"
     else
         download_inet_models
