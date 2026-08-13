@@ -418,6 +418,45 @@ for entry in files:
         sys.exit(1)
 
 print("[download] OK. All files downloaded and verified.")
+
+# --- Manifest persistente para verificación posterior ---
+def _set_complete_local(subdir, file_name):
+    for pair in MARIAN_PAIRS:
+        f = os.path.join(local_base, subdir, f"opus-mt-{pair}", file_name)
+        if not os.path.isfile(f) or os.path.getsize(f) == 0:
+            return False
+    return True
+
+
+ct2_ok = _set_complete_local("ct2", "model.bin")
+marian_ok = _set_complete_local("marian", "pytorch_model.bin")
+
+persisted = [e for e in files if e["path"].startswith("whisper-small/")]
+if ct2_ok:
+    persisted += [e for e in files if e["path"].startswith("ct2/")]
+if marian_ok:
+    persisted += [e for e in files if e["path"].startswith("marian/")]
+persisted.sort(key=lambda e: e["path"])
+
+if ct2_ok and marian_ok:
+    persist_mode = "both"
+elif ct2_ok:
+    persist_mode = "ct2"
+elif marian_ok:
+    persist_mode = "marian"
+else:
+    persist_mode = "none"
+
+persisted_manifest = {
+    "version": manifest.get("version", 1),
+    "generated": manifest.get("generated", ""),
+    "mode": persist_mode,
+    "files": persisted,
+}
+with open(os.path.join(local_base, "manifest.json"), "w", encoding="utf-8") as fh:
+    json.dump(persisted_manifest, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+print(f"[ok] Persistent manifest written ({len(persisted)} files)")
 PY
 
     rm -f "$tmp_manifest"
@@ -530,6 +569,76 @@ for entry in files:
     copied += 1
 
 print(f"[ok] {copied} copied, {skipped} skipped")
+
+# --- Pasada final: verificar en el destino el set instalado ---
+verify_errors = 0
+for entry in files:
+    rel = entry["path"]
+    if not wanted(rel):
+        continue
+    size = entry.get("size")
+    sha = entry.get("sha256")
+    dst = os.path.join(local_base, rel)
+    try:
+        if not os.path.exists(dst) or os.path.getsize(dst) != size:
+            print(f"[VERIFY] ERROR: {rel} (missing/size)")
+            verify_errors += 1
+            continue
+        h = hashlib.sha256()
+        with open(dst, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                h.update(chunk)
+        if sha and h.hexdigest() != sha:
+            print(f"[VERIFY] ERROR: {rel} (sha256 mismatch)")
+            verify_errors += 1
+        else:
+            print(f"[VERIFY] OK: {rel}")
+    except OSError as e:
+        print(f"[VERIFY] ERROR: {rel} ({e})")
+        verify_errors += 1
+if verify_errors:
+    print(f"[ERROR] Verification failed: {verify_errors} files with errors", file=sys.stderr)
+    sys.exit(1)
+print("[ok] All files verified in destination.")
+
+# --- Manifest persistente para verificación posterior ---
+def _set_complete_local(subdir, file_name):
+    for pair in MARIAN_PAIRS:
+        f = os.path.join(local_base, subdir, f"opus-mt-{pair}", file_name)
+        if not os.path.isfile(f) or os.path.getsize(f) == 0:
+            return False
+    return True
+
+
+ct2_ok = _set_complete_local("ct2", "model.bin")
+marian_ok = _set_complete_local("marian", "pytorch_model.bin")
+
+persisted = [e for e in files if e["path"].startswith("whisper-small/")]
+if ct2_ok:
+    persisted += [e for e in files if e["path"].startswith("ct2/")]
+if marian_ok:
+    persisted += [e for e in files if e["path"].startswith("marian/")]
+persisted.sort(key=lambda e: e["path"])
+
+if ct2_ok and marian_ok:
+    persist_mode = "both"
+elif ct2_ok:
+    persist_mode = "ct2"
+elif marian_ok:
+    persist_mode = "marian"
+else:
+    persist_mode = "none"
+
+persisted_manifest = {
+    "version": manifest.get("version", 1),
+    "generated": manifest.get("generated", ""),
+    "mode": persist_mode,
+    "files": persisted,
+}
+with open(os.path.join(local_base, "manifest.json"), "w", encoding="utf-8") as fh:
+    json.dump(persisted_manifest, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+print(f"[ok] Persistent manifest written ({len(persisted)} files)")
 PY
     echo "[setup] $(_ "Local copy finished.")"
 }

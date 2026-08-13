@@ -1,0 +1,105 @@
+#!/usr/bin/env python3 -B
+"""Verifica la integridad de los modelos instalados contra su manifest.json.
+
+Uso: traduia-verify-models [--mode ct2|marian] [directorio]
+     (directorio por defecto: /opt/ai/traduia/models)
+"""
+import gettext
+import hashlib
+import json
+import os
+import sys
+
+gettext.bindtextdomain('traduia', '/usr/share/locale')
+gettext.textdomain('traduia')
+_ = gettext.gettext
+
+DEFAULT_REPO = "/opt/ai/traduia/models"
+
+
+def parse_args(argv):
+    mode = None
+    repo = DEFAULT_REPO
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--mode":
+            i += 1
+            if i >= len(argv):
+                print(_("ERROR: --mode requires 'ct2' or 'marian'."), file=sys.stderr)
+                sys.exit(2)
+            mode = argv[i]
+        elif a.startswith("--mode="):
+            mode = a.split("=", 1)[1]
+        else:
+            repo = a
+        i += 1
+    if mode not in (None, "ct2", "marian"):
+        print(_("ERROR: unknown mode: {}").format(mode), file=sys.stderr)
+        sys.exit(2)
+    return repo, mode
+
+
+def wanted(rel, mode):
+    if mode is None:
+        return True
+    return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
+
+
+def main():
+    repo, mode = parse_args(sys.argv[1:])
+    manifest_path = os.path.join(repo, "manifest.json")
+
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except (json.JSONDecodeError, OSError) as e:
+        print(_("ERROR: could not read {}: {}").format(manifest_path, e), file=sys.stderr)
+        sys.exit(1)
+
+    files = manifest.get("files", [])
+    if not files:
+        print(_("ERROR: manifest.json contains no files."), file=sys.stderr)
+        sys.exit(1)
+
+    if mode is not None and not any(e["path"].startswith(f"{mode}/") for e in files):
+        print(_("ERROR: no entries for mode '{}' in manifest.").format(mode), file=sys.stderr)
+        sys.exit(1)
+
+    errors = 0
+    for entry in files:
+        rel = entry["path"]
+        if not wanted(rel, mode):
+            continue
+        p = os.path.join(repo, rel)
+        try:
+            if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
+                print(_("MISSING/SIZE: {}").format(rel))
+                errors += 1
+                continue
+            sha = entry.get("sha256")
+            if not sha:
+                print(_("OK: {}").format(rel))
+                continue
+            h = hashlib.sha256()
+            with open(p, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    h.update(chunk)
+            if h.hexdigest() != sha:
+                print(_("SHA256 MISMATCH: {}").format(rel))
+                errors += 1
+            else:
+                print(_("OK: {}").format(rel))
+        except OSError as e:
+            print(_("UNREADABLE: {} ({})").format(rel, e))
+            errors += 1
+
+    if errors:
+        print(_("{} errors").format(errors))
+        sys.exit(1)
+    print(_("OK"))
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

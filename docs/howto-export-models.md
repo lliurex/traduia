@@ -111,12 +111,14 @@ Ejemplo de `manifest.json`:
 
 ```bash
 cd /srv/export/traduia
-python3 verify-models.py          # o: python3 verify-models.py /ruta/al/repositorio
+python3 verify-models.py                    # todo el repositorio
+python3 verify-models.py --mode ct2 <dir>   # solo whisper + un set
 ```
 
-- Imprime `OK: <ruta>` por fichero (o `FALTA/TAMAÑO:` / `SHA256 INCORRECTO:`),
-  un resumen final y devuelve `exit 0` si todo es correcto o `1` si hay
-  errores.
+- Imprime `OK: <ruta>` por fichero (o `FALTA/TAMAÑO:` / `SHA256 INCORRECTO:` /
+  `ERROR NO LEGIBLE:`), un resumen final y devuelve `exit 0` si todo es
+  correcto o `1` si hay errores. Con `--mode` falla si el set pedido no está
+  en el manifest.
 - El verificador viaja con el repositorio (USB o repo HTTP), así que puede
   ejecutarse en cualquier máquina sin copiar nada de esta documentación.
 
@@ -271,6 +273,29 @@ sudo rsync -a --progress /media/usuario/USB/traduia/ct2/ /opt/ai/traduia/models/
 > `/opt/ai/traduia/models/whisper-small/` + `ct2/` o `marian/`. Si se copian
 > ambos sets, el instalador detecta `complete:both` y el modo lo deciden el
 > flag `optimized`/los marcadores.
+
+### 5.2.1 Verificación de los ficheros instalados
+
+Tras instalar (desde USB o HTTP), el instalador **verifica automáticamente**
+el set instalado contra el manifest del origen (tamaño + sha256 por fichero)
+y aborta si algo falla. Además guarda un **manifest persistente** en
+`/opt/ai/traduia/models/manifest.json` (whisper + los sets completos en el
+sistema) para poder re-verificar cuando se quiera:
+
+```bash
+# Verificación posterior (herramienta del sistema, con i18n):
+traduia-verify-models                        # por defecto /opt/ai/traduia/models
+traduia-verify-models --mode ct2             # solo whisper + set ct2
+traduia-verify-models /ruta/a/modelos
+
+# O con el verificador del repositorio/USB:
+python3 /media/usuario/USB/traduia/verify-models.py /opt/ai/traduia/models
+python3 /media/usuario/USB/traduia/verify-models.py --mode marian /opt/ai/traduia/models
+```
+
+> En la **copia manual rsync** (sin `--dir`), puede usar el verificador del
+> USB con `--mode` para comprobar el set copiado: si el USB lleva ambos sets
+> y solo instaló uno, `--mode` verifica solo el instalado.
 
 A continuación instale el paquete `traduia` (deb o zero-center) de forma
 normal. El instalador:

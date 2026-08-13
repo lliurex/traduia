@@ -2,6 +2,7 @@ install-models-traduia /usr/sbin/
 traduia-make-repo /usr/sbin/
 traduia /usr/bin
 traduia-open-url /usr/bin/
+traduia-verify-models /usr/bin/
 traduia_server.py /usr/lib/traduia
 traduia.desktop /usr/share/applications
 traduia-server.desktop /usr/share/applications

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 11:08+0200\n"
+"POT-Creation-Date: 2026-08-13 12:11+0200\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -293,6 +293,50 @@ msgstr "[INFO] Forçant parada (KILL) del PID {}..."
 msgid "[INFO] Cleaning up..."
 msgstr "[INFO] Netejant..."
 
+#: traduia-verify-models:29
+msgid "ERROR: --mode requires 'ct2' or 'marian'."
+msgstr "ERROR: --mode requerix 'ct2' o 'marian'."
+
+#: traduia-verify-models:38
+msgid "ERROR: unknown mode: {}"
+msgstr "ERROR: mode desconegut: {}"
+
+#: traduia-verify-models:57
+msgid "ERROR: could not read {}: {}"
+msgstr "ERROR: no s'ha pogut llegir {}: {}"
+
+#: traduia-verify-models:62
+msgid "ERROR: manifest.json contains no files."
+msgstr "ERROR: manifest.json no conté fitxers."
+
+#: traduia-verify-models:66
+msgid "ERROR: no entries for mode '{}' in manifest."
+msgstr "ERROR: no hi ha entrades del mode '{}' en el manifest."
+
+#: traduia-verify-models:77
+msgid "MISSING/SIZE: {}"
+msgstr "FALTA/TAMANY: {}"
+
+#: traduia-verify-models:82 traduia-verify-models:92
+msgid "OK: {}"
+msgstr "OK: {}"
+
+#: traduia-verify-models:89
+msgid "SHA256 MISMATCH: {}"
+msgstr "SHA256 INCORRECTE: {}"
+
+#: traduia-verify-models:94
+msgid "UNREADABLE: {} ({})"
+msgstr "NO LLEGIBLE: {} ({})"
+
+#: traduia-verify-models:98
+msgid "{} errors"
+msgstr "{} errors"
+
+#: traduia-verify-models:100
+msgid "OK"
+msgstr "OK"
+
 #: traduia:24
 msgid "Could not find the virtual environment venv in:"
 msgstr "No es troba l'entorn virtual venv en:"
@@ -370,6 +414,10 @@ msgstr "Eixida (altaveus) per defecte:"
 msgid "Default input (microphone):"
 msgstr "Entrada (micròfon) per defecte:"
 
+#: install-models-traduia:8
+msgid "--"
+msgstr ""
+
 #: install-models-traduia:40
 msgid "--url requires a value: --url http://host/path"
 msgstr "--url requerix un valor: --url http://host/path"
@@ -434,55 +482,55 @@ msgstr "No s'ha pogut obtindre manifest.json de:"
 msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
 msgstr "Comproveu TRADUIA_MODELS_URL o /etc/traduia/models-repo.conf"
 
-#: install-models-traduia:420
+#: install-models-traduia:463
 msgid "HTTP download finished."
 msgstr "Descàrrega HTTP finalitzada."
 
-#: install-models-traduia:426
+#: install-models-traduia:469
 msgid "Copying models from local directory:"
 msgstr "Copiant models des del directori local:"
 
-#: install-models-traduia:530
+#: install-models-traduia:643
 msgid "Local copy finished."
 msgstr "Còpia local finalitzada."
 
-#: install-models-traduia:537
+#: install-models-traduia:650
 msgid "Downloading models"
 msgstr "Descarregant models"
 
-#: install-models-traduia:549
+#: install-models-traduia:662
 msgid "{} models already present on disk. Skipping downloads."
 msgstr "Models {} ja presents al disc. S'ometen les descàrregues."
 
-#: install-models-traduia:552
+#: install-models-traduia:665
 msgid "{} models incomplete on disk; completing download."
 msgstr "Models {} incomplets al disc; completant la descàrrega."
 
-#: install-models-traduia:562
+#: install-models-traduia:675
 msgid "Models downloaded!"
 msgstr "Models descarregats!"
 
-#: install-models-traduia:571
+#: install-models-traduia:686
 msgid "Torch already installed, skipping."
 msgstr ""
 
-#: install-models-traduia:573
+#: install-models-traduia:688
 msgid "Downloading torch"
 msgstr "Descarregant torch"
 
-#: install-models-traduia:575
+#: install-models-traduia:690
 msgid "Torch downloaded!"
 msgstr "Torch descarregat!"
 
-#: install-models-traduia:580
+#: install-models-traduia:695
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr ""
 
-#: install-models-traduia:696
+#: install-models-traduia:811
 msgid "Ready."
 msgstr "Enllestit."
 
-#: install-models-traduia:698
+#: install-models-traduia:813
 msgid "Offline execution (the launcher already exports it):"
 msgstr "Execució fora de línia (el llançador ja ho exporta):"
 
@@ -582,26 +630,26 @@ msgstr ""
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ja present, s'omet la còpia."
 
-#: traduia-make-repo:201
+#: traduia-make-repo:206
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El conjunt {} del directori d'eixida sembla incomplet (falten alguns "
 "parells)."
 
-#: traduia-make-repo:209
+#: traduia-make-repo:314
 msgid "Hashing files (sha256)..."
 msgstr "Calculant hash dels fitxers (sha256)..."
 
-#: traduia-make-repo:270
+#: traduia-make-repo:379
 msgid "Repository ready:"
 msgstr "Repositori a punt:"
 
-#: traduia-make-repo:271
+#: traduia-make-repo:380
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publiqueu-lo estàticament per HTTP o copieu-lo a un disc USB."
 
-#: traduia-make-repo:273
+#: traduia-make-repo:382
 msgid "Example rsync to a server:"
 msgstr "Exemple d'rsync a un servidor:"
 

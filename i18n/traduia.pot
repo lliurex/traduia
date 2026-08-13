@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 11:08+0200\n"
+"POT-Creation-Date: 2026-08-13 12:11+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -269,6 +269,50 @@ msgstr ""
 msgid "[INFO] Cleaning up..."
 msgstr ""
 
+#: traduia-verify-models:29
+msgid "ERROR: --mode requires 'ct2' or 'marian'."
+msgstr ""
+
+#: traduia-verify-models:38
+msgid "ERROR: unknown mode: {}"
+msgstr ""
+
+#: traduia-verify-models:57
+msgid "ERROR: could not read {}: {}"
+msgstr ""
+
+#: traduia-verify-models:62
+msgid "ERROR: manifest.json contains no files."
+msgstr ""
+
+#: traduia-verify-models:66
+msgid "ERROR: no entries for mode '{}' in manifest."
+msgstr ""
+
+#: traduia-verify-models:77
+msgid "MISSING/SIZE: {}"
+msgstr ""
+
+#: traduia-verify-models:82 traduia-verify-models:92
+msgid "OK: {}"
+msgstr ""
+
+#: traduia-verify-models:89
+msgid "SHA256 MISMATCH: {}"
+msgstr ""
+
+#: traduia-verify-models:94
+msgid "UNREADABLE: {} ({})"
+msgstr ""
+
+#: traduia-verify-models:98
+msgid "{} errors"
+msgstr ""
+
+#: traduia-verify-models:100
+msgid "OK"
+msgstr ""
+
 #: traduia:24
 msgid "Could not find the virtual environment venv in:"
 msgstr ""
@@ -345,6 +389,10 @@ msgstr ""
 msgid "Default input (microphone):"
 msgstr ""
 
+#: install-models-traduia:8
+msgid "--"
+msgstr ""
+
 #: install-models-traduia:40
 msgid "--url requires a value: --url http://host/path"
 msgstr ""
@@ -409,55 +457,55 @@ msgstr ""
 msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
 msgstr ""
 
-#: install-models-traduia:420
+#: install-models-traduia:463
 msgid "HTTP download finished."
 msgstr ""
 
-#: install-models-traduia:426
+#: install-models-traduia:469
 msgid "Copying models from local directory:"
 msgstr ""
 
-#: install-models-traduia:530
+#: install-models-traduia:643
 msgid "Local copy finished."
 msgstr ""
 
-#: install-models-traduia:537
+#: install-models-traduia:650
 msgid "Downloading models"
 msgstr ""
 
-#: install-models-traduia:549
+#: install-models-traduia:662
 msgid "{} models already present on disk. Skipping downloads."
 msgstr ""
 
-#: install-models-traduia:552
+#: install-models-traduia:665
 msgid "{} models incomplete on disk; completing download."
 msgstr ""
 
-#: install-models-traduia:562
+#: install-models-traduia:675
 msgid "Models downloaded!"
 msgstr ""
 
-#: install-models-traduia:571
+#: install-models-traduia:686
 msgid "Torch already installed, skipping."
 msgstr ""
 
-#: install-models-traduia:573
+#: install-models-traduia:688
 msgid "Downloading torch"
 msgstr ""
 
-#: install-models-traduia:575
+#: install-models-traduia:690
 msgid "Torch downloaded!"
 msgstr ""
 
-#: install-models-traduia:580
+#: install-models-traduia:695
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr ""
 
-#: install-models-traduia:696
+#: install-models-traduia:811
 msgid "Ready."
 msgstr ""
 
-#: install-models-traduia:698
+#: install-models-traduia:813
 msgid "Offline execution (the launcher already exports it):"
 msgstr ""
 
@@ -543,24 +591,24 @@ msgstr ""
 msgid "whisper-small already present, skipping copy."
 msgstr ""
 
-#: traduia-make-repo:201
+#: traduia-make-repo:206
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 
-#: traduia-make-repo:209
+#: traduia-make-repo:314
 msgid "Hashing files (sha256)..."
 msgstr ""
 
-#: traduia-make-repo:270
+#: traduia-make-repo:379
 msgid "Repository ready:"
 msgstr ""
 
-#: traduia-make-repo:271
+#: traduia-make-repo:380
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr ""
 
-#: traduia-make-repo:273
+#: traduia-make-repo:382
 msgid "Example rsync to a server:"
 msgstr ""
 

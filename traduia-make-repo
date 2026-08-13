@@ -215,56 +215,98 @@ cat > "$OUT_DIR/verify-models.py" <<'PY'
 #!/usr/bin/env python3
 """Verifica la integridad del repositorio contra manifest.json.
 
-Uso: python3 verify-models.py [directorio]   (por defecto, el actual)
+Uso: python3 verify-models.py [--mode ct2|marian] [directorio]
+     (directorio por defecto: el actual; --mode verifica solo whisper + un set)
 """
 import hashlib
 import json
 import os
 import sys
 
-repo = sys.argv[1] if len(sys.argv) > 1 else "."
-manifest_path = os.path.join(repo, "manifest.json")
 
-try:
-    with open(manifest_path, encoding="utf-8") as fh:
-        manifest = json.load(fh)
-except (json.JSONDecodeError, OSError) as e:
-    print(f"ERROR: no se pudo leer {manifest_path}: {e}", file=sys.stderr)
-    sys.exit(1)
-
-files = manifest.get("files", [])
-if not files:
-    print("ERROR: manifest.json no contiene ficheros.", file=sys.stderr)
-    sys.exit(1)
-
-errors = 0
-for entry in files:
-    rel = entry["path"]
-    p = os.path.join(repo, rel)
-    try:
-        if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
-            print("FALTA/TAMAÑO:", rel)
-            errors += 1
-            continue
-        sha = entry.get("sha256")
-        if not sha:
-            print("OK:", rel)
-            continue
-        h = hashlib.sha256()
-        with open(p, "rb") as fh:
-            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-                h.update(chunk)
-        if h.hexdigest() != sha:
-            print("SHA256 INCORRECTO:", rel)
-            errors += 1
+def parse_args(argv):
+    mode = None
+    repo = "."
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--mode":
+            i += 1
+            if i >= len(argv):
+                print("ERROR: --mode requires 'ct2' or 'marian'.", file=sys.stderr)
+                sys.exit(2)
+            mode = argv[i]
+        elif a.startswith("--mode="):
+            mode = a.split("=", 1)[1]
         else:
-            print("OK:", rel)
-    except OSError as e:
-        print(f"ERROR NO LEGIBLE: {rel} ({e})")
-        errors += 1
+            repo = a
+        i += 1
+    if mode not in (None, "ct2", "marian"):
+        print(f"ERROR: unknown mode: {mode}", file=sys.stderr)
+        sys.exit(2)
+    return repo, mode
 
-print("OK" if errors == 0 else f"{errors} errores")
-sys.exit(1 if errors else 0)
+
+def wanted(rel, mode):
+    if mode is None:
+        return True
+    return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
+
+
+def main():
+    repo, mode = parse_args(sys.argv[1:])
+    manifest_path = os.path.join(repo, "manifest.json")
+
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"ERROR: no se pudo leer {manifest_path}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    files = manifest.get("files", [])
+    if not files:
+        print("ERROR: manifest.json no contiene ficheros.", file=sys.stderr)
+        sys.exit(1)
+
+    if mode is not None and not any(e["path"].startswith(f"{mode}/") for e in files):
+        print(f"ERROR: no hay entradas del modo '{mode}' en el manifest.", file=sys.stderr)
+        sys.exit(1)
+
+    errors = 0
+    for entry in files:
+        rel = entry["path"]
+        if not wanted(rel, mode):
+            continue
+        p = os.path.join(repo, rel)
+        try:
+            if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
+                print("FALTA/TAMAÑO:", rel)
+                errors += 1
+                continue
+            sha = entry.get("sha256")
+            if not sha:
+                print("OK:", rel)
+                continue
+            h = hashlib.sha256()
+            with open(p, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    h.update(chunk)
+            if h.hexdigest() != sha:
+                print("SHA256 INCORRECTO:", rel)
+                errors += 1
+            else:
+                print("OK:", rel)
+        except OSError as e:
+            print(f"ERROR NO LEGIBLE: {rel} ({e})")
+            errors += 1
+
+    print("OK" if errors == 0 else f"{errors} errores")
+    sys.exit(1 if errors else 0)
+
+
+if __name__ == "__main__":
+    main()
 PY
 chmod +x "$OUT_DIR/verify-models.py"
 
