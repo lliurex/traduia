@@ -157,25 +157,34 @@ Instale el paquete `traduia` (deb o desde el instalador zero-center) de
 forma normal:
 
 - El instalador comprueba `/opt/ai/traduia/models` **antes** de descargar.
-- Si los modelos están **completos** (whisper + los 10 pares del modo),
-  **no descarga nada** y deriva el modo (ct2/marian) de lo que haya en disco.
-- En el instalador zero-center, si los modelos ya están completos, se omite
-  la pregunta de optimización.
+- La descarga es **por-set**: si los ficheros del set pedido (ct2 con
+  `optimized`, marian sin él) ya están **completos** en disco (copiados desde
+  USB o de una instalación anterior), se hace **skip**; si no, se
+  **descarga/completa** lo que falte (desde el repo HTTP si está configurado,
+  o desde HuggingFace).
+- En el instalador zero-center **siempre se pregunta** el modo: `Marian`
+  (por defecto) u `Optimized`/CT2 (experimental); con esa respuesta se
+  ejecuta `install-models-traduia [optimized]`.
 
 Comandos directos (sin zero-center):
 
 ```bash
-sudo install-models-traduia          # detecta los modelos presentes
-sudo install-models-traduia optimized
+sudo install-models-traduia          # set marian (skip si ya está en disco)
+sudo install-models-traduia optimized # set ct2 (skip si ya está en disco)
 ```
 
-### 5.3 Si falta algo: el instalador se detiene
+### 5.3 Si falta algo: el instalador completa la descarga
 
-Si en el disco hay modelos **incompletos** (p.ej. falta un `opus-mt-*`), el
-instalador **falla con un aviso** listando exactamente qué ficheros faltan —
-no descarga parcialmente ni silenciosamente desde Internet.
+Si en el disco hay modelos **incompletos** (p.ej. falta un `opus-mt-*` del
+set pedido), el instalador **completa la descarga** de lo que falte: con repo
+HTTP configurado baja solo los ficheros ausentes (verificando los presentes
+por sha256); sin URL, HuggingFace rellena el resto. Solo falla si no hay
+ninguna fuente disponible (sin red y sin URL configurada), con el error claro
+del origen correspondiente.
 
-Solución: complete la copia desde el USB y vuelva a ejecutar el instalador.
+> En **tiempo de ejecución** (`traduia`/`traduia_server.py`) nunca se
+> descarga: si el modo elegido no está completo, avisa (`[WARN]`) y hace
+> fallback al otro set o error al arrancar.
 
 ### 5.4 Limitación importante (leer)
 

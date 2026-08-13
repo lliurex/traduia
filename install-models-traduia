@@ -78,7 +78,6 @@ DETECT_TMP="$(mktemp)"
 trap 'rm -f "$DETECT_TMP"' EXIT
 
 detect_local_models() {
-    MISSING_FILES=()
     local whisper_ok=false
     local ct2_ok=true
     local marian_ok=true
@@ -86,18 +85,14 @@ detect_local_models() {
 
     if [ -s "$SHARED_HF/whisper-small/model.bin" ] && [ -s "$SHARED_HF/whisper-small/config.json" ]; then
         whisper_ok=true
-    else
-        MISSING_FILES+=("whisper-small/model.bin (y/o config.json)")
     fi
 
     for pair in "${MARIAN_PAIRS[@]}"; do
         if [ ! -s "$SHARED_HF/ct2/opus-mt-$pair/model.bin" ]; then
             ct2_ok=false
-            MISSING_FILES+=("ct2/opus-mt-$pair/model.bin")
         fi
         if [ ! -s "$SHARED_HF/marian/opus-mt-$pair/pytorch_model.bin" ]; then
             marian_ok=false
-            MISSING_FILES+=("marian/opus-mt-$pair/pytorch_model.bin")
         fi
     done
 
@@ -107,7 +102,7 @@ detect_local_models() {
         fi
     done
 
-    printf '%s\n' "${MISSING_FILES[@]}" > "$DETECT_TMP"
+    printf 'whisper_ok=%s\nct2_ok=%s\nmarian_ok=%s\n' "$whisper_ok" "$ct2_ok" "$marian_ok" > "$DETECT_TMP"
 
     if $whisper_ok && $ct2_ok && $marian_ok; then
         echo "complete:both"
@@ -123,11 +118,12 @@ detect_local_models() {
 }
 
 DETECT_STATE="$(detect_local_models)"
-mapfile -t MISSING_FILES < "$DETECT_TMP"
+# shellcheck disable=SC1090
+. "$DETECT_TMP"
 
 # =========================================================
-# Modo --detect (consumido por el zero-center para decidir
-# si se muestran las preguntas de modelos)
+# Modo --detect (utilidad de depuración; el zero-center ya
+# siempre pregunta y la descarga decide por-set)
 # =========================================================
 if [ "$DETECT_ONLY" = "true" ]; then
     echo "$DETECT_STATE"
@@ -135,22 +131,7 @@ if [ "$DETECT_ONLY" = "true" ]; then
 fi
 
 # =========================================================
-# Modelos incompletos: fallar con aviso (no descarga parcial)
-# =========================================================
-if [ "$DETECT_STATE" = "partial" ]; then
-    echo "[ERROR] $(_ "Incomplete models found on disk. The following files are missing:")" >&2
-    for m in "${MISSING_FILES[@]}"; do
-        echo "  - $m" >&2
-    done
-    echo "" >&2
-    echo "$(_ "Copy the complete models (whisper-small/ and ct2/ or marian/) to:") $SHARED_HF" >&2
-    echo "$(_ "See /usr/share/doc/traduia/howto-usb.md for details.")" >&2
-    exit 1
-fi
-
-# =========================================================
-# Modelos completos en disco: no descargar nada.
-# El modo (ct2/marian) se deriva de lo que haya en disco.
+# Marcador del modo efectivo (ct2 => .use_ct2, marian => .use_marian)
 # =========================================================
 set_mode_marker() {
     if [ "$USE_CT2" = "true" ]; then
@@ -161,20 +142,6 @@ set_mode_marker() {
         rm -f "$SHARED_HF/.use_ct2"
     fi
 }
-
-if [ "$DETECT_STATE" != "none" ]; then
-    if [ "$DETECT_STATE" = "complete:ct2" ] && [ "$USE_CT2" != "true" ]; then
-        echo "[setup] $(_ "Only CTranslate2 (optimized) models found on disk. Using them.")"
-        USE_CT2=true
-    elif [ "$DETECT_STATE" = "complete:marian" ] && [ "$USE_CT2" = "true" ]; then
-        echo "[setup] $(_ "Optimized models not found on disk; only Marian models available. Using them without optimization.")"
-        USE_CT2=false
-    elif [ "$DETECT_STATE" = "complete:both" ]; then
-        : # Se respeta el flag solicitado
-    fi
-    echo "[setup] $(_ "Models already present on disk. Skipping downloads.")"
-    set_mode_marker
-fi
 
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
@@ -391,18 +358,31 @@ PY
 }
 
 # =========================================================
-# Descarga de modelos
+# Descarga de modelos (por-set: skip solo si el set pedido
+# ya está completo en disco; si no, se descarga/completa)
 # =========================================================
 echo "$(_ "Downloading models")"
 export USE_CT2_MODE="$USE_CT2"
-if [ "$DETECT_STATE" = "none" ] && [ -n "$MODELS_URL" ]; then
-    if [ "$USE_CT2" = "true" ]; then
-        download_http_models "$MODELS_URL" "ct2"
-    else
-        download_http_models "$MODELS_URL" "marian"
+
+if [ "$USE_CT2" = "true" ]; then
+    REQUESTED_SET="ct2"
+    REQUESTED_SET_OK="$ct2_ok"
+else
+    REQUESTED_SET="marian"
+    REQUESTED_SET_OK="$marian_ok"
+fi
+
+if [ "$whisper_ok" = "true" ] && [ "$REQUESTED_SET_OK" = "true" ]; then
+    echo "[setup] $(_ "{} models already present on disk. Skipping downloads.")" | sed "s|{}|$REQUESTED_SET|"
+else
+    if [ "$REQUESTED_SET_OK" != "true" ]; then
+        echo "[setup] $(_ "{} models incomplete on disk; completing download.")" | sed "s|{}|$REQUESTED_SET|"
     fi
-elif [ "$DETECT_STATE" = "none" ]; then
-    download_inet_models
+    if [ -n "$MODELS_URL" ]; then
+        download_http_models "$MODELS_URL" "$REQUESTED_SET"
+    else
+        download_inet_models
+    fi
 fi
 echo "$(_ "Models downloaded!")"
 

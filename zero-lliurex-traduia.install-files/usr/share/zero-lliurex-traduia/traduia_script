@@ -113,24 +113,17 @@ case $ACTION in
         # Guardamos el valor interno, no el traducido
         echo "$mode" > /tmp/.traduia_install_mode
 
-        # Pregunta de optimización (solo si Server)
+        # Pregunta de optimización (solo si Server) — siempre se pregunta.
         if [ "$mode" == "Server" ]; then
-            # Si los modelos ya están completos en disco, no se pregunta:
-            # el instalador deriva el modo (ct2/marian) de lo que haya copiado.
-            DETECT_STATE=$(/usr/sbin/install-models-traduia --detect 2>/dev/null || true)
-            if [[ "$DETECT_STATE" == complete:* ]]; then
-                echo "$(_ "Models already present on disk. Optimization mode will be derived from them.")"
-            else
-                OPT_TITLE=$(_ "Model Optimization?")
-                OPT_LABEL=$(_ "Optimization mode:")
-                OPT_NO=$(_ "No")
-                OPT_YES=$(_ "Yes (Experimental)")
+            OPT_TITLE=$(_ "Model Optimization?")
+            OPT_LABEL=$(_ "Optimization mode:")
+            OPT_NO=$(_ "Marian")
+            OPT_YES=$(_ "Optimized (experimental)")
 
-                selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "" "$OPT_NO" "$OPT_YES")
-                ret=$?
-                if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
-                    echo "optimized" > /tmp/.traduia_optimize_model
-                fi
+            selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "$OPT_NO" "$OPT_YES")
+            ret=$?
+            if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
+                echo "optimized" > /tmp/.traduia_optimize_model
             fi
         fi
     ;;

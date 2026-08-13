@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 12:38+0200\n"
+"POT-Creation-Date: 2026-08-13 10:23+0200\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -378,109 +378,87 @@ msgstr "--url requerix un valor: --url http://host/path"
 msgid "Unknown argument:"
 msgstr "Argument desconegut:"
 
-#: install-models-traduia:141
-msgid "Incomplete models found on disk. The following files are missing:"
-msgstr "S'han trobat models incomplets al disc. Falten els fitxers següents:"
-
-#: install-models-traduia:146
-msgid "Copy the complete models (whisper-small/ and ct2/ or marian/) to:"
-msgstr "Copieu els models complets (whisper-small/ i ct2/ o marian/) a:"
-
-#: install-models-traduia:147
-msgid "See /usr/share/doc/traduia/howto-usb.md for details."
-msgstr "Consulteu /usr/share/doc/traduia/howto-usb.md per a més detalls."
-
-#: install-models-traduia:167
-msgid "Only CTranslate2 (optimized) models found on disk. Using them."
-msgstr ""
-"Només s'han trobat models CTranslate2 (optimitzats) al disc. S'usaran "
-"aquests."
-
-#: install-models-traduia:170
-msgid ""
-"Optimized models not found on disk; only Marian models available. Using them"
-" without optimization."
-msgstr ""
-"No s'han trobat models optimitzats al disc; només hi ha models Marian "
-"disponibles. S'usaran sense optimitzar."
-
-#: install-models-traduia:175
-msgid "Models already present on disk. Skipping downloads."
-msgstr "Els models ja són presents al disc. S'ometen les descàrregues."
-
-#: install-models-traduia:181
+#: install-models-traduia:148
 msgid "Creating venv"
 msgstr "Creant venv"
 
-#: install-models-traduia:184
+#: install-models-traduia:151
 msgid "Activating venv"
 msgstr "Activant venv"
 
-#: install-models-traduia:188
+#: install-models-traduia:155
 msgid "Updating pip/setuptools/wheel"
 msgstr "Actualitzant pip/setuptools/wheel"
 
-#: install-models-traduia:191
+#: install-models-traduia:158
 msgid "Installing Python dependencies"
 msgstr "Instal·lant dependències de Python"
 
-#: install-models-traduia:198
+#: install-models-traduia:165
 msgid "Exporting shared cache variables (for this process)"
 msgstr "Exportant variables de caché compartida (per a este procés)"
 
-#: install-models-traduia:210
+#: install-models-traduia:177
 msgid "Preloading models into shared cache..."
 msgstr "Precarregant models en la caché compartida..."
 
-#: install-models-traduia:269
+#: install-models-traduia:236
 msgid "Downloading models from HTTP repository:"
 msgstr "Descarregant models des del repositori HTTP:"
 
-#: install-models-traduia:270
+#: install-models-traduia:237
 msgid "Fetching manifest:"
 msgstr "Obtenint manifest:"
 
-#: install-models-traduia:276
+#: install-models-traduia:243
 msgid "Could not fetch manifest.json from:"
 msgstr "No s'ha pogut obtindre manifest.json de:"
 
-#: install-models-traduia:277
+#: install-models-traduia:244
 msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
 msgstr "Comproveu TRADUIA_MODELS_URL o /etc/traduia/models-repo.conf"
 
-#: install-models-traduia:390
+#: install-models-traduia:357
 msgid "HTTP download finished."
 msgstr "Descàrrega HTTP finalitzada."
 
-#: install-models-traduia:396
+#: install-models-traduia:364
 msgid "Downloading models"
 msgstr "Descarregant models"
 
-#: install-models-traduia:407
+#: install-models-traduia:376
+msgid "{} models already present on disk. Skipping downloads."
+msgstr "Models {} ja presents al disc. S'ometen les descàrregues."
+
+#: install-models-traduia:379
+msgid "{} models incomplete on disk; completing download."
+msgstr "Models {} incomplets al disc; completant la descàrrega."
+
+#: install-models-traduia:387
 msgid "Models downloaded!"
 msgstr "Models descarregats!"
 
-#: install-models-traduia:416
+#: install-models-traduia:396
 msgid "Torch already installed, skipping."
 msgstr ""
 
-#: install-models-traduia:418
+#: install-models-traduia:398
 msgid "Downloading torch"
 msgstr "Descarregant torch"
 
-#: install-models-traduia:420
+#: install-models-traduia:400
 msgid "Torch downloaded!"
 msgstr "Torch descarregat!"
 
-#: install-models-traduia:425
+#: install-models-traduia:405
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr ""
 
-#: install-models-traduia:541
+#: install-models-traduia:521
 msgid "Ready."
 msgstr "Enllestit."
 
-#: install-models-traduia:543
+#: install-models-traduia:523
 msgid "Offline execution (the launcher already exports it):"
 msgstr "Execució fora de línia (el llançador ja ho exporta):"
 
@@ -629,65 +607,58 @@ msgstr ""
 msgid "Error: xdg-open not found."
 msgstr "Error: no es troba xdg-open."
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:46
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:96
 msgid "Client"
 msgstr "Client"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:47
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:97
 msgid "Server"
 msgstr "Servidor"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:50
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:100
 msgid "Mode selector"
 msgstr "Selector de mode"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:50
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:100
 msgid "Install mode:"
 msgstr "Mode d'instal·lació:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:72
-msgid ""
-"Models already present on disk. Optimization mode will be derived from them."
-msgstr ""
-"Els models ja són presents al disc. El mode d'optimització es derivarà "
-"d'ells."
-
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:74
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:118
 msgid "Model Optimization?"
 msgstr "Optimització de model?"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:75
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:119
 msgid "Optimization mode:"
 msgstr "Mode d'optimització:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:76
-msgid "No"
-msgstr "No"
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:120
+msgid "Marian"
+msgstr "Marian"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:77
-msgid "Yes (Experimental)"
-msgstr "Sí (Experimental)"
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:121
+msgid "Optimized (experimental)"
+msgstr "Optimitzat (experimental)"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:93
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:136
 msgid "Downloading models..."
 msgstr "Descarregant models..."
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:99
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:142
 msgid "Setting server desktop"
 msgstr "Configurant l'escriptori del servidor"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:116
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:164
 msgid "Keep"
 msgstr "Conservar"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:117
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:165
 msgid "Delete"
 msgstr "Eliminar"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:118
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:166
 msgid "Remove models?"
 msgstr "¿Eliminar models?"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:118
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:166
 msgid "Do you want to delete the downloaded models?"
 msgstr "¿Voleu eliminar els models descarregats?"
