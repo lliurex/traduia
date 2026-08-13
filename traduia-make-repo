@@ -167,14 +167,16 @@ copy_or_link() {
 if [ -d "$OUT_DIR/$WHISPER_PREFIX" ]; then
     echo "$(_ "whisper-small already present, skipping copy.")"
 else
-    if [ "$USE_COPY" = "true" ]; then
-        cp -a "$WHISPER_DIR" "$OUT_DIR/"
-    else
-        cp -al "$WHISPER_DIR" "$OUT_DIR/" 2>/dev/null || cp -a "$WHISPER_DIR" "$OUT_DIR/"
-    fi
+    # Copia de whisper-small excluyendo .cache (artefactos de HuggingFace)
+    mkdir -p "$OUT_DIR/$WHISPER_PREFIX"
+    while IFS= read -r -d '' f; do
+        rel="${f#"$WHISPER_DIR"/}"
+        mkdir -p "$(dirname "$OUT_DIR/$WHISPER_PREFIX/$rel")"
+        copy_or_link "$f" "$OUT_DIR/$WHISPER_PREFIX/$rel"
+    done < <(find "$WHISPER_DIR" -name .cache -prune -o -type f -print0)
 fi
 
-# Copiar/refrescar el set solicitado (idempotente)
+# Copiar/refrescar el set solicitado (idempotente; excluye *.h5, no usados)
 mkdir -p "$OUT_DIR/$MODE"
 for pair in "${MARIAN_PAIRS[@]}"; do
     src_pair="$SET_DIR/opus-mt-$pair"
@@ -182,6 +184,9 @@ for pair in "${MARIAN_PAIRS[@]}"; do
     mkdir -p "$dst_pair"
     for f in "$src_pair"/*; do
         [ -e "$f" ] || continue
+        case "$f" in
+            *.h5) continue ;;
+        esac
         copy_or_link "$f" "$dst_pair/"
     done
 done
@@ -236,23 +241,27 @@ errors = 0
 for entry in files:
     rel = entry["path"]
     p = os.path.join(repo, rel)
-    if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
-        print("FALTA/TAMAÑO:", rel)
+    try:
+        if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
+            print("FALTA/TAMAÑO:", rel)
+            errors += 1
+            continue
+        sha = entry.get("sha256")
+        if not sha:
+            print("OK:", rel)
+            continue
+        h = hashlib.sha256()
+        with open(p, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                h.update(chunk)
+        if h.hexdigest() != sha:
+            print("SHA256 INCORRECTO:", rel)
+            errors += 1
+        else:
+            print("OK:", rel)
+    except OSError as e:
+        print(f"ERROR NO LEGIBLE: {rel} ({e})")
         errors += 1
-        continue
-    sha = entry.get("sha256")
-    if not sha:
-        print("OK:", rel)
-        continue
-    h = hashlib.sha256()
-    with open(p, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            h.update(chunk)
-    if h.hexdigest() != sha:
-        print("SHA256 INCORRECTO:", rel)
-        errors += 1
-    else:
-        print("OK:", rel)
 
 print("OK" if errors == 0 else f"{errors} errores")
 sys.exit(1 if errors else 0)
@@ -292,8 +301,12 @@ else:
 
 files = []
 for root, dirs, fnames in os.walk(out_dir):
+    # Excluir .cache (artefactos de HuggingFace)
+    dirs[:] = [d for d in dirs if d != ".cache"]
     dirs.sort()
     for fname in sorted(fnames):
+        if fname.endswith(".h5"):
+            continue
         abs_path = os.path.join(root, fname)
         rel_path = os.path.relpath(abs_path, out_dir)
         if rel_path == "manifest.json":

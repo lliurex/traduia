@@ -67,6 +67,10 @@ traduia-make-repo /opt/ai/traduia/models ct2 /srv/export/traduia
   incompleto, listando lo que falta. Para el set ct2 acepta ambos layouts de
   vocabulario: `vocabulary.txt` (conversión local) o `vocab.json` (repos
   pre-convertidos como `mijuanlo/opus-mt-*-ct2-int8`).
+- **Exclusiones**: los artefactos de HuggingFace (`whisper-small/.cache/…`,
+  ficheros no legibles o basura de descarga) y los pesos `tf_model.h5`
+  (TensorFlow, no utilizados por el servicio) **no se copian** al
+  repositorio ni se listan en el manifest.
 - **Aditivo**: ejecútelo una vez por cada set que quiera llevar, apuntando
   siempre al **mismo** directorio de salida. `whisper-small` solo se copia
   en la primera ejecución — **nunca se duplica**. El `mode` del manifest se
@@ -230,9 +234,12 @@ USB/traduia/
 └── marian/opus-mt-{par}/… # (si se llevó el set marian)
 ```
 
-Espacio aproximado: el modo ct2 ocupa ~4-5 GB y el modo marian ~8-10 GB
-(whisper-small compartido, no se suma dos veces). Si el USB lleva **ambos
-modos** (sección 2, aditivo), la instalación usará solo uno.
+Espacio aproximado (tamaños reales): el modo **ct2 ≈ 1.3 GB** (whisper
+~0.45 GB + 10 pares ~0.8 GB) y el modo **marian ≈ 3.7 GB** (los pesos
+`tf_model.h5` de TensorFlow no se exportan: no los usa el servicio).
+Whisper-small está compartido, no se suma dos veces. Si el USB lleva
+**ambos modos** (sección 2, aditivo), la instalación usará solo uno. Use un
+USB con espacio suficiente.
 
 > **Nota**: el USB **no** incluye los marcadores de modo (`.use_ct2` /
 > `.use_marian`). Los crea el instalador en la máquina destino según el set

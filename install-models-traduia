@@ -367,6 +367,10 @@ def sha256_file(path):
     return h.hexdigest()
 
 def wanted(rel):
+    # Saltar artefactos .cache de HuggingFace y pesos tf_model.h5 no usados
+    # (repos generados con versiones antiguas)
+    if ".cache/" in rel or rel.endswith(".h5"):
+        return False
     return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
 
 for entry in files:
@@ -563,7 +567,9 @@ echo "$(_ "Models downloaded!")"
 
 checked_size=$(du -ms "$SHARED_HF" |awk '{print $1}')
 
-if [ -n "$checked_size" -a "$checked_size" -gt 5000 ]; then
+# Umbral 1 GB: modo ct2 (~1.3 GB) y marian (~6.8 GB) lo superan;
+# una instalación solo-whisper (~0.45 GB) no.
+if [ -n "$checked_size" -a "$checked_size" -gt 1000 ]; then
     sed -ri 's|NoDisplay=true|NoDisplay=false|g' /usr/share/applications/traduia.desktop
 fi
 
