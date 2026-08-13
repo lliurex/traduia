@@ -102,24 +102,19 @@ Ejemplo de `manifest.json`:
 
 ## 3. Parte común — Verificar la integridad
 
-Compruebe que cada fichero coincide con su sha256 del manifest:
+`traduia-make-repo` genera junto al manifest un verificador
+(`verify-models.py`). Compruebe que cada fichero coincide con su sha256:
 
 ```bash
 cd /srv/export/traduia
-python3 - <<'EOF'
-import hashlib, json, os
-m = json.load(open("manifest.json"))
-errors = 0
-for f in m["files"]:
-    p = f["path"]
-    if not os.path.exists(p) or os.path.getsize(p) != f["size"]:
-        print("FALTA/TAMAÑO:", p); errors += 1; continue
-    h = hashlib.sha256(open(p, "rb").read()).hexdigest()
-    if h != f["sha256"]:
-        print("SHA256 INCORRECTO:", p); errors += 1
-print("OK" if errors == 0 else f"{errors} errores")
-EOF
+python3 verify-models.py          # o: python3 verify-models.py /ruta/al/repositorio
 ```
+
+- Imprime `OK: <ruta>` por fichero (o `FALTA/TAMAÑO:` / `SHA256 INCORRECTO:`),
+  un resumen final y devuelve `exit 0` si todo es correcto o `1` si hay
+  errores.
+- El verificador viaja con el repositorio (USB o repo HTTP), así que puede
+  ejecutarse en cualquier máquina sin copiar nada de esta documentación.
 
 ---
 
@@ -220,6 +215,9 @@ directamente sobre él; la autodetección de filesystems hará la copia):
 ```bash
 rsync -a --progress /srv/export/traduia/ /media/usuario/USB/traduia/
 sync
+
+# Verificar la copia (el verificador viaja con el repositorio):
+python3 /media/usuario/USB/traduia/verify-models.py
 ```
 
 Estructura en el USB:
