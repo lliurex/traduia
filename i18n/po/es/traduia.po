@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 12:11+0200\n"
+"POT-Creation-Date: 2026-08-13 12:37+0200\n"
 "PO-Revision-Date: 2026-05-19 12:48+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Spanish\n"
@@ -294,47 +294,47 @@ msgstr "[INFO] Forzando parada (KILL) del PID {}..."
 msgid "[INFO] Cleaning up..."
 msgstr "[INFO] Limpiando..."
 
-#: traduia-verify-models:29
+#: traduia-verify-models:31
 msgid "ERROR: --mode requires 'ct2' or 'marian'."
 msgstr "ERROR: --mode requiere 'ct2' o 'marian'."
 
-#: traduia-verify-models:38
+#: traduia-verify-models:40
 msgid "ERROR: unknown mode: {}"
 msgstr "ERROR: modo desconocido: {}"
 
-#: traduia-verify-models:57
+#: traduia-verify-models:59
 msgid "ERROR: could not read {}: {}"
 msgstr "ERROR: no se pudo leer {}: {}"
 
-#: traduia-verify-models:62
+#: traduia-verify-models:64
 msgid "ERROR: manifest.json contains no files."
 msgstr "ERROR: manifest.json no contiene ficheros."
 
-#: traduia-verify-models:66
+#: traduia-verify-models:68
 msgid "ERROR: no entries for mode '{}' in manifest."
 msgstr "ERROR: no hay entradas del modo '{}' en el manifest."
 
-#: traduia-verify-models:77
+#: traduia-verify-models:79
 msgid "MISSING/SIZE: {}"
 msgstr "FALTA/TAMAÑO: {}"
 
-#: traduia-verify-models:82 traduia-verify-models:92
+#: traduia-verify-models:84 traduia-verify-models:94
 msgid "OK: {}"
 msgstr "OK: {}"
 
-#: traduia-verify-models:89
+#: traduia-verify-models:91
 msgid "SHA256 MISMATCH: {}"
 msgstr "SHA256 INCORRECTO: {}"
 
-#: traduia-verify-models:94
+#: traduia-verify-models:96
 msgid "UNREADABLE: {} ({})"
 msgstr "NO LEGIBLE: {} ({})"
 
-#: traduia-verify-models:98
+#: traduia-verify-models:100
 msgid "{} errors"
 msgstr "{} errores"
 
-#: traduia-verify-models:100
+#: traduia-verify-models:102
 msgid "OK"
 msgstr "OK"
 
@@ -684,58 +684,69 @@ msgstr ""
 msgid "Error: xdg-open not found."
 msgstr "Error: no se encuentra xdg-open."
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:96
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:47
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:56
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:83
+msgid "cards file processing failed:"
+msgstr "falló el procesamiento del fichero de tarjetas:"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:58
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:85
+msgid "cards file not found:"
+msgstr "no se encuentra el fichero de tarjetas:"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:100
 msgid "Client"
 msgstr "Cliente"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:97
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:101
 msgid "Server"
 msgstr "Servidor"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:100
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:104
 msgid "Mode selector"
 msgstr "Selector de modo"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:100
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:104
 msgid "Install mode:"
 msgstr "Modo de instalación:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:118
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:122
 msgid "Model Optimization?"
 msgstr "Optimización de modelo?"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:119
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:123
 msgid "Optimization mode:"
 msgstr "Modo de optimización:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:120
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:124
 msgid "Marian"
 msgstr "Marian"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:121
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:125
 msgid "Optimized (experimental)"
 msgstr "Optimizado (experimental)"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:136
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:140
 msgid "Downloading models..."
 msgstr "Descargando modelos..."
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:142
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:146
 msgid "Setting server desktop"
 msgstr "Configurando el escritorio del servidor"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:164
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:168
 msgid "Keep"
 msgstr "Conservar"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:165
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:169
 msgid "Delete"
 msgstr "Eliminar"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:166
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:170
 msgid "Remove models?"
 msgstr "¿Eliminar modelos?"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:166
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:170
 msgid "Do you want to delete the downloaded models?"
 msgstr "¿Desea eliminar los modelos descargados?"

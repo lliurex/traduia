@@ -33,7 +33,7 @@ function remove_execcode(){
 }
 
 # Sitios Easy-Sites
-TRADUIA_EASY_CARDS_FILE="/var/www/cards.js"
+TRADUIA_EASY_CARDS_FILE="/usr/share/lliurex-firefox-settings/www/cards.js"
 
 # Extrae el JSON de "window.LLX_CARDS = { ... };"
 function cards_extract_json() {
@@ -44,16 +44,18 @@ function cards_extract_json() {
 function cards_write_json() {
     { printf 'window.LLX_CARDS = %s;\n' "$(cat "$1")"; } > "${TRADUIA_EASY_CARDS_FILE}.tmp" \
         && mv "${TRADUIA_EASY_CARDS_FILE}.tmp" "$TRADUIA_EASY_CARDS_FILE" \
-        || rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"
+        || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_EASY_CARDS_FILE" >&2; rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"; }
 }
 
 function create_easy_conf() {
     if [ -f "$TRADUIA_EASY_CARDS_FILE" ]; then
         local json
         json="$(cards_extract_json "$TRADUIA_EASY_CARDS_FILE" \
-            | jq '.cards |= ( map(select(.title != "Traduia" and .url != "http://server:8000")) + [{"title":"Traduia","url":"http://server:8000"}] )' 2>/dev/null)" \
+            | jq '.cards |= ( map(select(.title != "Traduia" and .url != "http://server:8000")) + [{"title":"Traduia","url":"http://server:8000"}] )')" \
             && cards_write_json <(printf '%s\n' "$json") \
-            || rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"
+            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_EASY_CARDS_FILE" >&2; rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"; }
+    else
+        echo "[WARN] $(_ "cards file not found:") $TRADUIA_EASY_CARDS_FILE" >&2
     fi
 }
 
@@ -76,9 +78,11 @@ function remove_easy_conf(){
     if [ -f "$TRADUIA_EASY_CARDS_FILE" ]; then
         local json
         json="$(cards_extract_json "$TRADUIA_EASY_CARDS_FILE" \
-            | jq '.cards |= map( if (.title == "Traduia" or .url == "http://server:8000") then {"title":"Traduia","_url":"uninstalled"} else . end )' 2>/dev/null)" \
+            | jq '.cards |= map( if (.title == "Traduia" or .url == "http://server:8000") then {"title":"Traduia","_url":"uninstalled"} else . end )')" \
             && cards_write_json <(printf '%s\n' "$json") \
-            || rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"
+            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_EASY_CARDS_FILE" >&2; rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"; }
+    else
+        echo "[WARN] $(_ "cards file not found:") $TRADUIA_EASY_CARDS_FILE" >&2
     fi
 }
 
@@ -173,6 +177,8 @@ case $ACTION in
         apt-get remove -y traduia
         TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
         if [ "$TEST" == 'installed' ];then
+            # La desinstalación falló, pero la tarjeta se marca igualmente.
+            remove_easy_conf
             exit 1
         else
             if [ "$REMOVE_MODELS" = "true" ]; then

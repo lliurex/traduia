@@ -37,6 +37,7 @@ Depends:
  ${misc:Depends},
  zero-center,
  epi-gtk,
- jq
+ jq,
+ lliurex-firefox-settings
 Description: TraduIA installer
  Easy installer for TraduIA built for zero-center.
