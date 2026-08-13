@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 -B
+#!/usr/bin/env python3
 """Verifica la integridad de los modelos instalados contra su manifest.json.
 
 Uso: traduia-verify-models [--mode ct2|marian] [directorio]
@@ -9,6 +9,8 @@ import hashlib
 import json
 import os
 import sys
+
+sys.dont_write_bytecode = True
 
 gettext.bindtextdomain('traduia', '/usr/share/locale')
 gettext.textdomain('traduia')
