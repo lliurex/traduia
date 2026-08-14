@@ -126,6 +126,71 @@ MODELS_URL="${CLI_URL:-${TRADUIA_MODELS_URL:-}}"
 MODELS_DIR="${CLI_DIR:-}"
 
 # =========================================================
+# Validación temprana del repositorio (--url/--dir/--from)
+# Comprueba que la fuente es una exportación de repositorio
+# válida (manifest.json con files[] y al menos un set ct2|marian)
+# ANTES de crear el venv e instalar dependencias (minutos).
+# La validación profunda (completitud del set, sha256) la hace
+# cada modo de instalación.
+# =========================================================
+validate_models_source() {
+    local manifest=""
+    local tmp=""
+
+    if [ -n "$MODELS_DIR" ]; then
+        manifest="$MODELS_DIR/manifest.json"
+        if [ ! -f "$manifest" ]; then
+            echo "[ERROR] No manifest.json found in source directory: $MODELS_DIR" >&2
+            return 1
+        fi
+    elif [ -n "$MODELS_URL" ]; then
+        tmp="$(mktemp)"
+        if ! curl -fsSL --connect-timeout 15 -o "$tmp" "${MODELS_URL%/}/manifest.json"; then
+            rm -f "$tmp"
+            echo "[ERROR] Could not fetch manifest.json from: ${MODELS_URL%/}/manifest.json" >&2
+            return 1
+        fi
+        manifest="$tmp"
+    else
+        # Sin fuente de repositorio (internet): no hay nada que validar.
+        return 0
+    fi
+
+    if ! python3 - "$manifest" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+except (json.JSONDecodeError, OSError) as e:
+    print(f"[ERROR] Invalid manifest.json: {e}", file=sys.stderr)
+    sys.exit(1)
+
+files = manifest.get("files", [])
+if not isinstance(files, list) or not files:
+    print("[ERROR] manifest.json contains no files.", file=sys.stderr)
+    sys.exit(1)
+
+if not any(f.get("path", "").startswith(("ct2/", "marian/")) for f in files):
+    print("[ERROR] manifest.json contains no model set (ct2/ or marian/).", file=sys.stderr)
+    sys.exit(1)
+PY
+    then
+        [ -n "$tmp" ] && rm -f "$tmp"
+        return 1
+    fi
+
+    [ -n "$tmp" ] && rm -f "$tmp"
+    return 0
+}
+
+if ! validate_models_source; then
+    exit 1
+fi
+
+# =========================================================
 # Detección de modelos ya presentes en disco
 # =========================================================
 MISSING_FILES=()

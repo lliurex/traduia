@@ -32,6 +32,42 @@ function remove_execcode(){
     fi
 }
 
+# =========================================================
+# Origen de modelos (Internet/USB/LAN) — validación rápida
+# Un repositorio exportado (traduia-make-repo) contiene
+# manifest.json con files[] (whisper-small/ + ct2/ y/o marian/).
+# =========================================================
+
+# Validación común del manifest: JSON válido, files no vacío y
+# al menos un set (ct2/ o marian/).
+function valid_repo_manifest() {
+    jq -e '.files | type == "array" and length > 0 and ([.[].path | test("^(ct2|marian)/")] | any)' "$1" >/dev/null 2>&1
+}
+
+# Comprueba si el manifest contiene entradas de un set ("ct2" | "marian").
+function repo_has_set() {
+    jq -e --arg set "$2/" '[.files[].path | startswith($set)] | any' "$1" >/dev/null 2>&1
+}
+
+# Directorio local (USB): existe, es legible y tiene manifest válido.
+function valid_repo_dir() {
+    [ -d "$1" ] && [ -r "$1" ] && [ -f "$1/manifest.json" ] && valid_repo_manifest "$1/manifest.json"
+}
+
+# URL (LAN): descarga el manifest con timeout corto y lo valida.
+function valid_repo_url() {
+    local url="${1%/}"
+    local tmp
+    tmp="$(mktemp)"
+    if curl -fsSL --connect-timeout 5 --max-time 10 -o "$tmp" "$url/manifest.json" 2>/dev/null \
+        && valid_repo_manifest "$tmp"; then
+        rm -f "$tmp"
+        return 0
+    fi
+    rm -f "$tmp"
+    return 1
+}
+
 # Sitios Easy-Sites
 TRADUIA_EASY_CARDS_FILE="/usr/share/lliurex-firefox-settings/www/cards.js"
 
@@ -117,17 +153,100 @@ case $ACTION in
         # Guardamos el valor interno, no el traducido
         echo "$mode" > /tmp/.traduia_install_mode
 
-        # Pregunta de optimización (solo si Server) — siempre se pregunta.
+        # Pregunta de origen de modelos (solo si Server):
+        # Internet (siempre válido) / USB (directorio) / LAN (URL).
+        # El directorio/URL debe ser una exportación de repositorio de
+        # modelos (manifest.json con files[] y al menos un set ct2|marian).
+        # Si no es válido, se vuelve a ofrecer la pregunta.
         if [ "$mode" == "Server" ]; then
-            OPT_TITLE=$(_ "Model Optimization?")
-            OPT_LABEL=$(_ "Optimization mode:")
-            OPT_NO=$(_ "Marian")
-            OPT_YES=$(_ "Optimized (experimental)")
+            SOURCE_TITLE=$(_ "Model source")
+            SOURCE_LABEL=$(_ "Where are the models taken from?")
+            SOURCE_INT=$(_ "Internet")
+            SOURCE_USB=$(_ "USB")
+            SOURCE_LAN=$(_ "LAN")
+            MODELS_SOURCE=""
 
-            selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "$OPT_NO" "$OPT_YES")
-            ret=$?
-            if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
-                echo "optimized" > /tmp/.traduia_optimize_model
+            while [ -z "$MODELS_SOURCE" ]; do
+                selected=$(kdialog --title "$SOURCE_TITLE" --combobox "$SOURCE_LABEL" "$SOURCE_INT" "$SOURCE_USB" "$SOURCE_LAN")
+                ret=$?
+                if [ $ret -ne 0 ]; then
+                    # Cancelado: se vuelve a ofrecer la pregunta.
+                    continue
+                fi
+
+                if [ "$selected" == "$SOURCE_INT" ]; then
+                    MODELS_SOURCE="internet"
+                elif [ "$selected" == "$SOURCE_USB" ]; then
+                    repo_path=$(kdialog --title "$(_ "Models repository path (USB):")" --getexistingdirectory)
+                    if [ $? -ne 0 ]; then
+                        continue
+                    fi
+                    if [ -n "$repo_path" ] && valid_repo_dir "$repo_path"; then
+                        MODELS_SOURCE="$repo_path"
+                    else
+                        kdialog --error "$(_ "The models repository is not valid:") $repo_path"
+                        continue
+                    fi
+                elif [ "$selected" == "$SOURCE_LAN" ]; then
+                    repo_url=$(kdialog --inputbox "$(_ "Models repository URL (LAN):")")
+                    if [ $? -ne 0 ]; then
+                        continue
+                    fi
+                    if [ -n "$repo_url" ] && valid_repo_url "$repo_url"; then
+                        MODELS_SOURCE="$repo_url"
+                    else
+                        kdialog --error "$(_ "The models repository is not valid:") $repo_url"
+                        continue
+                    fi
+                fi
+            done
+            # Guardamos el valor interno, no el traducido
+            echo "$MODELS_SOURCE" > /tmp/.traduia_models_source
+            chown root:root /tmp/.traduia_models_source
+
+            # Pregunta de optimización (última): con Internet se pregunta
+            # siempre; con USB/LAN se adapta al contenido real del repo
+            # (el manifest ya se ha validado).
+            if [ "$MODELS_SOURCE" == "internet" ]; then
+                OPT_TITLE=$(_ "Model Optimization?")
+                OPT_LABEL=$(_ "Optimization mode:")
+                OPT_NO=$(_ "Marian")
+                OPT_YES=$(_ "Optimized (experimental)")
+
+                selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "$OPT_NO" "$OPT_YES")
+                ret=$?
+                if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
+                    echo "optimized" > /tmp/.traduia_optimize_model
+                fi
+            else
+                if [[ "$MODELS_SOURCE" == http://* || "$MODELS_SOURCE" == https://* ]]; then
+                    manifest_tmp="$(mktemp)"
+                    curl -fsSL --connect-timeout 5 --max-time 10 -o "$manifest_tmp" "${MODELS_SOURCE%/}/manifest.json" 2>/dev/null
+                else
+                    manifest_tmp="${MODELS_SOURCE%/}/manifest.json"
+                fi
+                if repo_has_set "$manifest_tmp" "ct2" && ! repo_has_set "$manifest_tmp" "marian"; then
+                    # Solo CT2: se elige Optimized sin preguntar.
+                    echo "optimized" > /tmp/.traduia_optimize_model
+                elif repo_has_set "$manifest_tmp" "marian" && ! repo_has_set "$manifest_tmp" "ct2"; then
+                    # Solo Marian: sin marcador.
+                    true
+                else
+                    # Ambos sets: se pregunta como con Internet.
+                    OPT_TITLE=$(_ "Model Optimization?")
+                    OPT_LABEL=$(_ "Optimization mode:")
+                    OPT_NO=$(_ "Marian")
+                    OPT_YES=$(_ "Optimized (experimental)")
+
+                    selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "$OPT_NO" "$OPT_YES")
+                    ret=$?
+                    if [ $ret -eq 0 ] && [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
+                        echo "optimized" > /tmp/.traduia_optimize_model
+                    fi
+                fi
+                if [[ "$MODELS_SOURCE" == http://* || "$MODELS_SOURCE" == https://* ]]; then
+                    rm -f "$manifest_tmp"
+                fi
             fi
         fi
     ;;
@@ -138,10 +257,30 @@ case $ACTION in
             if [ "$mode" == "Server" ]; then
                 # Aquí la comparación con "Server" sigue funcionando
                 echo "$(_ "Downloading models...")"
-                if [ -f /tmp/.traduia_optimize_model ] && grep -q "optimized" /tmp/.traduia_optimize_model; then
-                    /usr/sbin/install-models-traduia optimized
+                # Origen: sin marcador (instalación previa) => Internet.
+                if [ -f /tmp/.traduia_models_source ]; then
+                    MODELS_SOURCE=$(cat /tmp/.traduia_models_source)
+                    chown root:root /tmp/.traduia_models_source
                 else
-                    /usr/sbin/install-models-traduia
+                    MODELS_SOURCE="internet"
+                fi
+                if [ -f /tmp/.traduia_optimize_model ] && grep -q "optimized" /tmp/.traduia_optimize_model; then
+                    OPTIMIZED="optimized"
+                else
+                    OPTIMIZED=""
+                fi
+                if [ "$MODELS_SOURCE" == "internet" ]; then
+                    if [ -n "$OPTIMIZED" ]; then
+                        /usr/sbin/install-models-traduia optimized
+                    else
+                        /usr/sbin/install-models-traduia
+                    fi
+                else
+                    if [ -n "$OPTIMIZED" ]; then
+                        /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" optimized
+                    else
+                        /usr/sbin/install-models-traduia --from "$MODELS_SOURCE"
+                    fi
                 fi
                 echo "$(_ "Setting server desktop")"
                 sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
@@ -157,10 +296,10 @@ case $ACTION in
                 true
             fi
         fi
-        rm -f /tmp/.traduia_install_mode /tmp/.traduia_optimize_model || true
+        rm -f /tmp/.traduia_install_mode /tmp/.traduia_optimize_model /tmp/.traduia_models_source || true
     ;;
     remove)
-        rm -f /tmp/.traduia_install_mode || true
+        rm -f /tmp/.traduia_install_mode /tmp/.traduia_models_source || true
 
         # Solo se pregunta sobre los modelos si existen en disco.
         REMOVE_MODELS=false

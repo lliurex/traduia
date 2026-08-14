@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 12:37+0200\n"
+"POT-Creation-Date: 2026-08-14 12:28+0200\n"
 "PO-Revision-Date: 2026-05-08 17:54+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -21,59 +21,59 @@ msgstr ""
 msgid "[INFO] Opening: {}"
 msgstr "[INFO] Opening: {}"
 
-#: traduia_server.py:150
+#: traduia_server.py:195
 msgid ""
 "[ERROR] No translation models found on disk. Run install-models-traduia."
 msgstr ""
 "[ERROR] No translation models found on disk. Run install-models-traduia."
 
-#: traduia_server.py:151
+#: traduia_server.py:196
 msgid "No translation models found on disk. Run install-models-traduia."
 msgstr ""
 
-#: traduia_server.py:156
+#: traduia_server.py:201
 msgid "[WARN] CT2 marker present but CT2 models are not complete on disk."
 msgstr "[WARN] CT2 marker present but CT2 models are not complete on disk."
 
-#: traduia_server.py:158
+#: traduia_server.py:203
 msgid "[WARN] Falling back to Marian models."
 msgstr "[WARN] Falling back to Marian models."
 
-#: traduia_server.py:159
+#: traduia_server.py:204
 msgid "[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"
 msgstr "[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"
 
-#: traduia_server.py:161 traduia_server.py:173 traduia_server.py:185
+#: traduia_server.py:206 traduia_server.py:218 traduia_server.py:230
 msgid "[ERROR] No complete model set found. Run install-models-traduia."
 msgstr "[ERROR] No complete model set found. Run install-models-traduia."
 
-#: traduia_server.py:162 traduia_server.py:174 traduia_server.py:186
+#: traduia_server.py:207 traduia_server.py:219 traduia_server.py:231
 msgid "No complete model set found on disk. Run install-models-traduia."
 msgstr "No complete model set found on disk. Run install-models-traduia."
 
-#: traduia_server.py:163
+#: traduia_server.py:208
 msgid "[INFO] Translation mode: CT2 (override via .use_ct2 marker)"
 msgstr "[INFO] Translation mode: CT2 (override via .use_ct2 marker)"
 
-#: traduia_server.py:168
+#: traduia_server.py:213
 msgid ""
 "[WARN] Marian marker present but Marian models are not complete on disk."
 msgstr ""
 "[WARN] Marian marker present but Marian models are not complete on disk."
 
-#: traduia_server.py:170
+#: traduia_server.py:215
 msgid "[WARN] Falling back to CT2 models."
 msgstr "[WARN] Falling back to CT2 models."
 
-#: traduia_server.py:171
+#: traduia_server.py:216
 msgid "[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"
 msgstr "[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"
 
-#: traduia_server.py:175
+#: traduia_server.py:220
 msgid "[INFO] Translation mode: Marian (override via .use_marian marker)"
 msgstr "[INFO] Translation mode: Marian (override via .use_marian marker)"
 
-#: traduia_server.py:182
+#: traduia_server.py:227
 msgid ""
 "[WARN] Both markers present but Marian models are not complete; falling back"
 " to CT2."
@@ -81,197 +81,197 @@ msgstr ""
 "[WARN] Both markers present but Marian models are not complete; falling back"
 " to CT2."
 
-#: traduia_server.py:183
+#: traduia_server.py:228
 msgid "[INFO] Translation mode: CT2 (fallback, Marian unavailable)"
 msgstr "[INFO] Translation mode: CT2 (fallback, Marian unavailable)"
 
-#: traduia_server.py:187
+#: traduia_server.py:232
 msgid ""
 "[INFO] Translation mode: Marian (both markers present, Marian priority)"
 msgstr ""
 "[INFO] Translation mode: Marian (both markers present, Marian priority)"
 
-#: traduia_server.py:193
+#: traduia_server.py:238
 msgid "[INFO] Translation mode: Marian (detected from disk, Marian priority)"
 msgstr "[INFO] Translation mode: Marian (detected from disk, Marian priority)"
 
-#: traduia_server.py:195
+#: traduia_server.py:240
 msgid "[INFO] Translation mode: Marian (detected from disk)"
 msgstr "[INFO] Translation mode: Marian (detected from disk)"
 
-#: traduia_server.py:198
+#: traduia_server.py:243
 msgid "[INFO] Translation mode: CT2 (detected from disk)"
 msgstr "[INFO] Translation mode: CT2 (detected from disk)"
 
-#: traduia_server.py:493
+#: traduia_server.py:538
 msgid "[WARN] Failed to load CT2 model {}: {}"
 msgstr "[WARN] Failed to load CT2 model {}: {}"
 
-#: traduia_server.py:506
+#: traduia_server.py:551
 msgid "[WARN] Failed to load Marian model {}: {}"
 msgstr "[WARN] Failed to load Marian model {}: {}"
 
-#: traduia_server.py:682
+#: traduia_server.py:727
 msgid "LliureX - Real-time Transcription / Translation System"
 msgstr "LliureX - Real-time Transcription / Translation System"
 
-#: traduia_server.py:683
+#: traduia_server.py:728
 msgid "LliureX - TraduIA"
 msgstr ""
 
-#: traduia_server.py:684
+#: traduia_server.py:729
 msgid "AlicIA"
 msgstr ""
 
-#: traduia_server.py:685
+#: traduia_server.py:730
 msgid "Display Mode"
 msgstr "Display Mode"
 
-#: traduia_server.py:686
+#: traduia_server.py:731
 msgid "Language"
 msgstr "Language"
 
-#: traduia_server.py:687
+#: traduia_server.py:732
 msgid "View original (teacher's language)"
 msgstr "View original (teacher's language)"
 
-#: traduia_server.py:688
+#: traduia_server.py:733
 msgid "View translated"
 msgstr "View translated"
 
-#: traduia_server.py:689
+#: traduia_server.py:734
 msgid "Here you will see the teacher's speech in your chosen language…"
 msgstr "Here you will see the teacher's speech in your chosen language…"
 
-#: traduia_server.py:691 traduia_server.py:694
+#: traduia_server.py:736 traduia_server.py:739
 msgid "disconnected"
 msgstr "disconnected"
 
-#: traduia_server.py:692
+#: traduia_server.py:737
 msgid "connecting..."
 msgstr "connecting..."
 
-#: traduia_server.py:693
+#: traduia_server.py:738
 msgid "connected"
 msgstr "connected"
 
-#: traduia_server.py:696
+#: traduia_server.py:741
 msgid "[TRANSLATION ERROR]"
 msgstr "[TRANSLATION ERROR]"
 
-#: traduia_server.py:697
+#: traduia_server.py:742
 msgid "[ERROR] Could not connect to the server."
 msgstr "[ERROR] Could not connect to the server."
 
-#: traduia_server.py:699
+#: traduia_server.py:744
 msgid "English"
 msgstr "English"
 
-#: traduia_server.py:699
+#: traduia_server.py:744
 msgid "French"
 msgstr "French"
 
-#: traduia_server.py:699
+#: traduia_server.py:744
 msgid "German"
 msgstr "German"
 
-#: traduia_server.py:700
+#: traduia_server.py:745
 msgid "Russian"
 msgstr "Russian"
 
-#: traduia_server.py:700
+#: traduia_server.py:745
 msgid "Arabic"
 msgstr "Arabic"
 
-#: traduia_server.py:700
+#: traduia_server.py:745
 msgid "Ukrainian"
 msgstr "Ukrainian"
 
-#: traduia_server.py:701
+#: traduia_server.py:746
 msgid "Romanian"
 msgstr "Romanian"
 
-#: traduia_server.py:701 traduia:71
+#: traduia_server.py:746 traduia:71
 msgid "Spanish"
 msgstr "Spanish"
 
-#: traduia_server.py:701 traduia:71 traduia:80
+#: traduia_server.py:746 traduia:71 traduia:80
 msgid "Valencian"
 msgstr "Valencian"
 
-#: traduia_server.py:702
+#: traduia_server.py:747
 msgid "Italian"
 msgstr ""
 
-#: traduia_server.py:1184
+#: traduia_server.py:1229
 msgid "LliureX STT/Real-time translation"
 msgstr "LliureX STT/Real-time translation"
 
-#: traduia_server.py:1223
+#: traduia_server.py:1268
 msgid "[STT] Starting Whisper ({}) for input language: {}"
 msgstr "[STT] Starting Whisper ({}) for input language: {}"
 
-#: traduia_server.py:1238
+#: traduia_server.py:1283
 msgid "[WARN] Failed to load Whisper model {}: {}"
 msgstr "[WARN] Failed to load Whisper model {}: {}"
 
-#: traduia_server.py:1496
+#: traduia_server.py:1564
 msgid "[STT] Audio source: {} -> {}"
 msgstr "[STT] Audio source: {} -> {}"
 
-#: traduia_server.py:1498
+#: traduia_server.py:1566
 msgid "[STT] Capturing audio (Pulse). Ctrl+C to stop."
 msgstr ""
 
-#: traduia_server.py:1531
+#: traduia_server.py:1599
 msgid "[STT] Microphone open. Ctrl+C to stop."
 msgstr "[STT] Microphone open. Ctrl+C to stop."
 
-#: traduia_server.py:1551
+#: traduia_server.py:1619
 msgid "[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})"
 msgstr ""
 
-#: traduia_server.py:1618
+#: traduia_server.py:1686
 msgid "alicia.png not found"
 msgstr "alicia.png not found"
 
-#: traduia_server.py:1673
+#: traduia_server.py:1741
 msgid "Supported languages: en, fr, de, ru, ar, uk, ro, it"
 msgstr ""
 
-#: traduia_server.py:1718 traduia_server.py:1743
+#: traduia_server.py:1786 traduia_server.py:1811
 msgid "Activity: Wait..."
 msgstr ""
 
-#: traduia_server.py:1722
+#: traduia_server.py:1790
 msgid "Active"
 msgstr ""
 
-#: traduia_server.py:1722
+#: traduia_server.py:1790
 msgid "Inactive"
 msgstr ""
 
-#: traduia_server.py:1723
+#: traduia_server.py:1791
 msgid "Activity: {} ({:.1%})"
 msgstr ""
 
-#: traduia_server.py:1738
+#: traduia_server.py:1806
 msgid "TraduIA Server"
 msgstr "TraduIA Server"
 
-#: traduia_server.py:1747
+#: traduia_server.py:1815
 msgid "Exit"
 msgstr "Exit"
 
-#: traduia_server.py:1811
+#: traduia_server.py:1879
 msgid "[INFO] Stopping previous instance (PID {})..."
 msgstr ""
 
-#: traduia_server.py:1816
+#: traduia_server.py:1884
 msgid "[INFO] Forcing stop (KILL) of PID {}..."
 msgstr ""
 
-#: traduia_server.py:1864
+#: traduia_server.py:1932
 msgid "[INFO] Cleaning up..."
 msgstr ""
 
@@ -650,69 +650,106 @@ msgstr "Warning: no suitable browser (.desktop) found on this system."
 msgid "Error: xdg-open not found."
 msgstr "Error: xdg-open not found."
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:47
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:56
 #: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:83
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:92
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:119
 msgid "cards file processing failed:"
 msgstr "cards file processing failed:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:58
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:85
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:94
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:121
 msgid "cards file not found:"
 msgstr "cards file not found:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:100
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:136
 msgid "Client"
 msgstr "Client"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:101
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:137
 msgid "Server"
 msgstr "Server"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:104
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:140
 msgid "Mode selector"
 msgstr "Mode selector"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:104
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:140
 msgid "Install mode:"
 msgstr "Install mode:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:122
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:162
+msgid "Model source"
+msgstr "Model source"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:163
+msgid "Where are the models taken from?"
+msgstr "Where are the models taken from?"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:164
+msgid "Internet"
+msgstr "Internet"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:165
+msgid "USB"
+msgstr "USB"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:166
+msgid "LAN"
+msgstr "LAN"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:180
+msgid "Models repository path (USB):"
+msgstr "Models repository path (USB):"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:187
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:198
+msgid "The models repository is not valid:"
+msgstr "The models repository is not valid:"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:191
+msgid "Models repository URL (LAN):"
+msgstr "Models repository URL (LAN):"
+
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:211
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:236
 msgid "Model Optimization?"
 msgstr "Model Optimization?"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:123
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:212
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:237
 msgid "Optimization mode:"
 msgstr "Optimization mode:"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:124
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:213
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:238
 msgid "Marian"
 msgstr "Marian"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:125
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:214
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:239
 msgid "Optimized (experimental)"
 msgstr "Optimized (experimental)"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:140
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:259
 msgid "Downloading models..."
 msgstr "Downloading models..."
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:146
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:285
 msgid "Setting server desktop"
 msgstr "Setting server desktop"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:168
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:307
 msgid "Keep"
 msgstr "Keep"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:169
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:308
 msgid "Delete"
 msgstr "Delete"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:170
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:309
 msgid "Remove models?"
 msgstr "Remove models?"
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:170
+#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:309
 msgid "Do you want to delete the downloaded models?"
 msgstr "Do you want to delete the downloaded models?"
