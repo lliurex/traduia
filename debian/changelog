@@ -6,6 +6,11 @@ traduia (0.8.8) jammy; urgency=medium
   * traduia-open-url wrapper ensure that xdg-open works with valid installed browser
   * Installation from zero-center skipping downloads when already on disk
   * Uninstall from zero-center without remove models
+  * Models source selection in zero-center (Internet/USB/LAN) with repo validation
+  * Adaptive optimization question from available models
+  * lliurex-firefox-settings integration
+  * Allow tunable parameters from env
+  * Repo validation
 
  -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 10 Aug 2026 12:00:00 +0200
 
