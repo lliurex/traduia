@@ -51,7 +51,7 @@ function create_easy_conf() {
     if [ -f "$TRADUIA_EASY_CARDS_FILE" ]; then
         local json
         json="$(cards_extract_json "$TRADUIA_EASY_CARDS_FILE" \
-            | jq '.cards |= ( map(select(.title != "Traduia" and .url != "http://server:8000")) + [{"title":"Traduia","url":"http://server:8000"}] )')" \
+            | jq '.cards |= ( map(select(.title != "Traduia" and .url != "http://server:8000")) + [{"title":"Traduia","url":"http://server:8000","image":"images/traduia.svg"}] )')" \
             && cards_write_json <(printf '%s\n' "$json") \
             || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_EASY_CARDS_FILE" >&2; rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"; }
     else
@@ -78,7 +78,7 @@ function remove_easy_conf(){
     if [ -f "$TRADUIA_EASY_CARDS_FILE" ]; then
         local json
         json="$(cards_extract_json "$TRADUIA_EASY_CARDS_FILE" \
-            | jq '.cards |= map( if (.title == "Traduia" or .url == "http://server:8000") then {"title":"Traduia","_url":"uninstalled"} else . end )')" \
+            | jq '.cards |= map( if (.title == "Traduia" or .url == "http://server:8000") then {"title":"Traduia","_url":"uninstalled","image":"images/traduia.svg"} else . end )')" \
             && cards_write_json <(printf '%s\n' "$json") \
             || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_EASY_CARDS_FILE" >&2; rm -f "${TRADUIA_EASY_CARDS_FILE}.tmp"; }
     else
