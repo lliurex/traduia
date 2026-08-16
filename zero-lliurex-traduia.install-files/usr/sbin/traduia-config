@@ -307,7 +307,7 @@ ask_source() {
             # vuelve a pedir la ubicación (no el combobox).
             while [ -z "$MODELS_SOURCE" ]; do
                 echo "[INFO] $(_ "Asking models repository path (USB)")"
-                repo_path=$(kdialog --title "$(_ "Select the models repository manifest (USB):")" --getopenfilename / "manifest.json")
+                repo_path=$(kdialog --title "$(_ "Select the models repository manifest (USB):")" --getopenfilename / "*.json")
                 if [ $? -ne 0 ]; then
                     abort_install
                 fi
@@ -488,8 +488,10 @@ do_remove() {
     TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
     if [ "$TEST" == 'installed' ];then
         # La desinstalación falló, pero las entradas se limpian igualmente.
+        echo "[INFO] $(_ "Removing lliurex-firefox-settings entry")"
         remove_llxffoxsettings_conf
         if check_www_package; then
+            echo "[INFO] $(_ "Removing Ainur (lliurex-www) entry")"
             remove_www_entry
         fi
         echo "[ERROR] $(_ "Failed to remove traduia package")" >&2
@@ -501,8 +503,10 @@ do_remove() {
         # El venv (regenerable) y el código se limpian siempre.
         remove_venv
         remove_execcode
+        echo "[INFO] $(_ "Removing lliurex-firefox-settings entry")"
         remove_llxffoxsettings_conf
         if check_www_package; then
+            echo "[INFO] $(_ "Removing Ainur (lliurex-www) entry")"
             remove_www_entry
         fi
     fi
