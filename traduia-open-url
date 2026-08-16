@@ -105,4 +105,14 @@ fi
 
 ensure_default_browser
 
+# xdg-open convierte las URLs file:// a ruta local (descartando el fragmento
+# #...), con lo que show-server.html no recibiría #server=ip:puerto. gio open
+# pasa la URI completa al navegador y preserva el fragmento.
+case "$URL" in
+    file://*)
+        if command -v gio >/dev/null 2>&1; then
+            exec gio open "$URL"
+        fi
+        ;;
+esac
 exec xdg-open "$URL"

@@ -25,7 +25,9 @@ Depends:
  python3-pyside2.qtwidgets,
  python3-pyside2.qtcore,
  python3-pyside2.qtgui,
- kdialog
+ kdialog,
+ libglib2.0-bin,
+ xdg-utils
 Description: Realtime transcription system
  Transcription system intended to be used in multilingual classrooms or special education schools.
 
