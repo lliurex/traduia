@@ -1,0 +1,620 @@
+#!/bin/bash
+#
+# traduia-config - Configuración de TraduIA (zero-center y standalone)
+#
+#   traduia-config                        → interactivo: detecta el paquete y
+#                                           ofrece Install/Remove (solo Install
+#                                           si no está detectado)
+#   traduia-config install                → preinstall + apt-get install -y
+#                                           traduia + postinstall (reinstalación)
+#   traduia-config remove                 → pregunta de modelos + apt-get remove
+#                                           + limpieza de entradas/modelos
+#   traduia-config preinstall             → Q&A (modo/origen/optimización) +
+#                                           marcadores (sin apt; lo hace el
+#                                           script superior de zero-center)
+#   traduia-config postinstall            → descarga de modelos + entradas web
+#                                           (sin apt; consume los marcadores)
+#   traduia-config status                 → estado de las entradas web
+#   traduia-config validate <dir|url>     → validación rápida de repositorio
+#
+# Requiere ejecutarse como root.
+
+# Configuración de gettext
+export TEXTDOMAIN="zero-lliurex-traduia"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+# Función para simplificar la llamada a gettext
+_() {
+    gettext "$1"
+}
+
+# kdialog con stderr silenciado: los frameworks KDE ensucian la consola
+# (p.ej. "kf.kio.widgets: Cannot read information about ...").
+function kdialog() {
+    command kdialog "$@" 2>/dev/null
+}
+
+# Aborta la operación por cancelación del usuario, limpiando los
+# marcadores temporales para que el reintento empiece limpio.
+function abort_install() {
+    echo "[INFO] $(_ "Installation cancelled")"
+    rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE"
+    exit 1
+}
+
+# Las operaciones que modifican el sistema requieren root.
+function require_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "[ERROR] $(_ "This command must be run as root")" >&2
+        exit 1
+    fi
+}
+
+# Poner a 1 para saltar la validación de metas y configurar siempre
+# las entradas web (lliurex-firefox-settings / Ainur).
+TRADUIA_SKIP_METAS_CHECK="${TRADUIA_SKIP_METAS_CHECK:-0}"
+# TRADUIA_SKIP_METAS_CHECK=1   # Descomenta esta línea para saltar la validación de metas
+
+# Marcadores temporales
+TRADUIA_MODE_FILE="/tmp/.traduia_install_mode"
+TRADUIA_SOURCE_FILE="/tmp/.traduia_models_source"
+TRADUIA_OPTIMIZE_FILE="/tmp/.traduia_optimize_model"
+
+function remove_models(){
+    models='/opt/ai/traduia/models'
+    if [ -e "$models" ]; then
+        rm -rf "$models"
+    fi
+}
+
+function remove_venv(){
+    venv='/opt/ai/traduia/venv'
+    if [ -e "$venv" ]; then
+        rm -rf "$venv"
+    fi
+}
+
+function remove_execcode(){
+    d='/usr/lib/traduia'
+    if [ -d "$d" ]; then
+        rmdir "$d" || true
+    fi
+}
+
+# =========================================================
+# Origen de modelos (Internet/USB/LAN) — validación rápida
+# Un repositorio exportado (traduia-make-repo) contiene
+# manifest.json con files[] (whisper-small/ + ct2/ y/o marian/).
+# =========================================================
+
+# Validación común del manifest: JSON válido, files no vacío y
+# al menos un set (ct2/ o marian/).
+function valid_repo_manifest() {
+    jq -e '.files | type == "array" and length > 0 and ([.[].path | test("^(ct2|marian)/")] | any)' "$1" >/dev/null 2>&1
+}
+
+# Comprueba si el manifest contiene entradas de un set ("ct2" | "marian").
+function repo_has_set() {
+    jq -e --arg set "$2/" '[.files[].path | startswith($set)] | any' "$1" >/dev/null 2>&1
+}
+
+# Directorio local (USB): existe, es legible y tiene manifest válido.
+function valid_repo_dir() {
+    [ -d "$1" ] && [ -r "$1" ] && [ -f "$1/manifest.json" ] && valid_repo_manifest "$1/manifest.json"
+}
+
+# URL (LAN): descarga el manifest con timeout corto y lo valida.
+function valid_repo_url() {
+    local url="${1%/}"
+    local tmp
+    tmp="$(mktemp)"
+    if curl -fsSL --connect-timeout 5 --max-time 10 -o "$tmp" "$url/manifest.json" 2>/dev/null \
+        && valid_repo_manifest "$tmp"; then
+        rm -f "$tmp"
+        return 0
+    fi
+    rm -f "$tmp"
+    return 1
+}
+
+# =========================================================
+# Sitios lliurex-firefox-settings (fichero cards.js)
+# =========================================================
+TRADUIA_LLXFFOXSETTINGS_CARDS_FILE="/usr/share/lliurex-firefox-settings/www/cards.js"
+TRADUIA_LLXFFOXSETTINGS_ICON_DEST="/usr/share/lliurex-firefox-settings/www/search/images/traduia.svg"
+
+# Icono del paquete (árbol propio), fuente para las copias en runtime.
+TRADUIA_ICON_SOURCE="/usr/share/zero-lliurex-traduia/traduia.svg"
+
+# Extrae el JSON de "window.LLX_CARDS = { ... };"
+function cards_extract_json() {
+    sed -e 's/^[[:space:]]*window[[:space:]]*\.LLX_CARDS[[:space:]]*=[[:space:]]*//' \
+        -e 's/;[[:space:]]*$//' "$1"
+}
+
+function cards_write_json() {
+    { printf 'window.LLX_CARDS = %s;\n' "$(cat "$1")"; } > "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp" \
+        && mv "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp" "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
+        || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; rm -f "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp"; }
+}
+
+function create_llxffoxsettings_conf() {
+    # Icono propio del paquete, copiado al destino web solo en runtime.
+    if [ -f "$TRADUIA_ICON_SOURCE" ]; then
+        cp "$TRADUIA_ICON_SOURCE" "$TRADUIA_LLXFFOXSETTINGS_ICON_DEST"
+    else
+        echo "[WARN] $(_ "icon not found:") $TRADUIA_ICON_SOURCE" >&2
+    fi
+    if [ -f "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" ]; then
+        local json
+        json="$(cards_extract_json "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
+            | jq '.cards |= ( map(select(.title != "Traduia" and .url != "http://server:8000")) + [{"title":"Traduia","url":"http://server:8000","image":"images/traduia.svg"}] )')" \
+            && cards_write_json <(printf '%s\n' "$json") \
+            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; rm -f "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp"; }
+    else
+        echo "[WARN] $(_ "cards file not found:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2
+    fi
+}
+
+function configure_llxffoxsettings() {
+    create_llxffoxsettings_conf
+}
+
+# Check común de las entradas web (lliurex-firefox-settings y Ainur):
+# solo se configuran si hay metas (lliurex-meta-adi / lliurex-meta-lab-pro)
+# instaladas y configuradas. Verboso: informa de cada paquete y del salto.
+function check_metas_for_www_entries() {
+    if [ "$TRADUIA_SKIP_METAS_CHECK" = "1" ]; then
+        echo "[INFO] $(_ "Metas check skipped (TRADUIA_SKIP_METAS_CHECK=1)")"
+        return 0
+    fi
+    TRADUIA_WWW_META_PACKAGES=( "lliurex-meta-adi" "lliurex-meta-lab-pro" )
+    for pkg in "${TRADUIA_WWW_META_PACKAGES[@]}"; do
+        echo "[INFO] $(_ "Checking LliureX meta:") $pkg"
+        # Solo si está instalado y configurado
+        if dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: install ok installed'; then
+            echo "[INFO] $(_ "LliureX metas found:") $pkg"
+            return 0
+        fi
+        echo "[INFO] $(_ "LliureX meta not installed:") $pkg"
+    done
+    echo "[WARN] $(_ "Skipping web entries: no LliureX metas installed")" >&2
+    return 1
+}
+
+function remove_llxffoxsettings_conf(){
+    if [ -f "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" ]; then
+        local json
+        json="$(cards_extract_json "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
+            | jq '.cards |= map( if (.title == "Traduia" or .url == "http://server:8000") then {"title":"Traduia","_url":"uninstalled","image":"images/traduia.svg"} else . end )')" \
+            && cards_write_json <(printf '%s\n' "$json") \
+            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; rm -f "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp"; }
+    else
+        echo "[WARN] $(_ "cards file not found:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2
+    fi
+    # El icono copiado al destino web también se limpia.
+    rm -f "$TRADUIA_LLXFFOXSETTINGS_ICON_DEST"
+}
+
+# =========================================================
+# Entrada Ainur (lliurex-www): página principal del servidor
+# (/srv lee JSONs de /var/lib/lliurex-www/links — prioridad
+# sobre /usr/share/lliurex-www/srv/links — sin reiniciar nada).
+# El icono se sirve desde /usr/share/lliurex-www/srv/icons.
+# =========================================================
+TRADUIA_WWW_LINKS_DIR="/var/lib/lliurex-www/links"
+TRADUIA_WWW_ICONS_DIR="/usr/share/lliurex-www/srv/icons"
+TRADUIA_WWW_ICON="traduia.svg"
+TRADUIA_WWW_ENTRY_URL="http://server:8000"
+TRADUIA_WWW_ENTRY_FILE="${TRADUIA_WWW_LINKS_DIR}/traduia.json"
+
+function check_www_package() {
+    dpkg -s lliurex-www 2>/dev/null | grep -q '^Status: install ok installed'
+}
+
+function create_www_entry() {
+    mkdir -p "$TRADUIA_WWW_LINKS_DIR"
+    # Icono propio del paquete, copiado al directorio de iconos de la web.
+    if [ -f "$TRADUIA_ICON_SOURCE" ]; then
+        cp "$TRADUIA_ICON_SOURCE" "$TRADUIA_WWW_ICONS_DIR/$TRADUIA_WWW_ICON"
+        chown www-data:www-data "$TRADUIA_WWW_ICONS_DIR/$TRADUIA_WWW_ICON"
+    else
+        echo "[WARN] $(_ "icon not found:") $TRADUIA_ICON_SOURCE" >&2
+    fi
+    cat > "$TRADUIA_WWW_ENTRY_FILE" <<EOF
+{
+    "link": "$TRADUIA_WWW_ENTRY_URL",
+    "icon": "$TRADUIA_WWW_ICON",
+    "name": {"default": "TraduIA", "valencia": "TraduIA", "es": "TraduIA"},
+    "description": {"default": "Traducción automática con IA", "valencia": "Traducció automàtica amb IA", "es": "Traducción automática con IA"},
+    "order": 80,
+    "editable": true,
+    "visibility": true
+}
+EOF
+    chown www-data:www-data "$TRADUIA_WWW_ENTRY_FILE"
+}
+
+function remove_www_entry() {
+    rm -f "$TRADUIA_WWW_ENTRY_FILE"
+    # El icono copiado al directorio de iconos de la web también se limpia.
+    rm -f "$TRADUIA_WWW_ICONS_DIR/$TRADUIA_WWW_ICON"
+}
+
+# =========================================================
+# Q&A — preinstall (modo → origen → optimización)
+# =========================================================
+
+ask_mode() {
+    if [ -f "$TRADUIA_MODE_FILE" ]; then
+        mode=$(cat "$TRADUIA_MODE_FILE")
+        chown root:root "$TRADUIA_MODE_FILE"
+        return
+    fi
+    mode=""
+    while [ ! -n "$mode" ]; do
+        # Definimos las etiquetas traducidas para el UI
+        CLIENT_LABEL=$(_ "Client")
+        SERVER_LABEL=$(_ "Server")
+
+        # kdialog muestra las etiquetas traducidas
+        echo "[INFO] $(_ "Asking install mode")"
+        selected=$(kdialog --title "$(_ "Mode selector")" --combobox "$(_ "Install mode:")" "$CLIENT_LABEL" "$SERVER_LABEL")
+        ret=$?
+        if [ $ret -eq 1 ]; then
+            abort_install
+        fi
+
+        # Mapeamos la selección a un valor interno neutro (en inglés)
+        if [ "$selected" == "$SERVER_LABEL" ]; then
+            mode="Server"
+        else
+            mode="Client"
+        fi
+        echo "[INFO] $(_ "Install mode selected:") $mode"
+    done
+    # Guardamos el valor interno, no el traducido
+    echo "$mode" > "$TRADUIA_MODE_FILE"
+}
+
+ask_source() {
+    # Pregunta de origen de modelos (solo si Server):
+    # Internet (siempre válido) / USB (directorio) / LAN (URL).
+    # El directorio/URL debe ser una exportación de repositorio de
+    # modelos (manifest.json con files[] y al menos un set ct2|marian).
+    # Si no es válido, se informa y se vuelve a pedir la ubicación.
+    # Cancelar en cualquier diálogo aborta la instalación.
+    SOURCE_TITLE=$(_ "Model source")
+    SOURCE_LABEL=$(_ "Where are the models taken from?")
+    SOURCE_INT=$(_ "Internet")
+    SOURCE_USB=$(_ "USB")
+    SOURCE_LAN=$(_ "LAN")
+    MODELS_SOURCE=""
+
+    while [ -z "$MODELS_SOURCE" ]; do
+        echo "[INFO] $(_ "Asking model source (Internet/USB/LAN)")"
+        selected=$(kdialog --title "$SOURCE_TITLE" --combobox "$SOURCE_LABEL" "$SOURCE_INT" "$SOURCE_USB" "$SOURCE_LAN")
+        ret=$?
+        if [ $ret -ne 0 ]; then
+            abort_install
+        fi
+        echo "[INFO] $(_ "Model source selected:") $selected"
+
+        if [ "$selected" == "$SOURCE_INT" ]; then
+            MODELS_SOURCE="internet"
+        elif [ "$selected" == "$SOURCE_USB" ]; then
+            # Bucle interno: si la ruta no es válida se informa y se
+            # vuelve a pedir la ubicación (no el combobox).
+            while [ -z "$MODELS_SOURCE" ]; do
+                echo "[INFO] $(_ "Asking models repository path (USB)")"
+                repo_path=$(kdialog --title "$(_ "Models repository path (USB):")" --getexistingdirectory)
+                if [ $? -ne 0 ]; then
+                    abort_install
+                fi
+                # Normalización: sin barra final y, si el diálogo
+                # devolvió un fichero (p.ej. un fichero resaltado
+                # dentro del repo), se usa su directorio.
+                repo_path="${repo_path%/}"
+                if [ -n "$repo_path" ] && [ -f "$repo_path" ]; then
+                    repo_path="$(dirname "$repo_path")"
+                fi
+                if [ -n "$repo_path" ] && valid_repo_dir "$repo_path"; then
+                    echo "[INFO] $(_ "Valid models repository:") $repo_path"
+                    MODELS_SOURCE="$repo_path"
+                else
+                    kdialog --error "$(_ "The models repository is not valid:") $repo_path"
+                    echo "[WARN] $(_ "The models repository is not valid:") $repo_path" >&2
+                fi
+            done
+        elif [ "$selected" == "$SOURCE_LAN" ]; then
+            while [ -z "$MODELS_SOURCE" ]; do
+                echo "[INFO] $(_ "Asking models repository URL (LAN)")"
+                repo_url=$(kdialog --inputbox "$(_ "Models repository URL (LAN):")")
+                if [ $? -ne 0 ]; then
+                    abort_install
+                fi
+                if [ -n "$repo_url" ] && valid_repo_url "$repo_url"; then
+                    echo "[INFO] $(_ "Valid models repository:") $repo_url"
+                    MODELS_SOURCE="$repo_url"
+                else
+                    kdialog --error "$(_ "The models repository is not valid:") $repo_url"
+                    echo "[WARN] $(_ "The models repository is not valid:") $repo_url" >&2
+                fi
+            done
+        fi
+    done
+    # Guardamos el valor interno, no el traducido
+    echo "$MODELS_SOURCE" > "$TRADUIA_SOURCE_FILE"
+    chown root:root "$TRADUIA_SOURCE_FILE"
+
+    # Pregunta de optimización (última): con Internet se pregunta
+    # siempre; con USB/LAN se adapta al contenido real del repo
+    # (el manifest ya se ha validado). Cancelar aborta la instalación.
+    if [ "$MODELS_SOURCE" == "internet" ]; then
+        ask_optimization
+    else
+        if [[ "$MODELS_SOURCE" == http://* || "$MODELS_SOURCE" == https://* ]]; then
+            manifest_tmp="$(mktemp)"
+            curl -fsSL --connect-timeout 5 --max-time 10 -o "$manifest_tmp" "${MODELS_SOURCE%/}/manifest.json" 2>/dev/null
+        else
+            manifest_tmp="${MODELS_SOURCE%/}/manifest.json"
+        fi
+        if repo_has_set "$manifest_tmp" "ct2" && ! repo_has_set "$manifest_tmp" "marian"; then
+            # Solo CT2: se elige Optimized sin preguntar.
+            echo "optimized" > "$TRADUIA_OPTIMIZE_FILE"
+        elif repo_has_set "$manifest_tmp" "marian" && ! repo_has_set "$manifest_tmp" "ct2"; then
+            # Solo Marian: sin marcador.
+            true
+        else
+            # Ambos sets: se pregunta como con Internet.
+            ask_optimization
+        fi
+        if [[ "$MODELS_SOURCE" == http://* || "$MODELS_SOURCE" == https://* ]]; then
+            rm -f "$manifest_tmp"
+        fi
+    fi
+}
+
+ask_optimization() {
+    OPT_TITLE=$(_ "Model Optimization?")
+    OPT_LABEL=$(_ "Optimization mode:")
+    OPT_NO=$(_ "Marian")
+    OPT_YES=$(_ "Optimized (experimental)")
+
+    echo "[INFO] $(_ "Asking optimization mode")"
+    selected=$(kdialog --title "$OPT_TITLE" --combobox "$OPT_LABEL" "$OPT_NO" "$OPT_YES")
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        abort_install
+    fi
+    echo "[INFO] $(_ "Optimization mode selected:") $selected"
+    if [ -n "$selected" ] && [ "$selected" == "$OPT_YES" ]; then
+        echo "optimized" > "$TRADUIA_OPTIMIZE_FILE"
+    fi
+}
+
+# =========================================================
+# Operaciones
+# =========================================================
+
+do_preinstall() {
+    require_root
+    ask_mode
+    if [ "$mode" == "Server" ]; then
+        ask_source
+    fi
+}
+
+do_postinstall() {
+    require_root
+    mode=$(cat "$TRADUIA_MODE_FILE" 2>/dev/null)
+    if [ -n "$mode" ] && [ "$mode" == "Server" ]; then
+        echo "$(_ "Downloading models...")"
+        # Origen: sin marcador (instalación previa) => Internet.
+        if [ -f "$TRADUIA_SOURCE_FILE" ]; then
+            MODELS_SOURCE=$(cat "$TRADUIA_SOURCE_FILE")
+            chown root:root "$TRADUIA_SOURCE_FILE"
+        else
+            MODELS_SOURCE="internet"
+        fi
+        if [ -f "$TRADUIA_OPTIMIZE_FILE" ] && grep -q "optimized" "$TRADUIA_OPTIMIZE_FILE"; then
+            OPTIMIZED="optimized"
+        else
+            OPTIMIZED=""
+        fi
+        if [ "$MODELS_SOURCE" == "internet" ]; then
+            if [ -n "$OPTIMIZED" ]; then
+                /usr/sbin/install-models-traduia optimized
+            else
+                /usr/sbin/install-models-traduia
+            fi
+        else
+            if [ -n "$OPTIMIZED" ]; then
+                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" optimized
+            else
+                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE"
+            fi
+        fi
+        echo "$(_ "Setting server desktop")"
+        sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
+
+        # Entradas web si hay metas (común a firefox-settings y Ainur)
+        if check_metas_for_www_entries; then
+            echo "[INFO] $(_ "Configuring lliurex-firefox-settings entry")"
+            configure_llxffoxsettings
+            if check_www_package; then
+                echo "[INFO] $(_ "Configuring Ainur (lliurex-www) entry")"
+                create_www_entry
+            else
+                echo "[INFO] $(_ "Skipping Ainur entry: lliurex-www not installed")"
+            fi
+        fi
+    fi
+    # Los marcadores se consumen siempre.
+    rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_SOURCE_FILE" || true
+}
+
+do_install() {
+    require_root
+    do_preinstall
+    echo "$(_ "Installing traduia package")"
+    if ! apt-get install -y traduia; then
+        echo "[ERROR] $(_ "Failed to install traduia package")" >&2
+        rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE"
+        exit 1
+    fi
+    do_postinstall
+}
+
+do_remove() {
+    require_root
+    rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" || true
+
+    # Solo se pregunta sobre los modelos si existen en disco.
+    REMOVE_MODELS=false
+    if [ -d /opt/ai/traduia/models ] && [ -n "$(ls -A /opt/ai/traduia/models)" ]; then
+        KEEP_LABEL=$(_ "Keep")
+        DELETE_LABEL=$(_ "Delete")
+        echo "[INFO] $(_ "Asking remove models")"
+        selected=$(kdialog --title "$(_ "Remove models?")" --combobox "$(_ "Do you want to delete the downloaded models?")" "$KEEP_LABEL" "$DELETE_LABEL")
+        ret=$?
+        if [ $ret -eq 0 ] && [ "$selected" == "$DELETE_LABEL" ]; then
+            REMOVE_MODELS=true
+        fi
+    fi
+
+    echo "$(_ "Removing traduia package")"
+    apt-get remove -y traduia
+    TEST=$( dpkg-query -s  traduia 2> /dev/null| grep Status | cut -d " " -f 4 )
+    if [ "$TEST" == 'installed' ];then
+        # La desinstalación falló, pero las entradas se limpian igualmente.
+        remove_llxffoxsettings_conf
+        if check_www_package; then
+            remove_www_entry
+        fi
+        echo "[ERROR] $(_ "Failed to remove traduia package")" >&2
+        exit 1
+    else
+        if [ "$REMOVE_MODELS" = "true" ]; then
+            remove_models
+        fi
+        # El venv (regenerable) y el código se limpian siempre.
+        remove_venv
+        remove_execcode
+        remove_llxffoxsettings_conf
+        if check_www_package; then
+            remove_www_entry
+        fi
+    fi
+}
+
+do_status() {
+    echo "== $(_ "lliurex-firefox-settings entry:")"
+    if [ -f "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" ]; then
+        if cards_extract_json "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
+            | jq -e '.cards[] | select(.title == "Traduia" or .url == "http://server:8000")' >/dev/null 2>&1; then
+            echo "$(_ "Traduia card present:")"
+            cards_extract_json "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
+                | jq '.cards[] | select(.title == "Traduia" or .url == "http://server:8000")'
+        else
+            echo "$(_ "Traduia card not present")"
+        fi
+    else
+        echo "$(_ "cards.js not found:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE"
+    fi
+
+    echo "== $(_ "Ainur (lliurex-www) entry:")"
+    if [ -f "$TRADUIA_WWW_ENTRY_FILE" ]; then
+        echo "$(_ "Entry present:") $TRADUIA_WWW_ENTRY_FILE"
+        cat "$TRADUIA_WWW_ENTRY_FILE"
+    else
+        echo "$(_ "Entry not present:") $TRADUIA_WWW_ENTRY_FILE"
+    fi
+}
+
+do_validate() {
+    local src="$1"
+    if [ -z "$src" ]; then
+        echo "[ERROR] $(_ "validate requires a directory or URL")" >&2
+        exit 1
+    fi
+    case "$src" in
+        http://*|https://*)
+            if valid_repo_url "$src"; then
+                echo "[INFO] $(_ "Valid models repository:") $src"
+                return 0
+            fi
+            ;;
+        *)
+            if valid_repo_dir "$src"; then
+                echo "[INFO] $(_ "Valid models repository:") $src"
+                return 0
+            fi
+            ;;
+    esac
+    echo "[ERROR] $(_ "The models repository is not valid:") $src" >&2
+    return 1
+}
+
+interactive_main() {
+    require_root
+    DETECTED=false
+    if dpkg -s traduia 2>/dev/null | grep -q '^Status: install ok installed'; then
+        DETECTED=true
+        echo "[INFO] $(_ "TraduIA package detected")"
+    else
+        echo "[INFO] $(_ "TraduIA package not detected")"
+    fi
+
+    INSTALL_LABEL=$(_ "Install")
+    REMOVE_LABEL=$(_ "Remove")
+    echo "[INFO] $(_ "Asking operation")"
+    if $DETECTED; then
+        selected=$(kdialog --title "$(_ "TraduIA configuration")" --combobox "$(_ "What do you want to do?")" "$INSTALL_LABEL" "$REMOVE_LABEL")
+    else
+        selected=$(kdialog --title "$(_ "TraduIA configuration")" --combobox "$(_ "What do you want to do?")" "$INSTALL_LABEL")
+    fi
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        abort_install
+    fi
+    echo "[INFO] $(_ "Operation selected:") $selected"
+
+    if [ "$selected" == "$INSTALL_LABEL" ]; then
+        do_install
+    elif [ "$selected" == "$REMOVE_LABEL" ]; then
+        do_remove
+    else
+        echo "[ERROR] $(_ "Unknown operation:") $selected" >&2
+        exit 1
+    fi
+}
+
+show_help() {
+    echo "$(_ "Usage: traduia-config [command]")"
+    echo ""
+    echo "$(_ "  (no parameters)  interactive: detects the traduia package and offers")"
+    echo "$(_ "                    Install or Remove (only Install if not installed)")"
+    echo "$(_ "  install           preinstall + apt-get install traduia + postinstall")"
+    echo "$(_ "  remove            ask about models + apt-get remove + cleanup")"
+    echo "$(_ "  preinstall        Q&A (mode/source/optimization) + markers (zero-center)")"
+    echo "$(_ "  postinstall       model download + web entries (zero-center)")"
+    echo "$(_ "  status            web entries status")"
+    echo "$(_ "  validate <dir|url>  quick models repository validation")"
+    echo "$(_ "  help              this help")"
+}
+
+# =========================================================
+# Punto de entrada
+# =========================================================
+case "${1:-}" in
+    "")            interactive_main ;;
+    install)       do_install ;;
+    remove)        do_remove ;;
+    preinstall)    do_preinstall ;;
+    postinstall)   do_postinstall ;;
+    status)        do_status ;;
+    validate)      do_validate "$2" ;;
+    help|-h|--help) show_help ;;
+    *)             show_help; exit 1 ;;
+esac

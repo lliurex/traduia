@@ -12,7 +12,7 @@ cd "$(dirname "$0")"
 
 # Source files
 PYTHON_SRC="traduia_server.py check-traduia-server traduia-verify-models"
-BASH_SRC="traduia install-models-traduia traduia-make-repo traduia-open-url zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script"
+BASH_SRC="traduia install-models-traduia traduia-make-repo traduia-open-url zero-lliurex-traduia.install-files/usr/sbin/traduia-config"
 
 # Languages to support
 LANGS=("es" "ca" "en")
