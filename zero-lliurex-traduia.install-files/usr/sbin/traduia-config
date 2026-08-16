@@ -307,7 +307,7 @@ ask_source() {
             # vuelve a pedir la ubicación (no el combobox).
             while [ -z "$MODELS_SOURCE" ]; do
                 echo "[INFO] $(_ "Asking models repository path (USB)")"
-                repo_path=$(kdialog --title "$(_ "Models repository path (USB):")" --getexistingdirectory)
+                repo_path=$(kdialog --title "$(_ "Select the models repository manifest (USB):")" --getopenfilename / "manifest.json")
                 if [ $? -ne 0 ]; then
                     abort_install
                 fi
