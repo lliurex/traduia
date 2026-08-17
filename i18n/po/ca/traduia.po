@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 10:35+0200\n"
+"POT-Creation-Date: 2026-08-17 13:17+0200\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -46,8 +46,7 @@ msgstr "[WARN] S'usaran els models Marian."
 #: traduia_server.py:204
 msgid "[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"
 msgstr ""
-"[INFO] Mode de traducció: Marian (fallback des del marcador .use_ct2 "
-"obsolet)"
+"[INFO] Mode de traducció: Marian (fallback des del marcador .use_ct2 obsolet)"
 
 #: traduia_server.py:206 traduia_server.py:218 traduia_server.py:230
 msgid "[ERROR] No complete model set found. Run install-models-traduia."
@@ -80,30 +79,28 @@ msgstr "[WARN] S'usaran els models CT2."
 #: traduia_server.py:216
 msgid "[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"
 msgstr ""
-"[INFO] Mode de traducció: CT2 (fallback des del marcador .use_marian "
-"obsolet)"
+"[INFO] Mode de traducció: CT2 (fallback des del marcador .use_marian obsolet)"
 
 #: traduia_server.py:220
 msgid "[INFO] Translation mode: Marian (override via .use_marian marker)"
 msgstr ""
-"[INFO] Mode de traducció: Marian (override mitjançant el marcador "
-".use_marian)"
+"[INFO] Mode de traducció: Marian (override mitjançant el marcador ."
+"use_marian)"
 
 #: traduia_server.py:227
 msgid ""
-"[WARN] Both markers present but Marian models are not complete; falling back"
-" to CT2."
+"[WARN] Both markers present but Marian models are not complete; falling back "
+"to CT2."
 msgstr ""
-"[WARN] Tots dos marcadors presents però els models Marian no estan complets;"
-" s'usarà CT2."
+"[WARN] Tots dos marcadors presents però els models Marian no estan complets; "
+"s'usarà CT2."
 
 #: traduia_server.py:228
 msgid "[INFO] Translation mode: CT2 (fallback, Marian unavailable)"
 msgstr "[INFO] Mode de traducció: CT2 (fallback, Marian no disponible)"
 
 #: traduia_server.py:232
-msgid ""
-"[INFO] Translation mode: Marian (both markers present, Marian priority)"
+msgid "[INFO] Translation mode: Marian (both markers present, Marian priority)"
 msgstr ""
 "[INFO] Mode de traducció: Marian (tots dos marcadors presents, prioritat "
 "Marian)"
@@ -418,119 +415,200 @@ msgstr "Entrada (micròfon) per defecte:"
 msgid "--"
 msgstr ""
 
-#: install-models-traduia:40
+#: install-models-traduia:12
+msgid "Usage: install-models-traduia [options] [mode]"
+msgstr "Ús: install-models-traduia [opcions] [mode]"
+
+#: install-models-traduia:14
+msgid "  (no parameters)  this help"
+msgstr "  (sense paràmetres)  aquesta ajuda"
+
+#: install-models-traduia:15
+msgid "  install           install the standard (Marian) model set from the"
+msgstr ""
+"  install           instal·la el conjunt de models estàndard (Marian) des de "
+"la"
+
+#: install-models-traduia:16
+msgid "                    configured source (default: internet)"
+msgstr "                    font configurada (per defecte: internet)"
+
+#: install-models-traduia:17
+msgid "  optimized         install the optimized (CTranslate2) model set"
+msgstr ""
+"  optimized         instal·la el conjunt de models optimitzat (CTranslate2)"
+
+#: install-models-traduia:18
+msgid "                    (experimental); combinable with \"install\""
+msgstr "                    (experimental); combinable amb \"install\""
+
+#: install-models-traduia:19
+msgid "  --url <url>       repository base URL (contains manifest.json)"
+msgstr "  --url <url>       URL base del repositori (conté manifest.json)"
+
+#: install-models-traduia:20
+msgid "  --dir <path>      local repository directory (USB, mounted drive)"
+msgstr ""
+"  --dir <ruta>      directori de repositori local (USB, unitat muntada)"
+
+#: install-models-traduia:21
+msgid "  --from <url|path> auto-detect: URL or local path"
+msgstr "  --from <url|ruta> autodetecció: URL o ruta local"
+
+#: install-models-traduia:22
+msgid "  --detect          print model set state (complete:* / partial / none)"
+msgstr ""
+"  --detect          imprimeix l'estat del conjunt (complete:* / partial / "
+"none)"
+
+#: install-models-traduia:23
+msgid "  help, --help, -h  this help"
+msgstr "  help, --help, -h  aquesta ajuda"
+
+#: install-models-traduia:68
 msgid "--url requires a value: --url http://host/path"
 msgstr "--url requerix un valor: --url http://host/path"
 
-#: install-models-traduia:52
+#: install-models-traduia:80
 msgid "--dir requires a value: --dir /path/to/models/repo"
 msgstr "--dir requerix un valor: --dir /ruta/al/repositori/models"
 
-#: install-models-traduia:64
+#: install-models-traduia:92
 msgid "--from requires a value: --from <url|path>"
 msgstr "--from requerix un valor: --from <url|ruta>"
 
-#: install-models-traduia:79
+#: install-models-traduia:107
 msgid "Unknown argument:"
 msgstr "Argument desconegut:"
 
-#: install-models-traduia:91
+#: install-models-traduia:119
 msgid "Options --url, --dir and --from are mutually exclusive."
 msgstr "Les opcions --url, --dir i --from són mútuament excloents."
 
-#: install-models-traduia:111
+#: install-models-traduia:139
 msgid "Source directory does not exist:"
 msgstr "El directori d'origen no existix:"
 
-#: install-models-traduia:268
-msgid "Creating venv"
-msgstr "Creant venv"
+#: install-models-traduia:305 install-models-traduia:316
+msgid "Using repository wheels for Python dependencies (offline)"
+msgstr ""
+"Usant els wheels del repositori per a les dependències Python (offline)"
 
-#: install-models-traduia:271
-msgid "Activating venv"
-msgstr "Activant venv"
+#: install-models-traduia:319
+msgid ""
+"Failed to fetch repository wheels; Python dependencies will be downloaded "
+"from the internet."
+msgstr ""
+"Ha fallat la descàrrega dels wheels del repositori; les dependències Python "
+"es descarregaran d'internet."
 
-#: install-models-traduia:275
+#: install-models-traduia:413
+msgid ""
+"No wheels in repository; Python dependencies will be downloaded from the "
+"internet."
+msgstr ""
+"El repositori no porta wheels; les dependències Python es descarregaran "
+"d'internet."
+
+#: install-models-traduia:419
+msgid "Failed to install Python dependencies from repository wheels."
+msgstr ""
+"Ha fallat la instal·lació de les dependències Python des dels wheels del "
+"repositori."
+
+#: install-models-traduia:429
 msgid "Updating pip/setuptools/wheel"
 msgstr "Actualitzant pip/setuptools/wheel"
 
-#: install-models-traduia:278
+#: install-models-traduia:431
 msgid "Installing Python dependencies"
 msgstr "Instal·lant dependències de Python"
 
-#: install-models-traduia:285
-msgid "Exporting shared cache variables (for this process)"
-msgstr "Exportant variables de caché compartida (per a este procés)"
-
-#: install-models-traduia:297
-msgid "Preloading models into shared cache..."
-msgstr "Precarregant models en la caché compartida..."
-
-#: install-models-traduia:356
-msgid "Downloading models from HTTP repository:"
-msgstr "Descarregant models des del repositori HTTP:"
-
-#: install-models-traduia:357
-msgid "Fetching manifest:"
-msgstr "Obtenint manifest:"
-
-#: install-models-traduia:363
-msgid "Could not fetch manifest.json from:"
-msgstr "No s'ha pogut obtindre manifest.json de:"
-
-#: install-models-traduia:364
-msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
-msgstr "Comproveu TRADUIA_MODELS_URL o /etc/traduia/models-repo.conf"
-
-#: install-models-traduia:528
-msgid "HTTP download finished."
-msgstr "Descàrrega HTTP finalitzada."
-
-#: install-models-traduia:534
-msgid "Copying models from local directory:"
-msgstr "Copiant models des del directori local:"
-
-#: install-models-traduia:708
-msgid "Local copy finished."
-msgstr "Còpia local finalitzada."
-
-#: install-models-traduia:715
-msgid "Downloading models"
-msgstr "Descarregant models"
-
-#: install-models-traduia:727
-msgid "{} models already present on disk. Skipping downloads."
-msgstr "Models {} ja presents al disc. S'ometen les descàrregues."
-
-#: install-models-traduia:730
-msgid "{} models incomplete on disk; completing download."
-msgstr "Models {} incomplets al disc; completant la descàrrega."
-
-#: install-models-traduia:740
-msgid "Models downloaded!"
-msgstr "Models descarregats!"
-
-#: install-models-traduia:751
+#: install-models-traduia:440
 msgid "Torch already installed, skipping."
 msgstr ""
 
-#: install-models-traduia:753
+#: install-models-traduia:442
 msgid "Downloading torch"
 msgstr "Descarregant torch"
 
-#: install-models-traduia:755
+#: install-models-traduia:448
 msgid "Torch downloaded!"
 msgstr "Torch descarregat!"
 
-#: install-models-traduia:760
+#: install-models-traduia:454
+msgid "pip check failed: installed dependencies are inconsistent."
+msgstr "pip check ha fallat: les dependències instal·lades són inconsistents."
+
+#: install-models-traduia:464
+msgid "Creating venv"
+msgstr "Creant venv"
+
+#: install-models-traduia:467
+msgid "Activating venv"
+msgstr "Activant venv"
+
+#: install-models-traduia:473
+msgid "Exporting shared cache variables (for this process)"
+msgstr "Exportant variables de caché compartida (per a este procés)"
+
+#: install-models-traduia:485
+msgid "Preloading models into shared cache..."
+msgstr "Precarregant models en la caché compartida..."
+
+#: install-models-traduia:544
+msgid "Downloading models from HTTP repository:"
+msgstr "Descarregant models des del repositori HTTP:"
+
+#: install-models-traduia:545
+msgid "Fetching manifest:"
+msgstr "Obtenint manifest:"
+
+#: install-models-traduia:551
+msgid "Could not fetch manifest.json from:"
+msgstr "No s'ha pogut obtindre manifest.json de:"
+
+#: install-models-traduia:552
+msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
+msgstr "Comproveu TRADUIA_MODELS_URL o /etc/traduia/models-repo.conf"
+
+#: install-models-traduia:716
+msgid "HTTP download finished."
+msgstr "Descàrrega HTTP finalitzada."
+
+#: install-models-traduia:722
+msgid "Copying models from local directory:"
+msgstr "Copiant models des del directori local:"
+
+#: install-models-traduia:896
+msgid "Local copy finished."
+msgstr "Còpia local finalitzada."
+
+#: install-models-traduia:903
+msgid "Downloading models"
+msgstr "Descarregant models"
+
+#: install-models-traduia:915
+msgid "{} models already present on disk. Skipping downloads."
+msgstr "Models {} ja presents al disc. S'ometen les descàrregues."
+
+#: install-models-traduia:918
+msgid "{} models incomplete on disk; completing download."
+msgstr "Models {} incomplets al disc; completant la descàrrega."
+
+#: install-models-traduia:928
+msgid "Models downloaded!"
+msgstr "Models descarregats!"
+
+#: install-models-traduia:941
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr ""
 
-#: install-models-traduia:876
+#: install-models-traduia:1057
 msgid "Ready."
 msgstr "Enllestit."
 
-#: install-models-traduia:878
+#: install-models-traduia:1059
 msgid "Offline execution (the launcher already exports it):"
 msgstr "Execució fora de línia (el llançador ja ho exporta):"
 
@@ -540,8 +618,7 @@ msgstr "Ús:"
 
 #: traduia-make-repo:22
 msgid ""
-"Generates a static manifest.json (with size+sha256) for a TraduIA model "
-"repo."
+"Generates a static manifest.json (with size+sha256) for a TraduIA model repo."
 msgstr ""
 "Genera un manifest.json estàtic (amb size+sha256) per a un repositori de "
 "models TraduIA."
@@ -591,65 +668,107 @@ msgid ""
 msgstr ""
 "Forçar la còpia en lloc de l'hardlink (opcional; s'autodetecta per defecte)"
 
-#: traduia-make-repo:61
+#: traduia-make-repo:35
+msgid "Or export the Python wheels for fully offline installs (additive):"
+msgstr ""
+"O exporta els wheels de Python per a instal·lacions totalment offline "
+"(additiu):"
+
+#: traduia-make-repo:37
+msgid ""
+"Or export the system .deb packages (traduia, zero-lliurex-traduia) for fully "
+"offline installs (additive):"
+msgstr ""
+"O exportar els paquets .deb del sistema (traduia, zero-lliurex-traduia) per "
+"a instal·lacions totalment offline (additiu):"
+
+#: traduia-make-repo:47
+msgid "Hashing files (sha256)..."
+msgstr "Calculant hash dels fitxers (sha256)..."
+
+#: traduia-make-repo:138
+msgid "Downloading wheels for:"
+msgstr "Descarregant wheels per a:"
+
+#: traduia-make-repo:143 traduia-make-repo:151
+msgid "Error downloading wheels for target:"
+msgstr "Error descarregant wheels per a l'objectiu:"
+
+#: traduia-make-repo:155
+msgid "Wheels ready in:"
+msgstr "Wheels llests a:"
+
+#: traduia-make-repo:187 traduia-make-repo:236 traduia-make-repo:506
+msgid "Repository ready:"
+msgstr "Repositori a punt:"
+
+#: traduia-make-repo:207
+msgid "Downloading system packages (traduia, zero-lliurex-traduia)..."
+msgstr "Descarregant paquets del sistema (traduia, zero-lliurex-traduia)..."
+
+#: traduia-make-repo:209
+msgid "Error downloading system packages (apt-get download):"
+msgstr "Error descarregant paquets del sistema (apt-get download):"
+
+#: traduia-make-repo:215
+msgid "Error: could not download the package:"
+msgstr "Error: no s'ha pogut descarregar el paquet:"
+
+#: traduia-make-repo:223
+msgid "Packages ready in:"
+msgstr "Paquets llests a:"
+
+#: traduia-make-repo:250
 msgid "Error: mode must be 'ct2' or 'marian'."
 msgstr "Error: el mode ha de ser 'ct2' o 'marian'."
 
-#: traduia-make-repo:66
+#: traduia-make-repo:255
 msgid "Error: models directory does not exist:"
 msgstr "Error: el directori de models no existix:"
 
-#: traduia-make-repo:131
+#: traduia-make-repo:320
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: falten els fitxers requerits següents o estan buits:"
 
-#: traduia-make-repo:135
+#: traduia-make-repo:324
 msgid "Refusing to generate an incomplete repository."
 msgstr "Es rebutja generar un repositori incomplet."
 
-#: traduia-make-repo:140
+#: traduia-make-repo:329
 msgid "Assembling repository in:"
 msgstr "Muntant el repositori a:"
 
-#: traduia-make-repo:148
+#: traduia-make-repo:337
 msgid "Copying files (forced by --copy)..."
 msgstr "Copiant fitxers (forçat amb --copy)..."
 
-#: traduia-make-repo:151
+#: traduia-make-repo:340
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 "Origen i destinació estan en el mateix sistema de fitxers: s'usen hardlinks."
 
-#: traduia-make-repo:154
+#: traduia-make-repo:343
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 "Origen i destinació estan en sistemes de fitxers diferents: es copien els "
 "fitxers."
 
-#: traduia-make-repo:168
+#: traduia-make-repo:357
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ja present, s'omet la còpia."
 
-#: traduia-make-repo:206
+#: traduia-make-repo:395
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El conjunt {} del directori d'eixida sembla incomplet (falten alguns "
 "parells)."
 
-#: traduia-make-repo:314
-msgid "Hashing files (sha256)..."
-msgstr "Calculant hash dels fitxers (sha256)..."
-
-#: traduia-make-repo:379
-msgid "Repository ready:"
-msgstr "Repositori a punt:"
-
-#: traduia-make-repo:380
+#: traduia-make-repo:507
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publiqueu-lo estàticament per HTTP o copieu-lo a un disc USB."
 
-#: traduia-make-repo:382
+#: traduia-make-repo:509
 msgid "Example rsync to a server:"
 msgstr "Exemple d'rsync a un servidor:"
 
@@ -981,8 +1100,7 @@ msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:602
 msgid "  install           preinstall + apt-get install traduia + postinstall"
-msgstr ""
-"  install           preinstall + apt-get install traduia + postinstall"
+msgstr "  install           preinstall + apt-get install traduia + postinstall"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:603
 msgid "  remove            ask about models + apt-get remove + cleanup"

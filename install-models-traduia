@@ -8,6 +8,21 @@ _() {
     gettext -- "$1"
 }
 
+show_help() {
+    echo "$(_ "Usage: install-models-traduia [options] [mode]")"
+    echo ""
+    echo "$(_ "  (no parameters)  this help")"
+    echo "$(_ "  install           install the standard (Marian) model set from the")"
+    echo "$(_ "                    configured source (default: internet)")"
+    echo "$(_ "  optimized         install the optimized (CTranslate2) model set")"
+    echo "$(_ "                    (experimental); combinable with \"install\"")"
+    echo "$(_ "  --url <url>       repository base URL (contains manifest.json)")"
+    echo "$(_ "  --dir <path>      local repository directory (USB, mounted drive)")"
+    echo "$(_ "  --from <url|path> auto-detect: URL or local path")"
+    echo "$(_ "  --detect          print model set state (complete:* / partial / none)")"
+    echo "$(_ "  help, --help, -h  this help")"
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
@@ -29,11 +44,24 @@ USE_CT2=false
 CLI_URL=""
 DETECT_ONLY=false
 
+# Sin argumentos: ayuda (uso explícito con "install" o "optimized")
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
 while [ $# -gt 0 ]; do
     case "$1" in
+        install)
+            shift
+            ;;
         optimized)
             USE_CT2=true
             shift
+            ;;
+        help|-h|--help)
+            show_help
+            exit 0
             ;;
         --url)
             if [ $# -lt 2 ]; then
@@ -191,11 +219,118 @@ if ! validate_models_source; then
 fi
 
 # =========================================================
+# Wheels Python del repositorio (USB/LAN): permiten instalar
+# TODAS las dependencias (pip, deps, torch, sacremoses) sin
+# internet (--no-index --find-links). Los repos sin wheels
+# mantienen el comportamiento histórico (internet).
+# =========================================================
+WHEELS_LINKS=""
+WHEELS_TMP_DIR=""
+
+repo_has_wheels() {
+    python3 - "$1" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        manifest = json.load(fh)
+except Exception:
+    sys.exit(1)
+sys.exit(0 if any(f.get("path", "").startswith("wheels/") for f in manifest.get("files", [])) else 1)
+PY
+}
+
+# Descarga las entradas wheels/* del repo HTTP verificando size+sha256.
+fetch_repo_wheels() {
+    python3 - "$1" "${MODELS_URL%/}" "$2" <<'PY'
+import hashlib
+import json
+import os
+import subprocess
+import sys
+
+manifest_path, base_url, dest = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(manifest_path, encoding="utf-8") as fh:
+    manifest = json.load(fh)
+
+entries = [e for e in manifest.get("files", []) if e.get("path", "").startswith("wheels/")]
+if not entries:
+    print("[ERROR] manifest.json contains no wheels.", file=sys.stderr)
+    sys.exit(1)
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+for entry in entries:
+    rel = entry["path"]
+    size = entry.get("size")
+    sha = entry.get("sha256")
+    local = os.path.join(dest, rel)
+    os.makedirs(os.path.dirname(local), exist_ok=True)
+    if os.path.exists(local) and size is not None and os.path.getsize(local) == size:
+        if not sha or sha256_file(local) == sha:
+            print(f"[wheels] {rel} (already present)")
+            continue
+    url = f"{base_url}/{rel}"
+    print(f"[wheels] downloading {rel}")
+    rc = subprocess.run(
+        ["curl", "-fSL", "--connect-timeout", "15", "-o", local, url]
+    ).returncode
+    if rc != 0:
+        subprocess.run(["rm", "-f", local])
+        print(f"[ERROR] Failed to download {url}", file=sys.stderr)
+        sys.exit(1)
+    if size is not None and os.path.getsize(local) != size:
+        print(f"[ERROR] Size mismatch for {rel}", file=sys.stderr)
+        sys.exit(1)
+    if sha and sha256_file(local) != sha:
+        print(f"[ERROR] SHA256 mismatch for {rel}", file=sys.stderr)
+        sys.exit(1)
+sys.exit(0)
+PY
+}
+
+detect_repo_wheels() {
+    if [ -n "$MODELS_DIR" ]; then
+        if [ -d "$MODELS_DIR/wheels" ] && [ -n "$(ls -A "$MODELS_DIR/wheels" 2>/dev/null)" ] \
+            && repo_has_wheels "$MODELS_DIR/manifest.json"; then
+            WHEELS_LINKS="$MODELS_DIR/wheels"
+            echo "[setup] $(_ "Using repository wheels for Python dependencies (offline)")"
+        fi
+    elif [ -n "$MODELS_URL" ]; then
+        local tmp_manifest tmp_dir
+        tmp_manifest="$(mktemp)"
+        if curl -fsSL --connect-timeout 15 -o "$tmp_manifest" "${MODELS_URL%/}/manifest.json" 2>/dev/null \
+            && repo_has_wheels "$tmp_manifest"; then
+            tmp_dir="$(mktemp -d)"
+            if fetch_repo_wheels "$tmp_manifest" "$tmp_dir"; then
+                WHEELS_LINKS="$tmp_dir"
+                WHEELS_TMP_DIR="$tmp_dir"
+                echo "[setup] $(_ "Using repository wheels for Python dependencies (offline)")"
+            else
+                rm -rf "$tmp_dir"
+                echo "[WARN] $(_ "Failed to fetch repository wheels; Python dependencies will be downloaded from the internet.")" >&2
+            fi
+        fi
+        rm -f "$tmp_manifest"
+    fi
+}
+
+detect_repo_wheels
+
+# =========================================================
 # Detección de modelos ya presentes en disco
 # =========================================================
 MISSING_FILES=()
 DETECT_TMP="$(mktemp)"
-trap 'rm -f "$DETECT_TMP"' EXIT
+trap 'rm -f "$DETECT_TMP"; [ -n "${WHEELS_TMP_DIR:-}" ] && rm -rf "$WHEELS_TMP_DIR" || true' EXIT
 
 detect_local_models() {
     local whisper_ok=false
@@ -263,6 +398,67 @@ set_mode_marker() {
     fi
 }
 
+# =========================================================
+# Dependencias Python: desde los wheels del repositorio
+# (offline total) cuando existen, o desde internet.
+# En modo offline cualquier fallo de pip es fatal (no hay red);
+# en modo online se mantiene el comportamiento histórico.
+# =========================================================
+install_python_deps() {
+    local phase="$1"
+    local off=()
+    if [ -n "$WHEELS_LINKS" ]; then
+        off=(--no-index --find-links "$WHEELS_LINKS")
+    elif [ -n "$MODELS_DIR$MODELS_URL" ] && [ "$phase" = "base" ]; then
+        echo "[WARN] $(_ "No wheels in repository; Python dependencies will be downloaded from the internet.")" >&2
+    fi
+
+    run_pip() {
+        if [ -n "$WHEELS_LINKS" ]; then
+            if ! pip "$@" > /dev/null 2>&1; then
+                echo "[ERROR] $(_ "Failed to install Python dependencies from repository wheels.")" >&2
+                exit 1
+            fi
+        else
+            pip "$@" > /dev/null 2>&1 || true
+        fi
+    }
+
+    case "$phase" in
+        base)
+            echo "[setup] $(_ "Updating pip/setuptools/wheel")"
+            run_pip install --no-cache-dir "${off[@]}" --upgrade pip setuptools wheel
+            echo "[setup] $(_ "Installing Python dependencies")"
+            if [ "$USE_CT2" = "true" ]; then
+                run_pip install --no-cache-dir "${off[@]}" fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil
+            else
+                run_pip install --no-cache-dir "${off[@]}" fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub psutil
+            fi
+            ;;
+        torch)
+            if python -c "import torch" 2>/dev/null; then
+                echo "[setup] $(_ "Torch already installed, skipping.")"
+            else
+                echo "$(_ "Downloading torch")"
+                if [ -n "$WHEELS_LINKS" ]; then
+                    run_pip install --no-cache-dir "${off[@]}" torch
+                else
+                    run_pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
+                fi
+                echo "$(_ "Torch downloaded!")"
+            fi
+            run_pip install --no-cache-dir "${off[@]}" sacremoses
+            # Verificación de consistencia de las dependencias instaladas.
+            if [ -n "$WHEELS_LINKS" ]; then
+                if ! pip check >/dev/null 2>&1; then
+                    echo "[ERROR] $(_ "pip check failed: installed dependencies are inconsistent.")" >&2
+                    exit 1
+                fi
+            fi
+            ;;
+    esac
+}
+
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
 echo "[setup] $(_ "Creating venv") $TRADUIA_VENV"
@@ -272,15 +468,7 @@ echo "[setup] $(_ "Activating venv")"
 echo $TRADUIA_DIR > $TRADUIA_VENV/lib/python${PYTHON_VER}/site-packages/extra_paths.pth
 source $TRADUIA_VENV/bin/activate
 
-echo "[setup] $(_ "Updating pip/setuptools/wheel")"
-python -m pip install --no-cache-dir --upgrade pip setuptools wheel  > /dev/null 2>&1
-
-echo "[setup] $(_ "Installing Python dependencies")"
-if [ "$USE_CT2" = "true" ]; then
-    pip install --no-cache-dir fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil > /dev/null 2>&1
-else
-    pip install --no-cache-dir fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub psutil > /dev/null 2>&1
-fi
+install_python_deps base
 
 echo "[setup] $(_ "Exporting shared cache variables (for this process)")"
 export HF_HOME="$SHARED_HF"
@@ -747,14 +935,7 @@ if [ -n "$checked_size" -a "$checked_size" -gt 1000 ]; then
     sed -ri 's|NoDisplay=true|NoDisplay=false|g' /usr/share/applications/traduia.desktop
 fi
 
-if python -c "import torch" 2>/dev/null; then
-    echo "[setup] $(_ "Torch already installed, skipping.")"
-else
-    echo "$(_ "Downloading torch")"
-    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch > /dev/null 2>&1
-    echo "$(_ "Torch downloaded!")"
-fi
-pip install --no-cache-dir sacremoses  > /dev/null 2>&1
+install_python_deps torch
 
 if [ "$USE_CT2" = "true" ]; then
     echo "[setup] $(_ "Downloading/Converting Marian models to CTranslate2...")"

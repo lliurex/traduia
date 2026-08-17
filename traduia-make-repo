@@ -31,6 +31,128 @@ usage() {
     echo ""
     echo "$(_ "Options:")"
     echo "  --copy    $(_ "Force copying instead of hardlinking (optional; auto-detected by default)")"
+    echo ""
+    echo "$(_ "Or export the Python wheels for fully offline installs (additive):")"
+    echo "  traduia-make-repo wheels <output_dir>"
+    echo "$(_ "Or export the system .deb packages (traduia, zero-lliurex-traduia) for fully offline installs (additive):")"
+    echo "  traduia-make-repo debs <output_dir>"
+}
+
+# =========================================================
+# generate_manifest <out_dir>: (re)genera manifest.json con
+# tamaño+sha256 de todo el árbol (sets, wheels, verify-models.py).
+# =========================================================
+generate_manifest() {
+    local out_dir="$1"
+    echo "$(_ "Hashing files (sha256)...")"
+    python3 - "$out_dir" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+out_dir = sys.argv[1]
+
+
+def _has_set(sub):
+    sub_dir = os.path.join(out_dir, sub)
+    if not os.path.isdir(sub_dir):
+        return False
+    return any(os.path.isdir(os.path.join(sub_dir, d)) for d in os.listdir(sub_dir))
+
+
+ct2_set = _has_set("ct2")
+marian_set = _has_set("marian")
+if ct2_set and marian_set:
+    mode = "both"
+elif ct2_set:
+    mode = "ct2"
+elif marian_set:
+    mode = "marian"
+else:
+    mode = "none"
+
+files = []
+for root, dirs, fnames in os.walk(out_dir):
+    # Excluir .cache (artefactos de HuggingFace)
+    dirs[:] = [d for d in dirs if d != ".cache"]
+    dirs.sort()
+    for fname in sorted(fnames):
+        if fname.endswith(".h5"):
+            continue
+        abs_path = os.path.join(root, fname)
+        rel_path = os.path.relpath(abs_path, out_dir)
+        if rel_path == "manifest.json":
+            continue
+        size = os.path.getsize(abs_path)
+        sha = hashlib.sha256()
+        with open(abs_path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                sha.update(chunk)
+        files.append({"path": rel_path, "size": size, "sha256": sha.hexdigest()})
+        print(f"[hash] {rel_path} ({size} bytes)")
+
+manifest = {
+    "version": 1,
+    "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "mode": mode,
+    "files": files,
+}
+
+with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
+    json.dump(manifest, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+
+print(f"[ok] manifest.json written with {len(files)} files (mode={mode})")
+PY
+}
+
+# =========================================================
+# make_wheels <out_dir>: descarga el árbol completo de wheels
+# de las dependencias Python (deps transitivas incluidas) para
+# jammy (cp310) y noble (cp312), amd64. pip download resuelve
+# el árbol; torch CPU se toma de su índice exclusivo (incluye
+# sus dependencias). Todo como wheels (--only-binary=:all:),
+# de modo que la instalación offline no necesita compiladores.
+# =========================================================
+WHEELS_PLATFORMS=(manylinux2014_x86_64 manylinux_2_17_x86_64 manylinux_2_28_x86_64 linux_x86_64)
+WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil sacremoses)
+
+make_wheels() {
+    local out_dir="$1"
+    local wheels_dir="$out_dir/wheels"
+    mkdir -p "$wheels_dir"
+
+    local targets=("3.10:jammy:cp310" "3.12:noble:cp312")
+    local t pyver label abi pflags=()
+    local p
+    for p in "${WHEELS_PLATFORMS[@]}"; do
+        pflags+=(--platform "$p")
+    done
+
+    for t in "${targets[@]}"; do
+        pyver="${t%%:*}"
+        label="$(echo "$t" | cut -d: -f2)"
+        abi="${t##*:}"
+        echo "[wheels] $(_ "Downloading wheels for:") $label (python $pyver)"
+        if ! python3 -m pip download --dest "$wheels_dir" \
+            --only-binary=:all: --python-version "$pyver" --implementation cp \
+            --abi "$abi" --abi abi3 --abi none "${pflags[@]}" \
+            "${WHEELS_PKGS[@]}" > /dev/null; then
+            echo "[ERROR] $(_ "Error downloading wheels for target:") $label" >&2
+            exit 1
+        fi
+        # torch CPU desde su índice exclusivo (evita el torch CUDA de PyPI)
+        if ! python3 -m pip download --dest "$wheels_dir" \
+            --only-binary=:all: --python-version "$pyver" --implementation cp \
+            --abi "$abi" --abi abi3 --abi none "${pflags[@]}" \
+            --index-url https://download.pytorch.org/whl/cpu torch > /dev/null; then
+            echo "[ERROR] $(_ "Error downloading wheels for target:") $label (torch)" >&2
+            exit 1
+        fi
+    done
+    echo "[wheels] $(_ "Wheels ready in:") $wheels_dir"
 }
 
 SCRIPT_NAME="$(basename "$0")"
@@ -47,6 +169,73 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+# --- Subcomando: traduia-make-repo wheels <output_dir> ---
+# Exporta las dependencias Python (wheels, jammy+noble amd64) para
+# permitir una instalación totalmente offline desde USB/LAN. Aditivo:
+# se puede ejecutar sobre un directorio de repositorio ya generado.
+if [ "${POSITIONAL[0]:-}" = "wheels" ]; then
+    if [ "${#POSITIONAL[@]}" -ne 2 ]; then
+        usage
+        exit 1
+    fi
+    OUT_DIR="${POSITIONAL[1]}"
+    mkdir -p "$OUT_DIR"
+    make_wheels "$OUT_DIR"
+    generate_manifest "$OUT_DIR"
+    echo ""
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
+
+# --- Subcomando: traduia-make-repo debs <output_dir> ---
+# Descarga los paquetes .deb del sistema (traduia, zero-lliurex-traduia)
+# con apt-get download y los copia a <out>/debs/ para permitir la
+# instalación del paquete y de traduia-config en equipos totalmente
+# offline. apt-get download no trae dependencias: estas deben estar
+# disponibles en el equipo destino (caché apt, repos del aula o medios).
+# Aditivo: se puede ejecutar sobre un directorio de repositorio ya generado.
+DEBS_PKGS=(traduia zero-lliurex-traduia)
+
+make_debs() {
+    local out_dir="$1"
+    local debs_dir="$out_dir/debs"
+    local tmp_dir
+    local pkg
+    mkdir -p "$debs_dir"
+    tmp_dir="$(mktemp -d)"
+    echo "[debs] $(_ "Downloading system packages (traduia, zero-lliurex-traduia)...")"
+    if ! (cd "$tmp_dir" && apt-get download "${DEBS_PKGS[@]}" > /dev/null); then
+        echo "[ERROR] $(_ "Error downloading system packages (apt-get download):") ${DEBS_PKGS[*]}" >&2
+        rm -rf "$tmp_dir"
+        exit 1
+    fi
+    for pkg in "${DEBS_PKGS[@]}"; do
+        if ! ls "$tmp_dir"/"$pkg"_*.deb > /dev/null 2>&1; then
+            echo "[ERROR] $(_ "Error: could not download the package:") $pkg" >&2
+            rm -rf "$tmp_dir"
+            exit 1
+        fi
+    done
+    rm -f "$debs_dir"/*.deb
+    cp -a "$tmp_dir"/*.deb "$debs_dir/"
+    rm -rf "$tmp_dir"
+    printf '[debs] %s\n' "$(_ "Packages ready in:") $debs_dir"
+}
+
+if [ "${POSITIONAL[0]:-}" = "debs" ]; then
+    if [ "${#POSITIONAL[@]}" -ne 2 ]; then
+        usage
+        exit 1
+    fi
+    OUT_DIR="${POSITIONAL[1]}"
+    mkdir -p "$OUT_DIR"
+    make_debs "$OUT_DIR"
+    generate_manifest "$OUT_DIR"
+    echo ""
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
 
 if [ "${#POSITIONAL[@]}" -lt 3 ] || [ "${#POSITIONAL[@]}" -gt 3 ]; then
     usage
@@ -311,69 +500,7 @@ PY
 chmod +x "$OUT_DIR/verify-models.py"
 
 # --- Generate manifest.json with full sha256 hashing ---
-echo "$(_ "Hashing files (sha256)...")"
-MANIFEST="$OUT_DIR/manifest.json"
-python3 - "$OUT_DIR" <<'PY'
-import hashlib
-import json
-import os
-import sys
-from datetime import datetime, timezone
-
-out_dir = sys.argv[1]
-
-
-def _has_set(sub):
-    sub_dir = os.path.join(out_dir, sub)
-    if not os.path.isdir(sub_dir):
-        return False
-    return any(os.path.isdir(os.path.join(sub_dir, d)) for d in os.listdir(sub_dir))
-
-
-ct2_set = _has_set("ct2")
-marian_set = _has_set("marian")
-if ct2_set and marian_set:
-    mode = "both"
-elif ct2_set:
-    mode = "ct2"
-elif marian_set:
-    mode = "marian"
-else:
-    mode = "none"
-
-files = []
-for root, dirs, fnames in os.walk(out_dir):
-    # Excluir .cache (artefactos de HuggingFace)
-    dirs[:] = [d for d in dirs if d != ".cache"]
-    dirs.sort()
-    for fname in sorted(fnames):
-        if fname.endswith(".h5"):
-            continue
-        abs_path = os.path.join(root, fname)
-        rel_path = os.path.relpath(abs_path, out_dir)
-        if rel_path == "manifest.json":
-            continue
-        size = os.path.getsize(abs_path)
-        sha = hashlib.sha256()
-        with open(abs_path, "rb") as fh:
-            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-                sha.update(chunk)
-        files.append({"path": rel_path, "size": size, "sha256": sha.hexdigest()})
-        print(f"[hash] {rel_path} ({size} bytes)")
-
-manifest = {
-    "version": 1,
-    "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "mode": mode,
-    "files": files,
-}
-
-with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
-    json.dump(manifest, fh, indent=2, ensure_ascii=False)
-    fh.write("\n")
-
-print(f"[ok] manifest.json written with {len(files)} files (mode={mode})")
-PY
+generate_manifest "$OUT_DIR"
 
 echo ""
 echo "$(_ "Repository ready:") $OUT_DIR"

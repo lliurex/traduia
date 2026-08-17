@@ -424,9 +424,9 @@ do_postinstall() {
         fi
         if [ "$MODELS_SOURCE" == "internet" ]; then
             if [ -n "$OPTIMIZED" ]; then
-                /usr/sbin/install-models-traduia optimized
+                /usr/sbin/install-models-traduia install optimized
             else
-                /usr/sbin/install-models-traduia
+                /usr/sbin/install-models-traduia install
             fi
         else
             if [ -n "$OPTIMIZED" ]; then

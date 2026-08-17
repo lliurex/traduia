@@ -17,15 +17,18 @@ se consume (secciones 4 y 5).
 
 ## 1. Parte común — Preparar los modelos (máquina origen)
 
-En una máquina con Internet, descargue los modelos (una sola vez):
+En una máquina con Internet, los modelos se descargan una sola vez:
 
 ```bash
 # Modelos originales (Marian, sin cuantizar):
-install-models-traduia
+install-models-traduia install
 
 # Modelos optimizados (CTranslate2, más rápidos; experimentales):
 install-models-traduia optimized
 ```
+
+> Sin parámetros, `install-models-traduia` muestra la ayuda (y `--help`).
+> Se usa `install` (o `install optimized`) para instalar explícitamente.
 
 Los modelos quedan en `/opt/ai/traduia/models` con esta estructura:
 
@@ -71,15 +74,42 @@ traduia-make-repo /opt/ai/traduia/models ct2 /srv/export/traduia
   ficheros no legibles o basura de descarga) y los pesos `tf_model.h5`
   (TensorFlow, no utilizados por el servicio) **no se copian** al
   repositorio ni se listan en el manifest.
-- **Aditivo**: ejecútelo una vez por cada set que quiera llevar, apuntando
-  siempre al **mismo** directorio de salida. `whisper-small` solo se copia
-  en la primera ejecución — **nunca se duplica**. El `mode` del manifest se
-  detecta del contenido (`ct2` | `marian` | `both`). Re-ejecutar el mismo
-  modo refresca los ficheros (idempotente, útil al actualizar modelos).
+- **Aditivo**: se ejecuta una vez por cada set que se quiera llevar,
+  apuntando siempre al **mismo** directorio de salida. `whisper-small` solo
+  se copia en la primera ejecución — **nunca se duplica**. El `mode` del
+  manifest se detecta del contenido (`ct2` | `marian` | `both`). Re-ejecutar
+  el mismo modo refresca los ficheros (idempotente, útil al actualizar
+  modelos).
 - **Hardlink vs copia**: se **autodetecta** comparando el sistema de ficheros
   de origen y destino — mismo filesystem → hardlinks (rápido); distinto
   (p.ej. escribir directo a un USB) → copia automática. `--copy` fuerza la
   copia opcionalmente.
+
+### 2.1 Dependencias Python (wheels) — opcional, recomendado
+
+Los pasos anteriores exportan **solo los modelos**: la instalación seguirá
+necesitando internet para las dependencias Python del venv (pip, fastapi,
+torch, …). Para que el repositorio (HTTP o USB) permita una instalación
+**100% offline**, se añaden también los wheels sobre el **mismo** directorio
+de salida (aditivo, igual que los sets; re-ejecutar refresca los wheels):
+
+```bash
+traduia-make-repo wheels /srv/export/traduia
+```
+
+- `pip download` resuelve el **árbol completo de dependencias** (incluidas
+  las transitivas) como **wheels binarios** (`--only-binary=:all:`), para
+  **jammy (cp310)** y **noble (cp312)**, amd64 (`manylinux*`). La máquina que
+  exporta solo necesita pip ≥ 20.3 (jammy/noble lo cumplen).
+- **torch CPU** se descarga de su índice oficial
+  (`https://download.pytorch.org/whl/cpu`), que ya aloja todas sus
+  dependencias (y evita el torch CUDA de PyPI, ~10× mayor).
+- Los wheels quedan en `wheels/` y se incorporan al `manifest.json`
+  (verificables con la sección 3, igual que los modelos).
+- Al instalar desde USB/LAN, `install-models-traduia` los detecta y usa
+  `pip install --no-index --find-links` (más `pip check` al final). Sin
+  wheels, avisa con `[WARN]` y las dependencias se toman de internet
+  (comportamiento histórico).
 
 Estructura resultante:
 
@@ -88,7 +118,9 @@ Estructura resultante:
 ├── manifest.json          # manifest GLOBAL (todo el contenido)
 ├── whisper-small/…        # UNA sola copia, compartida
 ├── ct2/opus-mt-{par}/…    # (solo si se añadió el set ct2)
-└── marian/opus-mt-{par}/… # (solo si se añadió el set marian)
+├── marian/opus-mt-{par}/… # (solo si se añadió el set marian)
+├── wheels/…               # (si se ejecutó "wheels": deps Python, offline total)
+└── debs/…                 # (si se ejecutó "debs": paquetes traduia y zero-lliurex-traduia)
 ```
 
 Ejemplo de `manifest.json`:
@@ -104,10 +136,40 @@ Ejemplo de `manifest.json`:
 }
 ```
 
+### 2.2 Paquetes del sistema (debs) — opcional, recomendado
+
+Para una instalación **100% offline** también deben incluirse los paquetes
+`traduia` y `zero-lliurex-traduia` (este último proporciona
+`traduia-config`). Sin ellos, en un equipo sin red: (1) `traduia-config` no
+está disponible y (2) `apt-get install traduia` no puede completarse. Se
+añaden sobre el **mismo** directorio de salida (aditivo, igual que los sets y
+los wheels; re-ejecutar refresca los debs):
+
+```bash
+traduia-make-repo debs /srv/export/traduia
+```
+
+- Usa `apt-get download` en la máquina origen (no requiere root) para obtener
+  **solo** esos dos paquetes desde las fuentes apt configuradas (la máquina
+  origen debe tener acceso a ellas: internet o el repositorio de LliureX), y
+  los copia a `debs/` del directorio de salida. `apt-get download` no trae
+  las dependencias de los paquetes.
+- Regenera el `manifest.json` (los debs quedan indexados con size+sha256 y
+  verificables con la sección 3, igual que los modelos).
+- En el cliente, con origen **USB (offline total)** se instalan desde el
+  repositorio, primero `zero-lliurex-traduia` (aporta `traduia-config`) y
+  después `traduia`, porque desde la red fallaría (ver sección 5.2). Con
+  origen **LAN** no hace falta: se asume red parcial y el repositorio
+  habitual por red sí dispone de `traduia` para instalarlo con `apt-get` de
+  forma normal.
+- Las dependencias del sistema de estos paquetes (python3-venv, kdialog, jq,
+  lliurex-firefox-settings, …) deben estar disponibles en el equipo offline
+  (caché apt, repositorios del aula o medios de instalación).
+
 ## 3. Parte común — Verificar la integridad
 
 `traduia-make-repo` genera junto al manifest un verificador
-(`verify-models.py`). Compruebe que cada fichero coincide con su sha256:
+(`verify-models.py`). Se comprueba que cada fichero coincide con su sha256:
 
 ```bash
 cd /srv/export/traduia
@@ -138,7 +200,18 @@ python3 verify-models.py --mode ct2 <dir>   # solo whisper + un set
 rsync -a /srv/export/traduia/ server:/var/www/public/models/traduia/
 ```
 
-(o `scp -r` si prefiere, aunque `rsync` permite reanudar copias grandes).
+(o `scp -r` si se prefiere, aunque `rsync` permite reanudar copias grandes).
+
+> Si el repositorio se generó con `wheels` (sección 2.1), los clientes
+> instalan también las **dependencias Python** desde este mismo repo HTTP
+> (`--no-index` automático + `pip check`): despliegues de aula sin salida a
+> internet. Sin wheels, las dependencias van a PyPI (aviso `[WARN]`).
+
+> Si el repositorio lleva también `debs/` (sección 2.2), los clientes pueden
+> obtener los paquetes `traduia` y `zero-lliurex-traduia` desde el propio
+> repo HTTP (útil en equipos sin acceso a los repositorios de LliureX): se
+> descargan los `*.deb` y se instalan con `apt install ./…` (o `dpkg -i` +
+> `apt -f install`), en el orden de la sección 5.2.
 
 ### 4.3 Configurar el servidor web (ejemplo con nginx)
 
@@ -162,8 +235,8 @@ Alias /public/models/traduia/ /var/www/public/models/traduia/
 
 > **Proxy caching**: todo el tráfico del cliente son GET a ficheros estáticos
 > (manifest.json + modelos), perfectamente cacheable. Si los modelos cambian,
-> regenere el manifest y vuelva a sincronizar; la verificación sha256 del
-> cliente garantiza consistencia incluso con una caché intermedia.
+> se regenera el manifest y se vuelve a sincronizar; la verificación sha256
+> del cliente garantiza consistencia incluso con una caché intermedia.
 
 Para una prueba rápida local (solo verificación, no apta para producción):
 
@@ -186,7 +259,7 @@ con cualquiera de estos mecanismos (**prioridad de mayor a menor**):
 2. **Variable de entorno**:
    ```bash
    export TRADUIA_MODELS_URL=http://servidor:puerto/public/models/traduia
-   install-models-traduia
+   install-models-traduia install
    ```
 3. **Fichero de configuración** (recomendado para despliegues), `/etc/traduia/models-repo.conf`:
    ```bash
@@ -215,16 +288,26 @@ install-models-traduia --url http://servidor:puerto/public/models/traduia
 
 ### 5.1 Copiar al USB
 
-Genere el contenido con las secciones 1-3 y cópielo al USB (o genere
+El contenido se genera con las secciones 1-3 y se copia al USB (o se genera
 directamente sobre él; la autodetección de filesystems hará la copia):
 
 ```bash
 rsync -a --progress /srv/export/traduia/ /media/usuario/USB/traduia/
 sync
 
-# Verificar la copia (el verificador viaja con el repositorio):
+# Verificación de la copia (el verificador viaja con el repositorio):
 python3 /media/usuario/USB/traduia/verify-models.py
 ```
+
+Para una validación rápida del repositorio también se puede usar
+`traduia-config validate /media/usuario/USB/traduia` (ver sección 5.2.2).
+
+> **Nota**: `traduia-config validate` **no** equivale al verificador de
+> ficheros: solo comprueba que el `manifest.json` es un repositorio válido
+> (existe, con `files[]` no vacío y al menos un set `ct2/` o `marian/`). No
+> comprueba la presencia de los ficheros ni su tamaño/sha256; para la
+> verificación de integridad por fichero se usa `verify-models.py` (o
+> `traduia-verify-models` en el sistema).
 
 Estructura en el USB:
 
@@ -233,21 +316,53 @@ USB/traduia/
 ├── manifest.json
 ├── whisper-small/…
 ├── ct2/opus-mt-{par}/…    # (si se llevó el set ct2)
-└── marian/opus-mt-{par}/… # (si se llevó el set marian)
+├── marian/opus-mt-{par}/… # (si se llevó el set marian)
+├── wheels/…               # (opcional: dependencias Python, offline total)
+└── debs/…                 # (opcional: paquetes traduia y zero-lliurex-traduia)
 ```
 
 Espacio aproximado (tamaños reales): el modo **ct2 ≈ 1.3 GB** (whisper
 ~0.45 GB + 10 pares ~0.8 GB) y el modo **marian ≈ 3.7 GB** (los pesos
 `tf_model.h5` de TensorFlow no se exportan: no los usa el servicio).
 Whisper-small está compartido, no se suma dos veces. Si el USB lleva
-**ambos modos** (sección 2, aditivo), la instalación usará solo uno. Use un
-USB con espacio suficiente.
+**ambos modos** (sección 2, aditivo), la instalación usará solo uno. Es
+recomendable usar un USB con espacio suficiente.
 
 > **Nota**: el USB **no** incluye los marcadores de modo (`.use_ct2` /
 > `.use_marian`). Los crea el instalador en la máquina destino según el set
 > copiado; el servidor, además, los autodetecta desde el disco si no existen.
 
+### 5.1b Dependencias Python en el USB (offline total)
+
+Los wheels se generan con la sección **2.1** antes de copiar al USB: quedan
+en `wheels/` dentro del mismo repositorio y el instalador los usa
+automáticamente (no hay ningún paso adicional en el cliente). Sin wheels, la
+instalación avisa con `[WARN]` y las dependencias Python se toman de
+internet (comportamiento histórico).
+
 ### 5.2 Instalar en un equipo sin red
+
+**Instalar primero los paquetes del sistema (solo USB / offline total)**:
+
+El equipo debe tener `traduia-config` disponible y el paquete `traduia`
+instalado. Con origen **USB** (offline total) se instalan desde el
+repositorio, en este orden:
+
+```bash
+# 1. zero-lliurex-traduia: proporciona traduia-config
+sudo apt install /media/usuario/USB/traduia/debs/zero-lliurex-traduia_*.deb
+
+# 2. traduia: desde la red fallaría; se instala el fichero del repositorio
+sudo apt install /media/usuario/USB/traduia/debs/traduia_*.deb
+# (o dpkg -i + apt -f install)
+```
+
+Con origen **LAN** no es necesario este paso: se asume red parcial y el
+repositorio habitual por red sí dispone de `traduia`, que se instala con
+`apt-get` de forma normal (sección 5.2.2).
+
+Si `traduia` ya está instalado, el `apt-get install -y traduia` del flujo
+`traduia-config install` se resuelve localmente sin salir a la red.
 
 **Opción rápida (recomendada)** — sin cp/rsync manual, el instalador copia
 desde el directorio:
@@ -293,11 +408,11 @@ python3 /media/usuario/USB/traduia/verify-models.py /opt/ai/traduia/models
 python3 /media/usuario/USB/traduia/verify-models.py --mode marian /opt/ai/traduia/models
 ```
 
-> En la **copia manual rsync** (sin `--dir`), puede usar el verificador del
-> USB con `--mode` para comprobar el set copiado: si el USB lleva ambos sets
-> y solo instaló uno, `--mode` verifica solo el instalado.
+> En la **copia manual rsync** (sin `--dir`), se puede usar el verificador
+> del USB con `--mode` para comprobar el set copiado: si el USB lleva ambos
+> sets y solo se instaló uno, `--mode` verifica solo el instalado.
 
-A continuación instale el paquete `traduia` (deb o zero-center) de forma
+A continuación se instala el paquete `traduia` (deb o zero-center) de forma
 normal. El instalador:
 
 - Comprueba `/opt/ai/traduia/models` **antes** de descargar.
@@ -307,16 +422,65 @@ normal. El instalador:
   o desde HuggingFace).
 - En el zero-center **siempre se pregunta** el modo: `Marian` (por defecto) u
   `Optimized`/CT2 (experimental); con esa respuesta se ejecuta
-  `install-models-traduia [optimized]`.
+  `install-models-traduia [install|optimized]`.
 
-### 5.3 Limitación importante (leer)
+### 5.2.2 Instalación completa desde la terminal (`traduia-config`)
 
-La **no descarga se aplica a los modelos**. El instalador también crea el
-entorno virtual (`/opt/ai/traduia/venv`) e instala sus dependencias Python
-(fastapi, torch, faster-whisper, transformers…), lo que **sí requiere red**
-(o un mirror pip local) en la primera instalación. Para una instalación
-100% offline debe disponer además de una caché/mirror de pip, o un equipo
-que ya tenga el venv completo para clonarlo.
+Para una instalación completa de forma sencilla desde la terminal, se puede
+usar la herramienta `traduia-config` (`/usr/sbin/traduia-config`), que
+realiza la instalación de forma semejante a como se haría desde zero-center:
+
+```bash
+sudo traduia-config install
+```
+
+El comando `install` reproduce el flujo de zero-center:
+
+1. **Q&A interactivo** (diálogos kdialog): modo de instalación (Cliente o
+   Servidor), origen de los modelos (Internet, USB o LAN) y optimización
+   (Marian por defecto u Optimized/CT2, experimental). Con origen USB/LAN,
+   si el repositorio solo trae un set (`ct2` o `marian`), la optimización no
+   se pregunta: se elige el set presente.
+2. **Instalación del paquete** `traduia` con apt (`apt-get install traduia`).
+3. **Descarga de modelos** desde el origen elegido: con USB/LAN se usa
+   `install-models-traduia --from <dir|url>`; con Internet, sin `--from`. Si
+   el repositorio lleva wheels (sección 2.1), las dependencias Python se
+   instalan offline (sección 5.3).
+4. **Entradas web** (lliurex-firefox-settings / Ainur) si hay metas
+   instaladas (lliurex-meta-adi / lliurex-meta-lab-pro).
+
+El origen USB/LAN se valida como repositorio: debe contener un
+`manifest.json` con `files[]` y al menos un set (`ct2/` o `marian/`). En modo
+**Cliente** solo se instala el paquete: no se descargan modelos.
+
+> Requiere ejecutarse como root. Otros subcomandos: `remove` (pregunta si se
+> eliminan los modelos y limpia paquete y entradas), `status` (estado de las
+> entradas web), `validate <dir|url>` (validación rápida de la estructura del
+> manifest; no verifica los ficheros, ver sección 5.1) y
+> `preinstall`/`postinstall` (flujo interno que usa zero-center).
+
+> **Offline total (USB)**: `traduia-config` proviene del paquete
+> `zero-lliurex-traduia` y el paquete `traduia` debe estar instalado: se
+> instalan antes desde `debs/` del repositorio (ver sección 5.2), porque el
+> `apt-get install -y traduia` interno fallaría sin red. Con origen **LAN** se
+> asume red parcial: `traduia` se instala con apt de forma normal y este paso
+> no es necesario.
+
+### 5.3 Instalación con/sin wheels (lectura recomendada)
+
+La descarga local **se aplica a los modelos**; las dependencias Python del
+venv dependen de si el repositorio lleva wheels (sección 2.1):
+
+- **Con wheels**: instalación **100% offline** — el instalador usa
+  `pip install --no-index --find-links` contra `wheels/` del USB/repo y
+  verifica la consistencia con `pip check` (si faltara algo, error claro:
+  sin red de la que echar mano).
+- **Sin wheels**: el instalador crea el venv localmente (sin compilación:
+  todo son wheels binarios) pero **descarga las dependencias de internet**
+  (PyPI + índice CPU de torch), avisando con `[WARN]` antes de empezar.
+
+El venv (`/opt/ai/traduia/venv`) se crea siempre en la máquina destino; con
+wheels simplemente no necesita salir a la red.
 
 ### 5.4 Verificación tras la instalación
 
@@ -329,10 +493,13 @@ ls -la /opt/ai/traduia/models/.use_ct2 /opt/ai/traduia/models/.use_marian
 # El servidor debe arrancar y abrir el navegador sin descargar nada:
 /usr/bin/traduia
 
-# Compruebe que no hay tráfico de modelos a huggingface.co:
+# Se comprueba que no hay tráfico de modelos a huggingface.co:
 # (sin configuración TRADUIA_MODELS_URL y con modelos completos, no debe
 #  haber conexiones salientes al instalar)
 ```
+
+También es posible comprobar el estado de las entradas web con
+`traduia-config status` (ver sección 5.2.2).
 
 ### 5.5 Cómo decide el servidor el modo de modelos (ct2/marian)
 
@@ -346,7 +513,7 @@ Al arrancar, `traduia_server.py` muestra en consola qué modo usa y por qué:
 - **Sin marcadores** → **detección desde disco**; si ambos sets están
   completos, **prioridad Marian**.
 - **Sin ningún set completo** → error claro al arrancar indicando que se
-  ejecute `install-models-traduia`.
+  ejecute `install-models-traduia install`.
 
 > **Nota**: el instalador **nunca deja ambos marcadores** (son excluyentes).
 > La situación "ambos presentes" solo puede darse si se crean manualmente

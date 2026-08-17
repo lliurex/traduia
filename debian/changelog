@@ -13,6 +13,8 @@ traduia (0.8.8) jammy; urgency=medium
   * Repo validation
   * LliureX Ainur page entry (lliurex-www)
   * traduia-config standalone command
+  * Fully offline install from USB/LAN repo (python wheels)
+  * traduia-make-repo debs subcommand
 
  -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 10 Aug 2026 12:00:00 +0200
 
