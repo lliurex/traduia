@@ -17,7 +17,14 @@
 #   traduia-config status                 → estado de las entradas web
 #   traduia-config validate <dir|url>     → validación rápida de repositorio
 #
-# Requiere ejecutarse como root.
+# Opción global (antes o después del comando):
+#   --disable-meta-checks                 → omite la comprobación de metas
+#                                           (equivale a TRADUIA_SKIP_METAS_CHECK=1)
+#
+# Permisos: help, status y validate con ruta local funcionan sin root
+# (solo lectura, sin descargas). El resto (install, remove, preinstall,
+# postinstall y validate con URL) requiere root: se lanza con sudo, pkexec
+# o desde una terminal de root; en otro caso se muestra un aviso y termina.
 
 # Configuración de gettext
 export TEXTDOMAIN="zero-lliurex-traduia"
@@ -408,6 +415,8 @@ do_preinstall() {
 do_postinstall() {
     require_root
     mode=$(cat "$TRADUIA_MODE_FILE" 2>/dev/null)
+
+    # ==== Exclusivo del modo Server: modelos + escritorio ====
     if [ -n "$mode" ] && [ "$mode" == "Server" ]; then
         echo "$(_ "Downloading models...")"
         # Origen: sin marcador (instalación previa) => Internet.
@@ -437,21 +446,32 @@ do_postinstall() {
         fi
         echo "$(_ "Setting server desktop")"
         sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
+    fi
 
-        # Entradas web si hay metas (común a firefox-settings y Ainur)
+    # ==== Entradas web: común a Client y Server ====
+    # La comprobación de metas y la tarjeta de lliurex-firefox-settings se
+    # configuran en ambos modos; la entrada Ainur (lliurex-www) solo en
+    # Server (en un cliente no hay página /srv que la muestre).
+    if [ -n "$mode" ] && { [ "$mode" == "Client" ] || [ "$mode" == "Server" ]; }; then
         if check_metas_for_www_entries; then
             echo "[INFO] $(_ "Configuring lliurex-firefox-settings entry")"
             configure_llxffoxsettings
-            if check_www_package; then
-                echo "[INFO] $(_ "Configuring Ainur (lliurex-www) entry")"
-                create_www_entry
-            else
-                echo "[INFO] $(_ "Skipping Ainur entry: lliurex-www not installed")"
+            if [ "$mode" == "Server" ]; then
+                if check_www_package; then
+                    echo "[INFO] $(_ "Configuring Ainur (lliurex-www) entry")"
+                    create_www_entry
+                else
+                    echo "[INFO] $(_ "Skipping Ainur entry: lliurex-www not installed")"
+                fi
             fi
         fi
     fi
     # Los marcadores se consumen siempre.
     rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_SOURCE_FILE" || true
+
+    # Estado de zero-center: instalación completada. El retorno no es
+    # crítico para el resultado de la instalación.
+    zero-center set-configured zero-lliurex-traduia >/dev/null 2>&1 || true
 }
 
 do_install() {
@@ -509,6 +529,8 @@ do_remove() {
             echo "[INFO] $(_ "Removing Ainur (lliurex-www) entry")"
             remove_www_entry
         fi
+        # Estado de zero-center: paquete eliminado. El retorno no es crítico.
+        zero-center set-non-configured zero-lliurex-traduia >/dev/null 2>&1 || true
     fi
 }
 
@@ -544,6 +566,8 @@ do_validate() {
     fi
     case "$src" in
         http://*|https://*)
+            # La validación por URL descarga el manifest: requiere root.
+            require_root
             if valid_repo_url "$src"; then
                 echo "[INFO] $(_ "Valid models repository:") $src"
                 return 0
@@ -595,7 +619,7 @@ interactive_main() {
 }
 
 show_help() {
-    echo "$(_ "Usage: traduia-config [command]")"
+    echo "$(_ "Usage: traduia-config [command] [--disable-meta-checks]")"
     echo ""
     echo "$(_ "  (no parameters)  interactive: detects the traduia package and offers")"
     echo "$(_ "                    Install or Remove (only Install if not installed)")"
@@ -605,20 +629,39 @@ show_help() {
     echo "$(_ "  postinstall       model download + web entries (zero-center)")"
     echo "$(_ "  status            web entries status")"
     echo "$(_ "  validate <dir|url>  quick models repository validation")"
+    echo "$(_ "  --disable-meta-checks  skip the LliureX metas check (web entries)")"
     echo "$(_ "  help              this help")"
 }
 
 # =========================================================
 # Punto de entrada
 # =========================================================
-case "${1:-}" in
+# Opción global --disable-meta-checks: aceptada antes o después del
+# comando; equivale a TRADUIA_SKIP_METAS_CHECK=1 (omite la comprobación
+# de metas y fuerza la configuración de las entradas web de Firefox; la
+# entrada Ainur sigue limitada al modo Server).
+ARGS=()
+META_SKIP_CLI=false
+for arg in "$@"; do
+    if [ "$arg" == "--disable-meta-checks" ]; then
+        META_SKIP_CLI=true
+    else
+        ARGS+=("$arg")
+    fi
+done
+if [ "$META_SKIP_CLI" = "true" ]; then
+    TRADUIA_SKIP_METAS_CHECK=1
+    echo "[INFO] $(_ "LliureX metas check disabled (--disable-meta-checks)")"
+fi
+
+case "${ARGS[0]:-}" in
     "")            interactive_main ;;
     install)       do_install ;;
     remove)        do_remove ;;
     preinstall)    do_preinstall ;;
     postinstall)   do_postinstall ;;
     status)        do_status ;;
-    validate)      do_validate "$2" ;;
+    validate)      do_validate "${ARGS[1]:-}" ;;
     help|-h|--help) show_help ;;
     *)             show_help; exit 1 ;;
 esac

@@ -15,6 +15,8 @@ traduia (0.8.8) jammy; urgency=medium
   * traduia-config standalone command
   * Fully offline install from USB/LAN repo (python wheels)
   * traduia-make-repo debs subcommand
+  * Client mode installs firefox-settings entry; --disable-meta-checks option
+  * zero-center configured state sync; root only for modifying operations
 
  -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 10 Aug 2026 12:00:00 +0200
 

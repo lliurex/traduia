@@ -3,11 +3,11 @@
 Este documento cubre la **exportación y distribución de los modelos** de
 TraduIA en dos casos de uso:
 
-- **Caso A — Repositorio HTTP**: publicar los modelos en una máquina servidor
-  para que las instalaciones los descarguen desde una URL propia (sin
-  depender de HuggingFace).
-- **Caso B — USB / instalación offline**: llevar los modelos en un disco USB
-  e instalarlos en equipos sin acceso a Internet.
+- **Caso A — Repositorio HTTP**: la publicación de los modelos en una máquina
+  servidor, para que las instalaciones los descarguen desde una URL propia
+  (sin depender de HuggingFace).
+- **Caso B — USB / instalación offline**: el transporte de los modelos en un
+  disco USB y su instalación en equipos sin acceso a Internet.
 
 Ambos casos comparten los pasos comunes de preparación y generación del
 repositorio (secciones 1-3); la diferencia está en cómo se distribuye y cómo
@@ -51,7 +51,7 @@ Los modelos quedan en `/opt/ai/traduia/models` con esta estructura:
 > instalador crea el marcador adecuado en cada cliente y el servidor lo
 > autodetecta desde el disco si no existe.
 
-## 2. Parte común — Generar el repositorio con `traduia-make-repo`
+## 2. Parte común — Generación del repositorio con `traduia-make-repo`
 
 El repositorio tiene un **único `manifest.json` en la raíz** que cubre todo
 el contenido (`whisper-small/` + los sets presentes), con `size` + `sha256`
@@ -166,7 +166,7 @@ traduia-make-repo debs /srv/export/traduia
   lliurex-firefox-settings, …) deben estar disponibles en el equipo offline
   (caché apt, repositorios del aula o medios de instalación).
 
-## 3. Parte común — Verificar la integridad
+## 3. Parte común — Verificación de la integridad
 
 `traduia-make-repo` genera junto al manifest un verificador
 (`verify-models.py`). Se comprueba que cada fichero coincide con su sha256:
@@ -244,7 +244,7 @@ Para una prueba rápida local (solo verificación, no apta para producción):
 cd /srv/export/traduia && python3 -m http.server 8080
 ```
 
-### 4.4 Configurar los clientes
+### 4.4 Configuración de los clientes
 
 La URL base del repositorio (la raíz que contiene `manifest.json`) se fija
 con cualquiera de estos mecanismos (**prioridad de mayor a menor**):
@@ -286,7 +286,7 @@ install-models-traduia --url http://servidor:puerto/public/models/traduia
 
 ## 5. Caso B — Instalación offline con USB
 
-### 5.1 Copiar al USB
+### 5.1 Copia al USB
 
 El contenido se genera con las secciones 1-3 y se copia al USB (o se genera
 directamente sobre él; la autodetección de filesystems hará la copia):
@@ -340,9 +340,9 @@ automáticamente (no hay ningún paso adicional en el cliente). Sin wheels, la
 instalación avisa con `[WARN]` y las dependencias Python se toman de
 internet (comportamiento histórico).
 
-### 5.2 Instalar en un equipo sin red
+### 5.2 Instalación en un equipo sin red
 
-**Instalar primero los paquetes del sistema (solo USB / offline total)**:
+**Instalación previa de los paquetes del sistema (solo USB / offline total)**:
 
 El equipo debe tener `traduia-config` disponible y el paquete `traduia`
 instalado. Con origen **USB** (offline total) se instalan desde el
@@ -375,7 +375,7 @@ sudo install-models-traduia optimized --dir /media/usuario/USB/traduia
 sudo install-models-traduia --from /media/usuario/USB/traduia
 ```
 
-**Opción manual** — copiar ANTES de instalar:
+**Opción manual** — copia previa a la instalación:
 
 ```bash
 sudo mkdir -p /opt/ai/traduia/models
@@ -445,19 +445,49 @@ El comando `install` reproduce el flujo de zero-center:
 3. **Descarga de modelos** desde el origen elegido: con USB/LAN se usa
    `install-models-traduia --from <dir|url>`; con Internet, sin `--from`. Si
    el repositorio lleva wheels (sección 2.1), las dependencias Python se
-   instalan offline (sección 5.3).
-4. **Entradas web** (lliurex-firefox-settings / Ainur) si hay metas
-   instaladas (lliurex-meta-adi / lliurex-meta-lab-pro).
+   instalan offline (sección 5.3). Esta descarga solo se realiza en modo
+   Servidor.
+4. **Entradas web**: la tarjeta de `lliurex-firefox-settings` se configura en
+   ambos modos (Cliente y Servidor) si hay metas instaladas
+   (`lliurex-meta-adi` / `lliurex-meta-lab-pro`) o si la comprobación de
+   metas se omite (ver la opción `--disable-meta-checks` más abajo). La
+   entrada Ainur (`lliurex-www`) solo se crea en modo Servidor y con el
+   paquete `lliurex-www` instalado; en un cliente nunca se crea.
 
 El origen USB/LAN se valida como repositorio: debe contener un
 `manifest.json` con `files[]` y al menos un set (`ct2/` o `marian/`). En modo
-**Cliente** solo se instala el paquete: no se descargan modelos.
+**Cliente** no se descargan modelos: solo se instala el paquete y se
+configura la entrada de Firefox cuando procede.
 
-> Requiere ejecutarse como root. Otros subcomandos: `remove` (pregunta si se
-> eliminan los modelos y limpia paquete y entradas), `status` (estado de las
-> entradas web), `validate <dir|url>` (validación rápida de la estructura del
-> manifest; no verifica los ficheros, ver sección 5.1) y
-> `preinstall`/`postinstall` (flujo interno que usa zero-center).
+La comprobación de metas se puede omitir con la opción `--disable-meta-checks`
+(equivale a `TRADUIA_SKIP_METAS_CHECK=1`): la tarjeta de Firefox se configura
+aunque no haya metas instaladas. La limitación de Ainur al modo Servidor se
+mantiene en todos los casos:
+
+```bash
+sudo traduia-config install --disable-meta-checks
+# la opción también se acepta antes del comando:
+sudo traduia-config --disable-meta-checks install
+```
+
+La opción se puede combinar con `preinstall` y `postinstall` (por ejemplo,
+para reproducir el flujo de zero-center desde la terminal). En el flujo de
+zero-center el equivalente es la variable `TRADUIA_SKIP_METAS_CHECK=1` en el
+entorno del proceso `postinstall`.
+
+> **Permisos**: `help`, `status` y `validate <directorio>` funcionan sin root
+> (solo lectura y sin descargas). El resto (`install`, `remove`,
+> `preinstall`, `postinstall` y `validate <url>`) requiere root: la
+> ejecución se realiza con `sudo`, `pkexec` o desde una terminal de root; en
+> otro caso se muestra el aviso `This command must be run as root` y se
+> termina. Otros subcomandos: `remove` (pregunta si se eliminan los modelos y
+> limpia paquete y entradas), `status` (estado de las entradas web),
+> `validate <dir|url>` (validación rápida de la estructura del manifest; no
+> verifica los ficheros, ver sección 5.1) y `preinstall`/`postinstall` (flujo
+> interno que usa zero-center). Al completar la instalación, el paquete se
+> registra como configurado en zero-center (`set-configured`); al eliminarse,
+> se registra como no configurado (`set-non-configured`). El retorno de
+> estas notificaciones no es crítico para la operación.
 
 > **Offline total (USB)**: `traduia-config` proviene del paquete
 > `zero-lliurex-traduia` y el paquete `traduia` debe estar instalado: se
@@ -512,8 +542,8 @@ Al arrancar, `traduia_server.py` muestra en consola qué modo usa y por qué:
   si Marian no está completo).
 - **Sin marcadores** → **detección desde disco**; si ambos sets están
   completos, **prioridad Marian**.
-- **Sin ningún set completo** → error claro al arrancar indicando que se
-  ejecute `install-models-traduia install`.
+- **Sin ningún set completo** → error claro al arrancar indicando la
+  ejecución de `install-models-traduia install`.
 
 > **Nota**: el instalador **nunca deja ambos marcadores** (son excluyentes).
 > La situación "ambos presentes" solo puede darse si se crean manualmente
