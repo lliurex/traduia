@@ -16,6 +16,9 @@ show_help() {
     echo "$(_ "                    configured source (default: internet)")"
     echo "$(_ "  optimized         install the optimized (CTranslate2) model set")"
     echo "$(_ "                    (experimental); combinable with \"install\"")"
+    echo "$(_ "  all               install both model sets (Marian and optimized/CT2)")"
+    echo "$(_ "                    in the same run; Marian takes priority; combinable")"
+    echo "$(_ "                    with \"install\" and \"optimized\"")"
     echo "$(_ "  --url <url>       repository base URL (contains manifest.json)")"
     echo "$(_ "  --dir <path>      local repository directory (USB, mounted drive)")"
     echo "$(_ "  --from <url|path> auto-detect: URL or local path")"
@@ -41,6 +44,7 @@ MARIAN_PAIRS=(
 # Argumentos
 # =========================================================
 USE_CT2=false
+USE_ALL=false
 CLI_URL=""
 DETECT_ONLY=false
 
@@ -57,6 +61,10 @@ while [ $# -gt 0 ]; do
             ;;
         optimized)
             USE_CT2=true
+            shift
+            ;;
+        all)
+            USE_ALL=true
             shift
             ;;
         help|-h|--help)
@@ -217,6 +225,26 @@ PY
 if ! validate_models_source; then
     exit 1
 fi
+
+# True si el manifest del repositorio contiene algún fichero del set dado
+# (ct2|marian). Se usa con el modo 'all' para la pasada no fatal de ct2.
+repo_has_set() {
+    python3 - "$1" "$2" <<'PY'
+import json
+import sys
+
+path, set_name = sys.argv[1], sys.argv[2]
+try:
+    with open(path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+except (json.JSONDecodeError, OSError):
+    sys.exit(1)
+for f in manifest.get("files", []):
+    if f.get("path", "").startswith(set_name + "/"):
+        sys.exit(0)
+sys.exit(1)
+PY
+}
 
 # =========================================================
 # Wheels Python del repositorio (USB/LAN): permiten instalar
@@ -395,6 +423,9 @@ set_mode_marker() {
     else
         touch "$SHARED_HF/.use_marian"
         rm -f "$SHARED_HF/.use_ct2"
+        if [ "$USE_ALL" = "true" ]; then
+            echo "[WARN] $(_ "Both model sets installed. To use the optimized mode, rename the .use_marian marker to .use_ct2 manually in:") $SHARED_HF" >&2
+        fi
     fi
 }
 
@@ -429,7 +460,7 @@ install_python_deps() {
             echo "[setup] $(_ "Updating pip/setuptools/wheel")"
             run_pip install --no-cache-dir "${off[@]}" --upgrade pip setuptools wheel
             echo "[setup] $(_ "Installing Python dependencies")"
-            if [ "$USE_CT2" = "true" ]; then
+            if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
                 run_pip install --no-cache-dir "${off[@]}" fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil
             else
                 run_pip install --no-cache-dir "${off[@]}" fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub psutil
@@ -483,7 +514,6 @@ unset TRANSFORMERS_OFFLINE || true
 
 function download_inet_models(){
     echo "[setup] $(_ "Preloading models into shared cache...")"
-    export USE_CT2_MODE="$USE_CT2"
     python - <<'PY'
 import os
 from huggingface_hub import snapshot_download, model_info
@@ -903,28 +933,66 @@ PY
 echo "$(_ "Downloading models")"
 export USE_CT2_MODE="$USE_CT2"
 
-if [ "$USE_CT2" = "true" ]; then
-    REQUESTED_SET="ct2"
-    REQUESTED_SET_OK="$ct2_ok"
+# Modo 'all': ambos sets, marian primero (prioridad). Con --dir/--url la
+# pasada de ct2 es no fatal (si el repo no la trae, aviso y se continúa).
+if [ "$USE_ALL" = "true" ]; then
+    REQUESTED_SETS=(marian ct2)
+elif [ "$USE_CT2" = "true" ]; then
+    REQUESTED_SETS=(ct2)
 else
-    REQUESTED_SET="marian"
-    REQUESTED_SET_OK="$marian_ok"
+    REQUESTED_SETS=(marian)
 fi
 
-if [ "$whisper_ok" = "true" ] && [ "$REQUESTED_SET_OK" = "true" ]; then
-    echo "[setup] $(_ "{} models already present on disk. Skipping downloads.")" | sed "s|{}|$REQUESTED_SET|"
-else
+for REQUESTED_SET in "${REQUESTED_SETS[@]}"; do
+    if [ "$REQUESTED_SET" = "ct2" ]; then
+        REQUESTED_SET_OK="$ct2_ok"
+    else
+        REQUESTED_SET_OK="$marian_ok"
+    fi
+
+    if [ "$whisper_ok" = "true" ] && [ "$REQUESTED_SET_OK" = "true" ]; then
+        echo "[setup] $(_ "{} models already present on disk. Skipping downloads.")" | sed "s|{}|$REQUESTED_SET|"
+        continue
+    fi
     if [ "$REQUESTED_SET_OK" != "true" ]; then
         echo "[setup] $(_ "{} models incomplete on disk; completing download.")" | sed "s|{}|$REQUESTED_SET|"
     fi
     if [ -n "$MODELS_DIR" ]; then
+        if [ "$USE_ALL" = "true" ] && [ "$REQUESTED_SET" = "ct2" ] \
+            && ! repo_has_set "$MODELS_DIR/manifest.json" "ct2"; then
+            echo "[WARN] $(_ "ct2 set not available in repository; skipping.")" >&2
+            continue
+        fi
         copy_from_dir "$MODELS_DIR" "$REQUESTED_SET"
     elif [ -n "$MODELS_URL" ]; then
+        if [ "$USE_ALL" = "true" ] && [ "$REQUESTED_SET" = "ct2" ]; then
+            tmp_manifest_url="$(mktemp)"
+            if ! curl -fsSL --connect-timeout 15 -o "$tmp_manifest_url" "${MODELS_URL%/}/manifest.json"; then
+                rm -f "$tmp_manifest_url"
+                echo "[WARN] $(_ "Could not fetch manifest.json from:") ${MODELS_URL%/}/manifest.json" >&2
+                continue
+            elif ! repo_has_set "$tmp_manifest_url" "ct2"; then
+                rm -f "$tmp_manifest_url"
+                echo "[WARN] $(_ "ct2 set not available in repository; skipping.")" >&2
+                continue
+            fi
+            rm -f "$tmp_manifest_url"
+        fi
         download_http_models "$MODELS_URL" "$REQUESTED_SET"
     else
+        # Internet + 'all': marian se descarga con download_inet_models
+        # (whisper+marian); el set ct2 lo descarga el bloque CT2 posterior.
+        if [ "$USE_ALL" = "true" ] && [ "$REQUESTED_SET" = "ct2" ]; then
+            continue
+        fi
+        # Con 'all optimized' (USE_CT2=true) la pasada marian debe descargar
+        # marian: download_inet_models saltaría los pares si USE_CT2_MODE=true.
+        if [ "$REQUESTED_SET" = "marian" ]; then
+            export USE_CT2_MODE=false
+        fi
         download_inet_models
     fi
-fi
+done
 echo "$(_ "Models downloaded!")"
 
 checked_size=$(du -ms "$SHARED_HF" |awk '{print $1}')
@@ -937,7 +1005,12 @@ fi
 
 install_python_deps torch
 
-if [ "$USE_CT2" = "true" ]; then
+# Bloque CT2: con 'optimized' descarga pre-convertidos (mijuanlo) o
+# convierte; con 'all' + internet descarga los pre-convertidos. Con
+# 'all' + --dir/--url el set ct2 ya lo trata el bucle de descarga
+# (no fatal si el repo no lo trae), así que este bloque no se ejecuta.
+if [ "$USE_CT2" = "true" ] \
+    || { [ "$USE_ALL" = "true" ] && [ -z "$MODELS_DIR" ] && [ -z "$MODELS_URL" ]; }; then
     echo "[setup] $(_ "Downloading/Converting Marian models to CTranslate2...")"
     mkdir -p "$SHARED_HF/ct2"
 

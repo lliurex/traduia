@@ -18,6 +18,8 @@ traduia (0.8.8) jammy; urgency=medium
   * Client mode installs firefox-settings entry; --disable-meta-checks option
   * zero-center configured state sync; root only for modifying operations
   * Prefer repo deb (USB/LAN debs/) when its version is >= apt's one
+  * traduia-make-repo fetch subcommand (direct HuggingFace download, additive)
+  * 'all' mode in install-models-traduia and traduia-make-repo (both model sets)
 
  -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 10 Aug 2026 12:00:00 +0200
 

@@ -25,7 +25,16 @@ install-models-traduia install
 
 # Modelos optimizados (CTranslate2, más rápidos; experimentales):
 install-models-traduia optimized
+
+# Ambos sets en la misma ejecución (Marian primero; prioridad Marian):
+install-models-traduia all
 ```
+
+> Con `all` quedan instalados los dos sets y el marcador efectivo es
+> `.use_marian` (prioridad Marian); para usar el modo optimizado hay que
+> renombrar a mano el marcador `.use_marian` por `.use_ct2` en
+> `/opt/ai/traduia/models` (el instalador lo avisa al terminar). Con
+> `all optimized` el marcador queda en `.use_ct2` sin aviso.
 
 > Sin parámetros, `install-models-traduia` muestra la ayuda (y `--help`).
 > Se usa `install` (o `install optimized`) para instalar explícitamente.
@@ -63,13 +72,17 @@ traduia-make-repo /opt/ai/traduia/models marian /srv/export/traduia
 
 # Modo optimizado (CTranslate2):
 traduia-make-repo /opt/ai/traduia/models ct2 /srv/export/traduia
+
+# Ambos sets en una sola ejecución:
+traduia-make-repo /opt/ai/traduia/models all /srv/export/traduia
 ```
 
-- **Validación**: el script comprueba que el set pedido esté completo
-  (whisper-small + los 10 pares) y se niega a generar un repositorio
-  incompleto, listando lo que falta. Para el set ct2 acepta ambos layouts de
-  vocabulario: `vocabulary.txt` (conversión local) o `vocab.json` (repos
-  pre-convertidos como `mijuanlo/opus-mt-*-ct2-int8`).
+- **Validación**: el script comprueba que el/los set(s) pedidos estén
+  completos (whisper-small + los 10 pares; con `all`, ambos sets) y se niega
+  a generar un repositorio incompleto, listando lo que falta. Para el set
+  ct2 acepta ambos layouts de vocabulario: `vocabulary.txt` (conversión
+  local) o `vocab.json` (repos pre-convertidos como
+  `mijuanlo/opus-mt-*-ct2-int8`).
 - **Exclusiones**: los artefactos de HuggingFace (`whisper-small/.cache/…`,
   ficheros no legibles o basura de descarga) y los pesos `tf_model.h5`
   (TensorFlow, no utilizados por el servicio) **no se copian** al
@@ -85,7 +98,42 @@ traduia-make-repo /opt/ai/traduia/models ct2 /srv/export/traduia
   (p.ej. escribir directo a un USB) → copia automática. `--copy` fuerza la
   copia opcionalmente.
 
-### 2.1 Dependencias Python (wheels) — opcional, recomendado
+### 2.1 Descarga directa de HuggingFace (`fetch`)
+
+Sin un directorio local de modelos, el repositorio se puede generar
+descargando los modelos directamente de HuggingFace (aditivo, par a par):
+
+```bash
+# Solo Marian (whisper-small + los 10 pares marian):
+traduia-make-repo fetch marian /srv/export/traduia
+
+# Solo optimizado/CT2 (pre-convertidos, sin conversión local):
+traduia-make-repo fetch ct2 /srv/export/traduia
+
+# Ambos sets, marian primero (prioridad):
+traduia-make-repo fetch all /srv/export/traduia
+```
+
+- **Fuentes**: whisper-small desde `mijuanlo/whisper-small-ct2-int8`
+  (fallback `Systran/faster-whisper-small`); marian desde
+  `mijuanlo/opus-mt-{par}` (fallback `Helsinki-NLP/opus-mt-{par}`); ct2
+  desde los repos **pre-convertidos** `mijuanlo/opus-mt-{par}-ct2-int8`
+  (no hay conversión local). Si un repo pre-convertido no existe, se
+  informa del par, el `manifest.json` se regenera igualmente (los pares ya
+  descargados se conservan) y el comando termina con error: re-ejecutar el
+  mismo `fetch` reintenta los pares que faltan.
+- **Requisito**: `fetch` necesita el paquete Python `huggingface_hub` en el
+  `python3` del sistema (`pip install huggingface_hub`); el resto de
+  subcomandos solo usa la librería estándar.
+- **Aditivo**: los pares ya completos en el directorio de salida se omiten;
+  se puede ejecutar una vez por set (o con `all`) sobre un directorio ya
+  generado. Tras el `fetch` se regenera el `manifest.json` (el `mode` se
+  detecta del contenido, incluyendo `both`).
+- **Combinable**: `fetch` + `wheels` + `debs` sobre el mismo directorio de
+  salida producen un repositorio completo (modelos + dependencias Python +
+  paquetes del sistema) para una instalación totalmente offline.
+
+### 2.2 Dependencias Python (wheels) — opcional, recomendado
 
 Los pasos anteriores exportan **solo los modelos**: la instalación seguirá
 necesitando internet para las dependencias Python del venv (pip, fastapi,
@@ -136,7 +184,7 @@ Ejemplo de `manifest.json`:
 }
 ```
 
-### 2.2 Paquetes del sistema (debs) — opcional, recomendado
+### 2.3 Paquetes del sistema (debs) — opcional, recomendado
 
 Para una instalación **100% offline** también deben incluirse los paquetes
 `traduia` y `zero-lliurex-traduia` (este último proporciona
@@ -202,12 +250,12 @@ rsync -a /srv/export/traduia/ server:/var/www/public/models/traduia/
 
 (o `scp -r` si se prefiere, aunque `rsync` permite reanudar copias grandes).
 
-> Si el repositorio se generó con `wheels` (sección 2.1), los clientes
+> Si el repositorio se generó con `wheels` (sección 2.2), los clientes
 > instalan también las **dependencias Python** desde este mismo repo HTTP
 > (`--no-index` automático + `pip check`): despliegues de aula sin salida a
 > internet. Sin wheels, las dependencias van a PyPI (aviso `[WARN]`).
 
-> Si el repositorio lleva también `debs/` (sección 2.2), los clientes pueden
+> Si el repositorio lleva también `debs/` (sección 2.3), los clientes pueden
 > obtener los paquetes `traduia` y `zero-lliurex-traduia` desde el propio
 > repo HTTP (útil en equipos sin acceso a los repositorios de LliureX): se
 > descargan los `*.deb` y se instalan con `apt install ./…` (o `dpkg -i` +
@@ -334,7 +382,7 @@ recomendable usar un USB con espacio suficiente.
 
 ### 5.1b Dependencias Python en el USB (offline total)
 
-Los wheels se generan con la sección **2.1** antes de copiar al USB: quedan
+Los wheels se generan con la sección **2.2** antes de copiar al USB: quedan
 en `wheels/` dentro del mismo repositorio y el instalador los usa
 automáticamente (no hay ningún paso adicional en el cliente). Sin wheels, la
 instalación avisa con `[WARN]` y las dependencias Python se toman de
@@ -361,7 +409,7 @@ Con origen **LAN** no es necesario este paso: se asume red parcial y el
 repositorio habitual por red sí dispone de `traduia`, que se instala con
 `apt-get` de forma normal (sección 5.2.2).
 
-Si el repositorio USB/LAN incluye `debs/traduia_*.deb` (sección 2.1), el
+Si el repositorio USB/LAN incluye `debs/traduia_*.deb` (sección 2.3), el
 instalador prefiere ese fichero cuando su versión es **superior o igual** a la
 disponible por apt (misma versión con build distinta incluida): instala el
 fichero con `apt-get install -y <deb>`. Solo se usa `apt-get install -y
@@ -456,7 +504,7 @@ El comando `install` reproduce el flujo de zero-center:
    reinstala con ese fichero tras la instalación de zero-center.
 3. **Descarga de modelos** desde el origen elegido: con USB/LAN se usa
    `install-models-traduia --from <dir|url>`; con Internet, sin `--from`. Si
-   el repositorio lleva wheels (sección 2.1), las dependencias Python se
+   el repositorio lleva wheels (sección 2.2), las dependencias Python se
    instalan offline (sección 5.3). Esta descarga solo se realiza en modo
    Servidor.
 4. **Entradas web**: la tarjeta de `lliurex-firefox-settings` se configura en
@@ -511,7 +559,7 @@ entorno del proceso `postinstall`.
 ### 5.3 Instalación con/sin wheels (lectura recomendada)
 
 La descarga local **se aplica a los modelos**; las dependencias Python del
-venv dependen de si el repositorio lleva wheels (sección 2.1):
+venv dependen de si el repositorio lleva wheels (sección 2.2):
 
 - **Con wheels**: instalación **100% offline** — el instalador usa
   `pip install --no-index --find-links` contra `wheels/` del USB/repo y
