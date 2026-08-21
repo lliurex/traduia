@@ -361,8 +361,11 @@ Con origen **LAN** no es necesario este paso: se asume red parcial y el
 repositorio habitual por red sí dispone de `traduia`, que se instala con
 `apt-get` de forma normal (sección 5.2.2).
 
-Si `traduia` ya está instalado, el `apt-get install -y traduia` del flujo
-`traduia-config install` se resuelve localmente sin salir a la red.
+Si el repositorio USB/LAN incluye `debs/traduia_*.deb` (sección 2.1), el
+instalador prefiere ese fichero cuando su versión es **superior o igual** a la
+disponible por apt (misma versión con build distinta incluida): instala el
+fichero con `apt-get install -y <deb>`. Solo se usa `apt-get install -y
+traduia` si el deb no existe en el repositorio o su versión es menor.
 
 **Opción rápida (recomendada)** — sin cp/rsync manual, el instalador copia
 desde el directorio:
@@ -441,7 +444,16 @@ El comando `install` reproduce el flujo de zero-center:
    (Marian por defecto u Optimized/CT2, experimental). Con origen USB/LAN,
    si el repositorio solo trae un set (`ct2` o `marian`), la optimización no
    se pregunta: se elige el set presente.
-2. **Instalación del paquete** `traduia` con apt (`apt-get install traduia`).
+2. **Instalación del paquete** `traduia`: si el origen es USB/LAN y el
+   repositorio incluye un deb de `traduia` en `debs/` con versión **superior
+   o igual** a la disponible por apt (`apt-cache policy`), se instala ese
+   fichero con apt (`apt-get install -y <deb>`); en caso contrario se usa
+   `apt-get install -y traduia`. En el flujo de zero-center el apt del
+   paquete lo realiza el propio zero-center entre `preInstall` y
+   `postInstall`; `traduia-config postinstall` aplica entonces el mismo
+   criterio como *override*: si el origen es USB/LAN y el repositorio trae un
+   deb de `traduia` con versión **superior o igual** a la instalada, se
+   reinstala con ese fichero tras la instalación de zero-center.
 3. **Descarga de modelos** desde el origen elegido: con USB/LAN se usa
    `install-models-traduia --from <dir|url>`; con Internet, sin `--from`. Si
    el repositorio lleva wheels (sección 2.1), las dependencias Python se

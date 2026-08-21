@@ -5,15 +5,21 @@
 #   traduia-config                        → interactivo: detecta el paquete y
 #                                           ofrece Install/Remove (solo Install
 #                                           si no está detectado)
-#   traduia-config install                → preinstall + apt-get install -y
-#                                           traduia + postinstall (reinstalación)
+#   traduia-config install                → preinstall + instalación del
+#                                           paquete traduia (deb del repo
+#                                           USB/LAN si su versión es >= a la
+#                                           de apt; si no, apt-get install)
+#                                           + postinstall (reinstalación)
 #   traduia-config remove                 → pregunta de modelos + apt-get remove
 #                                           + limpieza de entradas/modelos
 #   traduia-config preinstall             → Q&A (modo/origen/optimización) +
 #                                           marcadores (sin apt; lo hace el
 #                                           script superior de zero-center)
-#   traduia-config postinstall            → descarga de modelos + entradas web
-#                                           (sin apt; consume los marcadores)
+#   traduia-config postinstall            → override del paquete con el deb
+#                                           del repo (USB/LAN, versión >= a la
+#                                           instalada) + descarga de modelos +
+#                                           entradas web (sin apt; consume los
+#                                           marcadores)
 #   traduia-config status                 → estado de las entradas web
 #   traduia-config validate <dir|url>     → validación rápida de repositorio
 #
@@ -121,6 +127,84 @@ function valid_repo_url() {
         return 0
     fi
     rm -f "$tmp"
+    return 1
+}
+
+# =========================================================
+# Deb del paquete traduia en el repositorio (debs/)
+# Un repositorio exportado puede incluir <repo>/debs/ con los
+# paquetes del sistema (traduia, zero-lliurex-traduia). Cuando el
+# deb de traduia tiene una versión superior o IGUAL a la disponible
+# por apt, se instala ese fichero en lugar de descargar por internet.
+# =========================================================
+
+REPO_DEB_PATH=""
+REPO_DEB_VER=""
+REPO_DEB_TMP=""
+
+# True si $1 (versión del deb del repo) es >= $2 (referencia). Si la
+# referencia está vacía (sin candidato apt / paquete sin instalar), se
+# considera que el deb del repositorio tiene prioridad.
+function deb_is_newer_or_equal() {
+    local ver="$1" ref="$2"
+    [ -z "$ref" ] && return 0
+    dpkg --compare-versions "$ver" ge "$ref"
+}
+
+# Localiza el deb del paquete traduia en debs/ del repositorio
+# (origen USB, directorio local, o LAN, URL http/https). Deja
+# REPO_DEB_PATH (ruta local del deb; temporal si viene de LAN, con
+# REPO_DEB_TMP=1) y REPO_DEB_VER (su versión). Devuelve 0 si lo
+# encuentra; se elige el de mayor versión si hubiera varios.
+function find_repo_traduia_deb() {
+    local src="${1%/}"
+    local manifest_tmp="" rel f ver best="" bestver=""
+    REPO_DEB_PATH=""
+    REPO_DEB_VER=""
+    REPO_DEB_TMP=""
+    if [[ "$src" == http://* || "$src" == https://* ]]; then
+        manifest_tmp="$(mktemp)"
+        if ! curl -fsSL --connect-timeout 5 --max-time 15 -o "$manifest_tmp" "$src/manifest.json" 2>/dev/null; then
+            rm -f "$manifest_tmp"
+            return 1
+        fi
+        while IFS= read -r rel; do
+            [ -n "$rel" ] || continue
+            f="$(mktemp)"
+            if curl -fsSL --connect-timeout 5 --max-time 30 -o "$f" "$src/$rel" 2>/dev/null \
+                && [ "$(dpkg-deb -f "$f" Package 2>/dev/null)" = "traduia" ]; then
+                ver="$(dpkg-deb -f "$f" Version 2>/dev/null)"
+                if [ -z "$bestver" ] || dpkg --compare-versions "$ver" gt "$bestver"; then
+                    best="$f"
+                    bestver="$ver"
+                else
+                    rm -f "$f"
+                fi
+            else
+                rm -f "$f"
+            fi
+        done < <(jq -r '.files[] | select(.path | startswith("debs/")) | .path' "$manifest_tmp" 2>/dev/null | grep '\.deb$')
+        rm -f "$manifest_tmp"
+    else
+        for f in "$src"/debs/*.deb; do
+            [ -f "$f" ] || continue
+            [ "$(dpkg-deb -f "$f" Package 2>/dev/null)" = "traduia" ] || continue
+            ver="$(dpkg-deb -f "$f" Version 2>/dev/null)"
+            [ -n "$ver" ] || continue
+            if [ -z "$bestver" ] || dpkg --compare-versions "$ver" gt "$bestver"; then
+                best="$f"
+                bestver="$ver"
+            fi
+        done
+    fi
+    if [ -n "$best" ]; then
+        REPO_DEB_PATH="$best"
+        REPO_DEB_VER="$bestver"
+        if [[ "$src" == http://* || "$src" == https://* ]]; then
+            REPO_DEB_TMP="1"
+        fi
+        return 0
+    fi
     return 1
 }
 
@@ -416,6 +500,29 @@ do_postinstall() {
     require_root
     mode=$(cat "$TRADUIA_MODE_FILE" 2>/dev/null)
 
+    # ==== Override del paquete con el deb del repositorio (USB/LAN) ====
+    # En el ciclo de zero-center el apt del paquete ya lo ha realizado el
+    # script superior entre preInstall y postInstall. Si el origen es
+    # USB/LAN y el repositorio incluye un deb de traduia con versión
+    # superior o IGUAL a la instalada, se instala ese fichero para
+    # sobreescribir la instalación (misma versión con build distinta
+    # incluida). Un fallo aquí no es crítico: el paquete base ya está
+    # instalado. Solo aplica en modo Server (un cliente no tiene origen).
+    if [ -n "$mode" ] && [ "$mode" == "Server" ] && [ -f "$TRADUIA_SOURCE_FILE" ]; then
+        local src installed
+        src="$(cat "$TRADUIA_SOURCE_FILE")"
+        if [ -n "$src" ] && [ "$src" != "internet" ] && find_repo_traduia_deb "$src"; then
+            installed="$(dpkg-query -W -f='${Version}' traduia 2>/dev/null)"
+            if deb_is_newer_or_equal "$REPO_DEB_VER" "$installed"; then
+                echo "[INFO] $(_ "Using repository deb:") $REPO_DEB_PATH"
+                if ! apt-get install -y "$REPO_DEB_PATH" >/dev/null 2>&1; then
+                    echo "[WARN] $(_ "Failed to install repository deb:") $REPO_DEB_PATH" >&2
+                fi
+            fi
+            [ "$REPO_DEB_TMP" = "1" ] && rm -f "$REPO_DEB_PATH"
+        fi
+    fi
+
     # ==== Exclusivo del modo Server: modelos + escritorio ====
     if [ -n "$mode" ] && [ "$mode" == "Server" ]; then
         echo "$(_ "Downloading models...")"
@@ -477,8 +584,36 @@ do_postinstall() {
 do_install() {
     require_root
     do_preinstall
+    # Si el origen es USB/LAN y el repositorio incluye un deb de traduia
+    # con versión superior o IGUAL a la disponible por apt (Candidate), se
+    # instala ese fichero en lugar de descargar por internet. Sin marcador
+    # de origen, origen internet o versión menor, se usa apt como siempre.
+    local repo_deb="" ref=""
+    if [ -f "$TRADUIA_SOURCE_FILE" ]; then
+        local src
+        src="$(cat "$TRADUIA_SOURCE_FILE")"
+        if [ -n "$src" ] && [ "$src" != "internet" ] && find_repo_traduia_deb "$src"; then
+            ref="$(apt-cache policy traduia 2>/dev/null | awk '/^  Candidate:/{print $2}')"
+            [ "$ref" = "(none)" ] && ref=""
+            if deb_is_newer_or_equal "$REPO_DEB_VER" "$ref"; then
+                repo_deb="$REPO_DEB_PATH"
+            else
+                [ "$REPO_DEB_TMP" = "1" ] && rm -f "$REPO_DEB_PATH"
+            fi
+        fi
+    fi
     echo "$(_ "Installing traduia package")"
-    if ! apt-get install -y traduia; then
+    if [ -n "$repo_deb" ]; then
+        echo "[INFO] $(_ "Using repository deb:") $repo_deb"
+        if ! apt-get install -y "$repo_deb"; then
+            echo "[ERROR] $(_ "Failed to install traduia package")" >&2
+            rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE"
+            [ "$REPO_DEB_TMP" = "1" ] && rm -f "$repo_deb"
+            exit 1
+        fi
+        # El deb temporal descargado de LAN se limpia tras instalar.
+        [ "$REPO_DEB_TMP" = "1" ] && rm -f "$repo_deb"
+    elif ! apt-get install -y traduia; then
         echo "[ERROR] $(_ "Failed to install traduia package")" >&2
         rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE"
         exit 1
