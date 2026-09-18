@@ -120,16 +120,26 @@ PY
 # de modo que la instalación offline no necesita compiladores.
 # =========================================================
 WHEELS_PLATFORMS=(manylinux2014_x86_64 manylinux_2_17_x86_64 manylinux_2_28_x86_64 linux_x86_64)
-WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil sacremoses)
+WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil sacremoses exceptiongroup)
 
 make_wheels() {
     local out_dir="$1"
     local wheels_dir="$out_dir/wheels"
+    local log_file
+    local targets=("3.10:jammy:cp310" "3.12:noble:cp312")
+    local t pyver label abi
+    local p
+    local pflags=()
+
     mkdir -p "$wheels_dir"
 
-    local targets=("3.10:jammy:cp310" "3.12:noble:cp312")
-    local t pyver label abi pflags=()
-    local p
+    log_file="$(mktemp)"
+
+    cleanup_wheels_log() {
+        rm -f "$log_file"
+    }
+    trap cleanup_wheels_log RETURN
+
     for p in "${WHEELS_PLATFORMS[@]}"; do
         pflags+=(--platform "$p")
     done
@@ -138,23 +148,58 @@ make_wheels() {
         pyver="${t%%:*}"
         label="$(echo "$t" | cut -d: -f2)"
         abi="${t##*:}"
+
         echo "[wheels] $(_ "Downloading wheels for:") $label (python $pyver)"
-        if ! python3 -m pip download --dest "$wheels_dir" \
-            --only-binary=:all: --python-version "$pyver" --implementation cp \
-            --abi "$abi" --abi abi3 --abi none "${pflags[@]}" \
-            "${WHEELS_PKGS[@]}" > /dev/null; then
+
+        : > "$log_file"
+
+        if ! python3 -m pip download \
+            --dest "$wheels_dir" \
+            --only-binary=:all: \
+            --python-version "$pyver" \
+            --implementation cp \
+            --abi "$abi" \
+            --abi abi3 \
+            --abi none \
+            "${pflags[@]}" \
+            "${WHEELS_PKGS[@]}" \
+            >"$log_file" 2>&1
+        then
             echo "[ERROR] $(_ "Error downloading wheels for target:") $label" >&2
+            echo "[ERROR] $(_ "pip output:")" >&2
+            tail -n 60 "$log_file" >&2
             exit 1
         fi
-        # torch CPU desde su índice exclusivo (evita el torch CUDA de PyPI)
-        if ! python3 -m pip download --dest "$wheels_dir" \
-            --only-binary=:all: --python-version "$pyver" --implementation cp \
-            --abi "$abi" --abi abi3 --abi none "${pflags[@]}" \
-            --index-url https://download.pytorch.org/whl/cpu torch > /dev/null; then
+
+        : > "$log_file"
+
+        # torch CPU desde su índice exclusivo.
+        if ! python3 -m pip download \
+            --dest "$wheels_dir" \
+            --only-binary=:all: \
+            --python-version "$pyver" \
+            --implementation cp \
+            --abi "$abi" \
+            --abi abi3 \
+            --abi none \
+            "${pflags[@]}" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            torch \
+            >"$log_file" 2>&1
+        then
             echo "[ERROR] $(_ "Error downloading wheels for target:") $label (torch)" >&2
+            echo "[ERROR] $(_ "pip output:")" >&2
+            tail -n 60 "$log_file" >&2
             exit 1
         fi
     done
+
+    # Regresión conocida: Python 3.10 necesita exceptiongroup a través de anyio.
+    if ! compgen -G "$wheels_dir/exceptiongroup-*.whl" >/dev/null; then
+        echo "[ERROR] $(_ "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is missing.")" >&2
+        exit 1
+    fi
+
     echo "[wheels] $(_ "Wheels ready in:") $wheels_dir"
 }
 

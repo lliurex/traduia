@@ -40,6 +40,28 @@ MARIAN_PAIRS=(
     "es-uk" "es-ro" "es-it" "ca-en" "ca-es"
 )
 
+BASE_PYTHON_PKGS=(
+    fastapi
+    "uvicorn[standard]"
+    python-multipart
+    numpy
+    sounddevice
+    faster-whisper
+    transformers
+    sentencepiece
+    huggingface_hub
+    psutil
+)
+
+CT2_PYTHON_PKGS=(
+    ctranslate2
+)
+
+FINAL_PYTHON_PKGS=(
+    torch
+    sacremoses
+)
+
 # =========================================================
 # Argumentos
 # =========================================================
@@ -344,14 +366,175 @@ detect_repo_wheels() {
                 echo "[setup] $(_ "Using repository wheels for Python dependencies (offline)")"
             else
                 rm -rf "$tmp_dir"
-                echo "[WARN] $(_ "Failed to fetch repository wheels; Python dependencies will be downloaded from the internet.")" >&2
+                echo "[ERROR] $(_ "Repository declares Python wheels, but they could not be downloaded or verified.")" >&2
+                rm -f "$tmp_manifest"
+                return 1
             fi
         fi
         rm -f "$tmp_manifest"
     fi
 }
 
-detect_repo_wheels
+if ! detect_repo_wheels; then
+    exit 1
+fi
+
+validate_local_wheels_manifest() {
+    [ -n "$MODELS_DIR" ] || return 0
+    [ -n "$WHEELS_LINKS" ] || return 0
+
+    echo "[setup] $(_ "Validating repository wheels against manifest.json")"
+
+    python3 - "$MODELS_DIR" <<'PY'
+import hashlib
+import json
+import os
+import sys
+
+repo = os.path.abspath(sys.argv[1])
+manifest_path = os.path.join(repo, "manifest.json")
+wheels_dir = os.path.join(repo, "wheels")
+
+try:
+    with open(manifest_path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"[ERROR] Invalid manifest.json: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+entries = {
+    e["path"]: e
+    for e in manifest.get("files", [])
+    if e.get("path", "").startswith("wheels/")
+}
+
+if not entries:
+    print("[ERROR] manifest.json contains no wheel entries.", file=sys.stderr)
+    sys.exit(1)
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+errors = 0
+
+for rel, entry in sorted(entries.items()):
+    path = os.path.join(repo, rel)
+
+    if not os.path.isfile(path):
+        print(f"[ERROR] Wheel listed in manifest but missing: {rel}", file=sys.stderr)
+        errors += 1
+        continue
+
+    expected_size = entry.get("size")
+    if expected_size is not None and os.path.getsize(path) != expected_size:
+        print(f"[ERROR] Size mismatch: {rel}", file=sys.stderr)
+        errors += 1
+        continue
+
+    expected_sha = entry.get("sha256")
+    if expected_sha and sha256_file(path) != expected_sha:
+        print(f"[ERROR] SHA256 mismatch: {rel}", file=sys.stderr)
+        errors += 1
+
+
+actual = set()
+
+for root, _, files in os.walk(wheels_dir):
+    for name in files:
+        if not name.endswith(".whl"):
+            continue
+        path = os.path.join(root, name)
+        actual.add(os.path.relpath(path, repo))
+
+extra = sorted(actual - set(entries))
+
+for rel in extra:
+    print(
+        f"[ERROR] Wheel exists but is not listed in manifest.json: {rel}",
+        file=sys.stderr,
+    )
+    errors += 1
+
+if errors:
+    print(
+        "[ERROR] Repository wheels and manifest.json are inconsistent.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+print(f"[ok] {len(entries)} wheel entries verified.")
+PY
+}
+
+validate_offline_wheelhouse() {
+    [ -n "$WHEELS_LINKS" ] || return 0
+
+    local tmp_dir
+    local test_venv
+    local test_python
+    local test_log
+    local requirements=("${BASE_PYTHON_PKGS[@]}")
+
+    if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
+        requirements+=("${CT2_PYTHON_PKGS[@]}")
+    fi
+
+    requirements+=("${FINAL_PYTHON_PKGS[@]}")
+
+    tmp_dir="$(mktemp -d)"
+    test_venv="$tmp_dir/venv"
+    test_log="$tmp_dir/pip-preflight.log"
+
+    echo "[setup] $(_ "Validating offline Python dependencies for Python") $PYTHON_VER"
+
+    if ! python3 -m venv "$test_venv" >"$test_log" 2>&1; then
+        echo "[ERROR] $(_ "Could not create temporary validation venv.")" >&2
+        cat "$test_log" >&2
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    test_python="$test_venv/bin/python"
+
+    if ! "$test_python" -m pip install \
+        --no-cache-dir \
+        --no-index \
+        --find-links "$WHEELS_LINKS" \
+        --upgrade \
+        pip setuptools wheel \
+        >>"$test_log" 2>&1
+    then
+        echo "[ERROR] $(_ "The offline wheels repository cannot install pip/setuptools/wheel.")" >&2
+        tail -n 60 "$test_log" >&2
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    if ! "$test_python" -m pip install \
+        --dry-run \
+        --no-cache-dir \
+        --no-index \
+        --find-links "$WHEELS_LINKS" \
+        "${requirements[@]}" \
+        >>"$test_log" 2>&1
+    then
+        echo "[ERROR] $(_ "Offline Python repository is incomplete for Python") $PYTHON_VER." >&2
+        echo "[ERROR] $(_ "pip dependency resolution output:")" >&2
+        tail -n 60 "$test_log" >&2
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    rm -rf "$tmp_dir"
+
+    echo "[ok] $(_ "Offline Python dependencies are complete for Python") $PYTHON_VER."
+}
 
 # =========================================================
 # Detección de modelos ya presentes en disco
@@ -431,75 +614,131 @@ set_mode_marker() {
 
 # =========================================================
 # Dependencias Python: desde los wheels del repositorio
-# (offline total) cuando existen, o desde internet.
-# En modo offline cualquier fallo de pip es fatal (no hay red);
-# en modo online se mantiene el comportamiento histórico.
+# (offline total) cuando existen, o desde internet. Todos los
+# fallos de pip son fatales y quedan registrados en PIP_LOG.
 # =========================================================
+PIP_LOG="/var/log/traduia-install.log"
+
+show_pip_error() {
+    echo "[ERROR] $(_ "Python dependency installation failed.")" >&2
+    echo "[ERROR] $(_ "Last lines of:") $PIP_LOG" >&2
+    tail -n 60 "$PIP_LOG" >&2 || true
+}
+
+run_pip_fatal() {
+    printf '\n===== %s =====\n' "$(date -Is)" >>"$PIP_LOG"
+    printf 'python -m pip' >>"$PIP_LOG"
+    printf ' %q' "$@" >>"$PIP_LOG"
+    printf '\n' >>"$PIP_LOG"
+
+    if ! python -m pip "$@" >>"$PIP_LOG" 2>&1; then
+        show_pip_error
+        return 1
+    fi
+}
+
 install_python_deps() {
-    local phase="$1"
-    local off=()
+    local offline_args=()
+    local requirements=("${BASE_PYTHON_PKGS[@]}")
+
+    if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
+        requirements+=("${CT2_PYTHON_PKGS[@]}")
+    fi
+
+    mkdir -p "$(dirname "$PIP_LOG")"
+    : >"$PIP_LOG"
+
     if [ -n "$WHEELS_LINKS" ]; then
-        off=(--no-index --find-links "$WHEELS_LINKS")
-    elif [ -n "$MODELS_DIR$MODELS_URL" ] && [ "$phase" = "base" ]; then
+        offline_args=(
+            --no-index
+            --find-links "$WHEELS_LINKS"
+        )
+    elif [ -n "$MODELS_DIR$MODELS_URL" ]; then
         echo "[WARN] $(_ "No wheels in repository; Python dependencies will be downloaded from the internet.")" >&2
     fi
 
-    run_pip() {
-        if [ -n "$WHEELS_LINKS" ]; then
-            if ! pip "$@" > /dev/null 2>&1; then
-                echo "[ERROR] $(_ "Failed to install Python dependencies from repository wheels.")" >&2
-                exit 1
-            fi
-        else
-            pip "$@" > /dev/null 2>&1 || true
-        fi
-    }
+    echo "[setup] $(_ "Updating pip/setuptools/wheel")"
 
-    case "$phase" in
-        base)
-            echo "[setup] $(_ "Updating pip/setuptools/wheel")"
-            run_pip install --no-cache-dir "${off[@]}" --upgrade pip setuptools wheel
-            echo "[setup] $(_ "Installing Python dependencies")"
-            if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
-                run_pip install --no-cache-dir "${off[@]}" fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil
-            else
-                run_pip install --no-cache-dir "${off[@]}" fastapi uvicorn[standard] python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub psutil
-            fi
-            ;;
-        torch)
-            if python -c "import torch" 2>/dev/null; then
-                echo "[setup] $(_ "Torch already installed, skipping.")"
-            else
-                echo "$(_ "Downloading torch")"
-                if [ -n "$WHEELS_LINKS" ]; then
-                    run_pip install --no-cache-dir "${off[@]}" torch
-                else
-                    run_pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
-                fi
-                echo "$(_ "Torch downloaded!")"
-            fi
-            run_pip install --no-cache-dir "${off[@]}" sacremoses
-            # Verificación de consistencia de las dependencias instaladas.
-            if [ -n "$WHEELS_LINKS" ]; then
-                if ! pip check >/dev/null 2>&1; then
-                    echo "[ERROR] $(_ "pip check failed: installed dependencies are inconsistent.")" >&2
-                    exit 1
-                fi
-            fi
-            ;;
-    esac
+    run_pip_fatal install \
+        --no-cache-dir \
+        "${offline_args[@]}" \
+        --upgrade \
+        pip setuptools wheel \
+        || return 1
+
+    echo "[setup] $(_ "Installing Python dependencies")"
+
+    run_pip_fatal install \
+        --no-cache-dir \
+        "${offline_args[@]}" \
+        "${requirements[@]}" \
+        || return 1
+
+    echo "[setup] $(_ "Installing torch")"
+
+    if [ -n "$WHEELS_LINKS" ]; then
+        run_pip_fatal install \
+            --no-cache-dir \
+            "${offline_args[@]}" \
+            torch \
+            || return 1
+    else
+        run_pip_fatal install \
+            --no-cache-dir \
+            --index-url https://download.pytorch.org/whl/cpu \
+            torch \
+            || return 1
+    fi
+
+    echo "[setup] $(_ "Installing sacremoses")"
+
+    run_pip_fatal install \
+        --no-cache-dir \
+        "${offline_args[@]}" \
+        sacremoses \
+        || return 1
+
+    echo "[setup] $(_ "Checking Python dependency consistency")"
+
+    if ! python -m pip check >>"$PIP_LOG" 2>&1; then
+        echo "[ERROR] $(_ "pip check failed: installed dependencies are inconsistent.")" >&2
+        tail -n 60 "$PIP_LOG" >&2
+        return 1
+    fi
+
+    echo "[ok] $(_ "Python dependencies installed and verified.")"
 }
 
 mkdir -p "$SHARED_HF"/{hub,transformers,datasets} || true
 
-echo "[setup] $(_ "Creating venv") $TRADUIA_VENV"
-python3 -m venv $TRADUIA_VENV > /dev/null 2>&1
+# Validar completamente el repositorio de wheels antes de modificar
+# el entorno definitivo de TraduIA.
+if [ -n "$WHEELS_LINKS" ]; then
+    if [ -n "$MODELS_DIR" ]; then
+        validate_local_wheels_manifest || exit 1
+    fi
+
+    validate_offline_wheelhouse || exit 1
+fi
+
+echo "[setup] $(_ "Creating clean venv") $TRADUIA_VENV"
+
+if ! python3 -m venv --clear "$TRADUIA_VENV"; then
+    echo "[ERROR] $(_ "Could not create TraduIA virtual environment.")" >&2
+    exit 1
+fi
 
 echo "[setup] $(_ "Activating venv")"
-echo $TRADUIA_DIR > $TRADUIA_VENV/lib/python${PYTHON_VER}/site-packages/extra_paths.pth
-source $TRADUIA_VENV/bin/activate
 
-install_python_deps base
+echo "$TRADUIA_DIR" \
+    > "$TRADUIA_VENV/lib/python${PYTHON_VER}/site-packages/extra_paths.pth"
+
+source "$TRADUIA_VENV/bin/activate"
+
+if ! install_python_deps; then
+    echo "[ERROR] $(_ "TraduIA Python environment could not be prepared.")" >&2
+    exit 1
+fi
 
 echo "[setup] $(_ "Exporting shared cache variables (for this process)")"
 export HF_HOME="$SHARED_HF"
@@ -1002,8 +1241,6 @@ checked_size=$(du -ms "$SHARED_HF" |awk '{print $1}')
 if [ -n "$checked_size" -a "$checked_size" -gt 1000 ]; then
     sed -ri 's|NoDisplay=true|NoDisplay=false|g' /usr/share/applications/traduia.desktop
 fi
-
-install_python_deps torch
 
 # Bloque CT2: con 'optimized' descarga pre-convertidos (mijuanlo) o
 # convierte; con 'all' + internet descarga los pre-convertidos. Con

@@ -13,6 +13,19 @@ Ambos casos comparten los pasos comunes de preparación y generación del
 repositorio (secciones 1-3); la diferencia está en cómo se distribuye y cómo
 se consume (secciones 4 y 5).
 
+> **Requisito previo — `python3-venv`**: el equipo **destino** debe tener el
+> paquete `python3-venv` **funcional y coherente con las versiones de Python
+> instaladas** (jammy → Python 3.10, noble → Python 3.12). Para disponer de
+> la versión correcta del paquete, el sistema operativo debe estar
+> **actualizado con las últimas correcciones del repositorio de LliureX**
+> (`sudo apt update && sudo apt upgrade`). El instalador crea el entorno
+> virtual con `python3 -m venv` y la comprobación previa offline crea además un venv
+> temporal de validación; si el paquete falta o no coincide con la versión de
+> `python3` del sistema (por ejemplo, tras una actualización de Python), la
+> creación del venv falla con un error claro y la instalación se aborta. En
+> equipos sin red este paquete debe estar disponible de antemano (ver
+> sección 2.3); los detalles del venv están en la sección 5.3.
+
 ---
 
 ## 1. Parte común — Preparar los modelos (máquina origen)
@@ -152,12 +165,21 @@ traduia-make-repo wheels /srv/export/traduia
 - **torch CPU** se descarga de su índice oficial
   (`https://download.pytorch.org/whl/cpu`), que ya aloja todas sus
   dependencias (y evita el torch CUDA de PyPI, ~10× mayor).
+- La lista incluye explícitamente `exceptiongroup`, necesaria por `anyio` en
+  **Python 3.10**: al terminar, el propio comando comprueba su presencia en
+  `wheels/` y aborta con error si falta, de modo que no se genera nunca un
+  repositorio de wheels (paquetes Python) 3.10 incompleto.
+- Si alguna descarga de `pip download` falla, se muestra la salida de pip
+  (últimas 60 líneas) junto al error, en lugar de descartarla.
 - Los wheels quedan en `wheels/` y se incorporan al `manifest.json`
   (verificables con la sección 3, igual que los modelos).
-- Al instalar desde USB/LAN, `install-models-traduia` los detecta y usa
-  `pip install --no-index --find-links` (más `pip check` al final). Sin
-  wheels, avisa con `[WARN]` y las dependencias se toman de internet
-  (comportamiento histórico).
+- Al instalar desde USB/LAN, `install-models-traduia` los detecta, los
+  **valida antes de instalar** (sección 5.3) y los usa con
+  `pip install --no-index --find-links` (más `pip check`). Sin wheels, avisa
+  con `[WARN]` y las dependencias se toman de internet (comportamiento
+  histórico); en cambio, si el repositorio **declara** wheels y estos no se
+  pueden descargar ni verificar (caso HTTP), la instalación **aborta** con
+  error en lugar de caer a internet.
 
 Estructura resultante:
 
@@ -253,7 +275,10 @@ rsync -a /srv/export/traduia/ server:/var/www/public/models/traduia/
 > Si el repositorio se generó con `wheels` (sección 2.2), los clientes
 > instalan también las **dependencias Python** desde este mismo repo HTTP
 > (`--no-index` automático + `pip check`): despliegues de aula sin salida a
-> internet. Sin wheels, las dependencias van a PyPI (aviso `[WARN]`).
+> internet. El instalador los **valida antes de instalar** (sección 5.3); si
+> el repo declara wheels pero no se pueden descargar ni verificar, la
+> instalación **aborta** con error. Sin wheels, las dependencias van a PyPI
+> (aviso `[WARN]`).
 
 > Si el repositorio lleva también `debs/` (sección 2.3), los clientes pueden
 > obtener los paquetes `traduia` y `zero-lliurex-traduia` desde el propio
@@ -384,9 +409,10 @@ recomendable usar un USB con espacio suficiente.
 
 Los wheels se generan con la sección **2.2** antes de copiar al USB: quedan
 en `wheels/` dentro del mismo repositorio y el instalador los usa
-automáticamente (no hay ningún paso adicional en el cliente). Sin wheels, la
-instalación avisa con `[WARN]` y las dependencias Python se toman de
-internet (comportamiento histórico).
+automáticamente (no hay ningún paso adicional en el cliente): los valida
+antes de instalar (sección 5.3) y después instala con `--no-index`. Sin
+wheels, la instalación avisa con `[WARN]` y las dependencias Python se toman
+de internet (comportamiento histórico).
 
 ### 5.2 Instalación en un equipo sin red
 
@@ -561,16 +587,36 @@ entorno del proceso `postinstall`.
 La descarga local **se aplica a los modelos**; las dependencias Python del
 venv dependen de si el repositorio lleva wheels (sección 2.2):
 
-- **Con wheels**: instalación **100% offline** — el instalador usa
-  `pip install --no-index --find-links` contra `wheels/` del USB/repo y
-  verifica la consistencia con `pip check` (si faltara algo, error claro:
-  sin red de la que echar mano).
-- **Sin wheels**: el instalador crea el venv localmente (sin compilación:
-  todo son wheels binarios) pero **descarga las dependencias de internet**
-  (PyPI + índice CPU de torch), avisando con `[WARN]` antes de empezar.
+- **Con wheels**: instalación **100% offline** — antes de tocar el entorno
+  definitivo, el instalador realiza una **comprobación previa** en dos partes:
+  1. **Coherencia repo↔manifest**: si el origen es un directorio (`--dir`),
+     comprueba que cada wheel listado en el `manifest.json` existe en
+     `wheels/` con su tamaño y sha256, y que no hay wheels presentes que el
+     manifest no liste; cualquier inconsistencia aborta la instalación.
+  2. **Completitud del repositorio de wheels (paquetes Python)**: en un **venv temporal** ejecuta
+     `pip install --dry-run --no-index --find-links` con el árbol completo
+     de dependencias (incluido torch y, en modos con CT2, `ctranslate2`);
+     si la resolución falla, el repositorio de wheels está incompleto y la instalación
+     aborta con error, sin haber modificado nada.
+  Superada esa comprobación, se instala con
+  `pip install --no-index --find-links` contra `wheels/`.
+- **Sin wheels**: el instalador **descarga las dependencias de internet**
+  (PyPI + índice CPU de torch), avisando con `[WARN]` antes de empezar. Solo
+  se llega aquí si el repositorio no declara wheels; si los declara y no se
+  pueden descargar ni verificar (caso HTTP), la instalación aborta.
 
-El venv (`/opt/ai/traduia/venv`) se crea siempre en la máquina destino; con
-wheels simplemente no necesita salir a la red.
+Comportamiento común de la instalación de dependencias:
+
+- Todos los fallos de `pip` son **fatales** y quedan registrados en
+  `/var/log/traduia-install.log`; ante un error se muestran las últimas 60
+  líneas del registro junto al mensaje.
+- La consistencia del entorno se verifica siempre con `pip check` al final
+  de la instalación de dependencias (con o sin wheels).
+- El venv (`/opt/ai/traduia/venv`) se **recrea limpio** en cada instalación
+  (`python3 -m venv --clear`) y se prepara **antes** de la descarga de los
+  modelos (torch incluido); requiere el requisito previo de `python3-venv`
+  descrito al inicio del documento. Con wheels simplemente no necesita salir
+  a la red.
 
 ### 5.4 Verificación tras la instalación
 

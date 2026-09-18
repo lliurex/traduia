@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-21 12:08+0200\n"
+"POT-Creation-Date: 2026-09-18 12:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -449,153 +449,197 @@ msgstr ""
 msgid "  help, --help, -h  this help"
 msgstr ""
 
-#: install-models-traduia:76
+#: install-models-traduia:98
 msgid "--url requires a value: --url http://host/path"
 msgstr ""
 
-#: install-models-traduia:88
+#: install-models-traduia:110
 msgid "--dir requires a value: --dir /path/to/models/repo"
 msgstr ""
 
-#: install-models-traduia:100
+#: install-models-traduia:122
 msgid "--from requires a value: --from <url|path>"
 msgstr ""
 
-#: install-models-traduia:115
+#: install-models-traduia:137
 msgid "Unknown argument:"
 msgstr ""
 
-#: install-models-traduia:127
+#: install-models-traduia:149
 msgid "Options --url, --dir and --from are mutually exclusive."
 msgstr ""
 
-#: install-models-traduia:147
+#: install-models-traduia:169
 msgid "Source directory does not exist:"
 msgstr ""
 
-#: install-models-traduia:333 install-models-traduia:344
+#: install-models-traduia:355 install-models-traduia:366
 msgid "Using repository wheels for Python dependencies (offline)"
 msgstr ""
 
-#: install-models-traduia:347
+#: install-models-traduia:369
 msgid ""
-"Failed to fetch repository wheels; Python dependencies will be downloaded "
-"from the internet."
+"Repository declares Python wheels, but they could not be downloaded or "
+"verified."
 msgstr ""
 
-#: install-models-traduia:427
+#: install-models-traduia:386
+msgid "Validating repository wheels against manifest.json"
+msgstr ""
+
+#: install-models-traduia:494
+msgid "Validating offline Python dependencies for Python"
+msgstr ""
+
+#: install-models-traduia:497
+msgid "Could not create temporary validation venv."
+msgstr ""
+
+#: install-models-traduia:513
+msgid "The offline wheels repository cannot install pip/setuptools/wheel."
+msgstr ""
+
+#: install-models-traduia:527
+msgid "Offline Python repository is incomplete for Python"
+msgstr ""
+
+#: install-models-traduia:528
+msgid "pip dependency resolution output:"
+msgstr ""
+
+#: install-models-traduia:536
+msgid "Offline Python dependencies are complete for Python"
+msgstr ""
+
+#: install-models-traduia:610
 msgid ""
 "Both model sets installed. To use the optimized mode, rename the .use_marian "
 "marker to .use_ct2 manually in:"
 msgstr ""
 
-#: install-models-traduia:444
+#: install-models-traduia:623
+msgid "Python dependency installation failed."
+msgstr ""
+
+#: install-models-traduia:624
+msgid "Last lines of:"
+msgstr ""
+
+#: install-models-traduia:657
 msgid ""
 "No wheels in repository; Python dependencies will be downloaded from the "
 "internet."
 msgstr ""
 
-#: install-models-traduia:450
-msgid "Failed to install Python dependencies from repository wheels."
-msgstr ""
-
-#: install-models-traduia:460
+#: install-models-traduia:660
 msgid "Updating pip/setuptools/wheel"
 msgstr ""
 
-#: install-models-traduia:462
+#: install-models-traduia:669
 msgid "Installing Python dependencies"
 msgstr ""
 
-#: install-models-traduia:471
-msgid "Torch already installed, skipping."
+#: install-models-traduia:677
+msgid "Installing torch"
 msgstr ""
 
-#: install-models-traduia:473
-msgid "Downloading torch"
+#: install-models-traduia:693
+msgid "Installing sacremoses"
 msgstr ""
 
-#: install-models-traduia:479
-msgid "Torch downloaded!"
+#: install-models-traduia:701
+msgid "Checking Python dependency consistency"
 msgstr ""
 
-#: install-models-traduia:485
+#: install-models-traduia:704
 msgid "pip check failed: installed dependencies are inconsistent."
 msgstr ""
 
-#: install-models-traduia:495
-msgid "Creating venv"
+#: install-models-traduia:709
+msgid "Python dependencies installed and verified."
 msgstr ""
 
-#: install-models-traduia:498
+#: install-models-traduia:724
+msgid "Creating clean venv"
+msgstr ""
+
+#: install-models-traduia:727
+msgid "Could not create TraduIA virtual environment."
+msgstr ""
+
+#: install-models-traduia:731
 msgid "Activating venv"
 msgstr ""
 
-#: install-models-traduia:504
+#: install-models-traduia:739
+msgid "TraduIA Python environment could not be prepared."
+msgstr ""
+
+#: install-models-traduia:743
 msgid "Exporting shared cache variables (for this process)"
 msgstr ""
 
-#: install-models-traduia:516
+#: install-models-traduia:755
 msgid "Preloading models into shared cache..."
 msgstr ""
 
-#: install-models-traduia:574
+#: install-models-traduia:813
 msgid "Downloading models from HTTP repository:"
 msgstr ""
 
-#: install-models-traduia:575
+#: install-models-traduia:814
 msgid "Fetching manifest:"
 msgstr ""
 
-#: install-models-traduia:581 install-models-traduia:972
+#: install-models-traduia:820 install-models-traduia:1211
 msgid "Could not fetch manifest.json from:"
 msgstr ""
 
-#: install-models-traduia:582
+#: install-models-traduia:821
 msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
 msgstr ""
 
-#: install-models-traduia:746
+#: install-models-traduia:985
 msgid "HTTP download finished."
 msgstr ""
 
-#: install-models-traduia:752
+#: install-models-traduia:991
 msgid "Copying models from local directory:"
 msgstr ""
 
-#: install-models-traduia:926
+#: install-models-traduia:1165
 msgid "Local copy finished."
 msgstr ""
 
-#: install-models-traduia:933
+#: install-models-traduia:1172
 msgid "Downloading models"
 msgstr ""
 
-#: install-models-traduia:954
+#: install-models-traduia:1193
 msgid "{} models already present on disk. Skipping downloads."
 msgstr ""
 
-#: install-models-traduia:958
+#: install-models-traduia:1197
 msgid "{} models incomplete on disk; completing download."
 msgstr ""
 
-#: install-models-traduia:963 install-models-traduia:976
+#: install-models-traduia:1202 install-models-traduia:1215
 msgid "ct2 set not available in repository; skipping."
 msgstr ""
 
-#: install-models-traduia:996
+#: install-models-traduia:1235
 msgid "Models downloaded!"
 msgstr ""
 
-#: install-models-traduia:1014
+#: install-models-traduia:1251
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr ""
 
-#: install-models-traduia:1130
+#: install-models-traduia:1367
 msgid "Ready."
 msgstr ""
 
-#: install-models-traduia:1132
+#: install-models-traduia:1369
 msgid "Offline execution (the launcher already exports it):"
 msgstr ""
 
@@ -667,105 +711,115 @@ msgstr ""
 msgid "Hashing files (sha256)..."
 msgstr ""
 
-#: traduia-make-repo:141
+#: traduia-make-repo:152
 msgid "Downloading wheels for:"
 msgstr ""
 
-#: traduia-make-repo:146 traduia-make-repo:154
+#: traduia-make-repo:168 traduia-make-repo:190
 msgid "Error downloading wheels for target:"
 msgstr ""
 
-#: traduia-make-repo:158
+#: traduia-make-repo:169 traduia-make-repo:191
+msgid "pip output:"
+msgstr ""
+
+#: traduia-make-repo:199
+msgid ""
+"The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
+"missing."
+msgstr ""
+
+#: traduia-make-repo:203
 msgid "Wheels ready in:"
 msgstr ""
 
-#: traduia-make-repo:190 traduia-make-repo:349 traduia-make-repo:363
-#: traduia-make-repo:640
+#: traduia-make-repo:235 traduia-make-repo:394 traduia-make-repo:408
+#: traduia-make-repo:685
 msgid "Repository ready:"
 msgstr ""
 
-#: traduia-make-repo:210
+#: traduia-make-repo:255
 msgid "Downloading system packages (traduia, zero-lliurex-traduia)..."
 msgstr ""
 
-#: traduia-make-repo:212
+#: traduia-make-repo:257
 msgid "Error downloading system packages (apt-get download):"
 msgstr ""
 
-#: traduia-make-repo:218
+#: traduia-make-repo:263
 msgid "Error: could not download the package:"
 msgstr ""
 
-#: traduia-make-repo:226
+#: traduia-make-repo:271
 msgid "Packages ready in:"
 msgstr ""
 
-#: traduia-make-repo:241
+#: traduia-make-repo:286
 msgid "Downloading models from HuggingFace..."
 msgstr ""
 
-#: traduia-make-repo:316
+#: traduia-make-repo:361
 msgid "Fetch finished."
 msgstr ""
 
-#: traduia-make-repo:332 traduia-make-repo:377
+#: traduia-make-repo:377 traduia-make-repo:422
 msgid "Error: mode must be 'ct2', 'marian' or 'all'."
 msgstr ""
 
-#: traduia-make-repo:337
+#: traduia-make-repo:382
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
 msgstr ""
 
-#: traduia-make-repo:346
+#: traduia-make-repo:391
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
 msgstr ""
 
-#: traduia-make-repo:382
+#: traduia-make-repo:427
 msgid "Error: models directory does not exist:"
 msgstr ""
 
-#: traduia-make-repo:452
+#: traduia-make-repo:497
 msgid "Error: the following required files are missing or empty:"
 msgstr ""
 
-#: traduia-make-repo:456
+#: traduia-make-repo:501
 msgid "Refusing to generate an incomplete repository."
 msgstr ""
 
-#: traduia-make-repo:461
+#: traduia-make-repo:506
 msgid "Assembling repository in:"
 msgstr ""
 
-#: traduia-make-repo:469
+#: traduia-make-repo:514
 msgid "Copying files (forced by --copy)..."
 msgstr ""
 
-#: traduia-make-repo:472
+#: traduia-make-repo:517
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 
-#: traduia-make-repo:475
+#: traduia-make-repo:520
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 
-#: traduia-make-repo:489
+#: traduia-make-repo:534
 msgid "whisper-small already present, skipping copy."
 msgstr ""
 
-#: traduia-make-repo:529
+#: traduia-make-repo:574
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 
-#: traduia-make-repo:641
+#: traduia-make-repo:686
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr ""
 
-#: traduia-make-repo:643
+#: traduia-make-repo:688
 msgid "Example rsync to a server:"
 msgstr ""
 
