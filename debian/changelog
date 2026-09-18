@@ -1,3 +1,19 @@
+traduia (0.9.1) jammy; urgency=medium
+
+  * Generate verify-models.py in every traduia-make-repo subcommand
+  * traduia-make-repo debs: one subdirectory per distribution
+    (debs/{jammy,noble}/)
+  * traduia-make-repo debs: download from apt repository indexes over HTTP,
+    distro-independent (highest version per suite, sha256 verified)
+  * traduia-make-repo debs: --url-jammy/--url-noble to select the repository
+    with the newest debs
+  * traduia-config: pick the repository deb matching the system codename
+    (debs/<codename>/)
+  * traduia-make-repo full subcommand: builds a fully offline repository
+    (all models + wheels + debs)
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 18 Sep 2026 17:23:00 +0200
+
 traduia (0.9.0) jammy; urgency=medium
 
   * Allow to use HTTP repository for models set from CLI/env/config
