@@ -1,0 +1,689 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export TEXTDOMAIN="traduia"
+export TEXTDOMAINDIR="/usr/share/locale"
+
+_() {
+    gettext "$1"
+}
+
+MODELS_DIR="/opt/ai/traduia/models"
+
+WHISPER_PREFIX="whisper-small"
+MARIAN_PAIRS=(
+    "es-en" "es-fr" "es-de" "es-ru" "es-ar"
+    "es-uk" "es-ro" "es-it" "ca-en" "ca-es"
+)
+
+usage() {
+    echo "$(_ "Usage:") traduia-make-repo <models_dir> <ct2|marian|all> <output_dir> [--copy]"
+    echo ""
+    echo "$(_ "Generates a static manifest.json (with size+sha256) for a TraduIA model repo.")"
+    echo "$(_ "The output directory is shared: whisper-small/ + one or both model sets + manifest.json")"
+    echo "$(_ "It can be served statically over HTTP or copied to a USB drive.")"
+    echo "$(_ "Mode 'all' assembles both model sets (marian and ct2).")"
+    echo ""
+    echo "$(_ "The tool is additive: run it once per set you want in the same output")"
+    echo "$(_ "directory. whisper-small is only copied on the first run (never duplicated).")"
+    echo ""
+    echo "$(_ "Hardlinks are used when source and destination are on the same filesystem;")"
+    echo "$(_ "otherwise files are copied automatically (e.g. to a USB drive).")"
+    echo ""
+    echo "$(_ "Options:")"
+    echo "  --copy    $(_ "Force copying instead of hardlinking (optional; auto-detected by default)")"
+    echo ""
+    echo "$(_ "Or download the models directly from HuggingFace (additive, par a par):")"
+    echo "  traduia-make-repo fetch <ct2|marian|all> <output_dir>"
+    echo "$(_ "Or export the Python wheels for fully offline installs (additive):")"
+    echo "  traduia-make-repo wheels <output_dir>"
+    echo "$(_ "Or export the system .deb packages (traduia, zero-lliurex-traduia) for fully offline installs (additive):")"
+    echo "  traduia-make-repo debs <output_dir>"
+}
+
+# =========================================================
+# generate_manifest <out_dir>: (re)genera manifest.json con
+# tamaño+sha256 de todo el árbol (sets, wheels, verify-models.py).
+# =========================================================
+generate_manifest() {
+    local out_dir="$1"
+    echo "$(_ "Hashing files (sha256)...")"
+    python3 - "$out_dir" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+out_dir = sys.argv[1]
+
+
+def _has_set(sub):
+    sub_dir = os.path.join(out_dir, sub)
+    if not os.path.isdir(sub_dir):
+        return False
+    return any(os.path.isdir(os.path.join(sub_dir, d)) for d in os.listdir(sub_dir))
+
+
+ct2_set = _has_set("ct2")
+marian_set = _has_set("marian")
+if ct2_set and marian_set:
+    mode = "both"
+elif ct2_set:
+    mode = "ct2"
+elif marian_set:
+    mode = "marian"
+else:
+    mode = "none"
+
+files = []
+for root, dirs, fnames in os.walk(out_dir):
+    # Excluir .cache (artefactos de HuggingFace)
+    dirs[:] = [d for d in dirs if d != ".cache"]
+    dirs.sort()
+    for fname in sorted(fnames):
+        if fname.endswith(".h5"):
+            continue
+        abs_path = os.path.join(root, fname)
+        rel_path = os.path.relpath(abs_path, out_dir)
+        if rel_path == "manifest.json":
+            continue
+        size = os.path.getsize(abs_path)
+        sha = hashlib.sha256()
+        with open(abs_path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                sha.update(chunk)
+        files.append({"path": rel_path, "size": size, "sha256": sha.hexdigest()})
+        print(f"[hash] {rel_path} ({size} bytes)")
+
+manifest = {
+    "version": 1,
+    "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "mode": mode,
+    "files": files,
+}
+
+with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
+    json.dump(manifest, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+
+print(f"[ok] manifest.json written with {len(files)} files (mode={mode})")
+PY
+}
+
+# =========================================================
+# make_wheels <out_dir>: descarga el árbol completo de wheels
+# de las dependencias Python (deps transitivas incluidas) para
+# jammy (cp310) y noble (cp312), amd64. pip download resuelve
+# el árbol; torch CPU se toma de su índice exclusivo (incluye
+# sus dependencias). Todo como wheels (--only-binary=:all:),
+# de modo que la instalación offline no necesita compiladores.
+# =========================================================
+WHEELS_PLATFORMS=(manylinux2014_x86_64 manylinux_2_17_x86_64 manylinux_2_28_x86_64 linux_x86_64)
+WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil sacremoses exceptiongroup)
+
+make_wheels() {
+    local out_dir="$1"
+    local wheels_dir="$out_dir/wheels"
+    local log_file
+    local targets=("3.10:jammy:cp310" "3.12:noble:cp312")
+    local t pyver label abi
+    local p
+    local pflags=()
+
+    mkdir -p "$wheels_dir"
+
+    log_file="$(mktemp)"
+
+    cleanup_wheels_log() {
+        rm -f "$log_file"
+    }
+    trap cleanup_wheels_log RETURN
+
+    for p in "${WHEELS_PLATFORMS[@]}"; do
+        pflags+=(--platform "$p")
+    done
+
+    for t in "${targets[@]}"; do
+        pyver="${t%%:*}"
+        label="$(echo "$t" | cut -d: -f2)"
+        abi="${t##*:}"
+
+        echo "[wheels] $(_ "Downloading wheels for:") $label (python $pyver)"
+
+        : > "$log_file"
+
+        if ! python3 -m pip download \
+            --dest "$wheels_dir" \
+            --only-binary=:all: \
+            --python-version "$pyver" \
+            --implementation cp \
+            --abi "$abi" \
+            --abi abi3 \
+            --abi none \
+            "${pflags[@]}" \
+            "${WHEELS_PKGS[@]}" \
+            >"$log_file" 2>&1
+        then
+            echo "[ERROR] $(_ "Error downloading wheels for target:") $label" >&2
+            echo "[ERROR] $(_ "pip output:")" >&2
+            tail -n 60 "$log_file" >&2
+            exit 1
+        fi
+
+        : > "$log_file"
+
+        # torch CPU desde su índice exclusivo.
+        if ! python3 -m pip download \
+            --dest "$wheels_dir" \
+            --only-binary=:all: \
+            --python-version "$pyver" \
+            --implementation cp \
+            --abi "$abi" \
+            --abi abi3 \
+            --abi none \
+            "${pflags[@]}" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            torch \
+            >"$log_file" 2>&1
+        then
+            echo "[ERROR] $(_ "Error downloading wheels for target:") $label (torch)" >&2
+            echo "[ERROR] $(_ "pip output:")" >&2
+            tail -n 60 "$log_file" >&2
+            exit 1
+        fi
+    done
+
+    # Regresión conocida: Python 3.10 necesita exceptiongroup a través de anyio.
+    if ! compgen -G "$wheels_dir/exceptiongroup-*.whl" >/dev/null; then
+        echo "[ERROR] $(_ "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is missing.")" >&2
+        exit 1
+    fi
+
+    echo "[wheels] $(_ "Wheels ready in:") $wheels_dir"
+}
+
+SCRIPT_NAME="$(basename "$0")"
+
+COPY_MODE=false
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --copy)
+            COPY_MODE=true
+            ;;
+        *)
+            POSITIONAL+=("$arg")
+            ;;
+    esac
+done
+
+# --- Subcomando: traduia-make-repo wheels <output_dir> ---
+# Exporta las dependencias Python (wheels, jammy+noble amd64) para
+# permitir una instalación totalmente offline desde USB/LAN. Aditivo:
+# se puede ejecutar sobre un directorio de repositorio ya generado.
+if [ "${POSITIONAL[0]:-}" = "wheels" ]; then
+    if [ "${#POSITIONAL[@]}" -ne 2 ]; then
+        usage
+        exit 1
+    fi
+    OUT_DIR="${POSITIONAL[1]}"
+    mkdir -p "$OUT_DIR"
+    make_wheels "$OUT_DIR"
+    generate_manifest "$OUT_DIR"
+    echo ""
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
+
+# --- Subcomando: traduia-make-repo debs <output_dir> ---
+# Descarga los paquetes .deb del sistema (traduia, zero-lliurex-traduia)
+# con apt-get download y los copia a <out>/debs/ para permitir la
+# instalación del paquete y de traduia-config en equipos totalmente
+# offline. apt-get download no trae dependencias: estas deben estar
+# disponibles en el equipo destino (caché apt, repos del aula o medios).
+# Aditivo: se puede ejecutar sobre un directorio de repositorio ya generado.
+DEBS_PKGS=(traduia zero-lliurex-traduia)
+
+make_debs() {
+    local out_dir="$1"
+    local debs_dir="$out_dir/debs"
+    local tmp_dir
+    local pkg
+    mkdir -p "$debs_dir"
+    tmp_dir="$(mktemp -d)"
+    echo "[debs] $(_ "Downloading system packages (traduia, zero-lliurex-traduia)...")"
+    if ! (cd "$tmp_dir" && apt-get download "${DEBS_PKGS[@]}" > /dev/null); then
+        echo "[ERROR] $(_ "Error downloading system packages (apt-get download):") ${DEBS_PKGS[*]}" >&2
+        rm -rf "$tmp_dir"
+        exit 1
+    fi
+    for pkg in "${DEBS_PKGS[@]}"; do
+        if ! ls "$tmp_dir"/"$pkg"_*.deb > /dev/null 2>&1; then
+            echo "[ERROR] $(_ "Error: could not download the package:") $pkg" >&2
+            rm -rf "$tmp_dir"
+            exit 1
+        fi
+    done
+    rm -f "$debs_dir"/*.deb
+    cp -a "$tmp_dir"/*.deb "$debs_dir/"
+    rm -rf "$tmp_dir"
+    printf '[debs] %s\n' "$(_ "Packages ready in:") $debs_dir"
+}
+
+# =========================================================
+# fetch_inet_models <ct2|marian|all> <out_dir>: descarga los
+# modelos directamente de HuggingFace (aditivo, par a par).
+# whisper-small desde mijuanlo (fallback Systran); marian desde
+# mijuanlo (fallback Helsinki-NLP); ct2 desde mijuanlo
+# pre-convertido (sin conversión local). Con 'all' se descargan
+# ambos sets, marian primero. Los pares ya completos se omiten.
+# =========================================================
+fetch_inet_models() {
+    local mode="$1"
+    local out_dir="${2%/}"
+    local rc=0
+    echo "[fetch] $(_ "Downloading models from HuggingFace...")"
+    python3 - "$mode" "$out_dir" <<'PY' || rc=$?
+import os
+import sys
+from huggingface_hub import snapshot_download, model_info
+from huggingface_hub.utils import disable_progress_bars, RepositoryNotFoundError
+
+disable_progress_bars()
+
+mode, out = sys.argv[1], sys.argv[2]
+
+PAIRS = [
+    "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+    "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+]
+
+failed_ct2 = []
+
+
+def _has(path, fname):
+    f = os.path.join(out, path, fname)
+    return os.path.isfile(f) and os.path.getsize(f) > 0
+
+
+def _download(repo, dest):
+    print(f"[fetch] Downloading {repo} -> {dest}")
+    snapshot_download(repo_id=repo, local_dir=dest)
+
+
+# whisper-small (aditivo: solo si el directorio está vacío)
+wdir = os.path.join(out, "whisper-small")
+if os.path.isdir(wdir) and os.listdir(wdir):
+    print("[fetch] whisper-small already present, skipping.")
+else:
+    os.makedirs(wdir, exist_ok=True)
+    try:
+        model_info("mijuanlo/whisper-small-ct2-int8")
+        _download("mijuanlo/whisper-small-ct2-int8", wdir)
+    except (RepositoryNotFoundError, Exception):
+        print("[fetch] mijuanlo whisper not available, fallback to: Systran/faster-whisper-small")
+        _download("Systran/faster-whisper-small", wdir)
+
+want_marian = mode in ("marian", "all")
+want_ct2 = mode in ("ct2", "all")
+
+for pair in PAIRS:
+    if want_marian:
+        rel = os.path.join("marian", f"opus-mt-{pair}")
+        if _has(rel, "pytorch_model.bin"):
+            print(f"[fetch] {rel} already present, skipping.")
+        else:
+            os.makedirs(os.path.join(out, rel), exist_ok=True)
+            try:
+                model_info(f"mijuanlo/opus-mt-{pair}")
+                _download(f"mijuanlo/opus-mt-{pair}", os.path.join(out, rel))
+            except (RepositoryNotFoundError, Exception):
+                print(f"[fetch] mijuanlo/opus-mt-{pair} not available, fallback to: Helsinki-NLP/opus-mt-{pair}")
+                _download(f"Helsinki-NLP/opus-mt-{pair}", os.path.join(out, rel))
+    if want_ct2:
+        rel = os.path.join("ct2", f"opus-mt-{pair}")
+        if _has(rel, "model.bin"):
+            print(f"[fetch] {rel} already present, skipping.")
+        else:
+            os.makedirs(os.path.join(out, rel), exist_ok=True)
+            try:
+                model_info(f"mijuanlo/opus-mt-{pair}-ct2-int8")
+                _download(f"mijuanlo/opus-mt-{pair}-ct2-int8", os.path.join(out, rel))
+            except (RepositoryNotFoundError, Exception):
+                print(f"[ERROR] Pre-converted CT2 model not available for: {pair}", file=sys.stderr)
+                failed_ct2.append(pair)
+
+if failed_ct2:
+    print(f"[ERROR] CT2 pairs not available: {', '.join(failed_ct2)}", file=sys.stderr)
+    sys.exit(1)
+PY
+    echo "[fetch] $(_ "Fetch finished.")"
+    return "$rc"
+}
+
+# --- Subcomando: traduia-make-repo fetch <ct2|marian|all> <output_dir> ---
+# Descarga los modelos directamente de HuggingFace. Aditivo: se puede
+# ejecutar una vez por set (o con 'all') sobre un directorio ya generado.
+# Si algún par ct2 pre-convertido no está disponible, el manifest se
+# regenera igualmente (re-ejecutar reintenta lo faltante) y se sale con 1.
+if [ "${POSITIONAL[0]:-}" = "fetch" ]; then
+    if [ "${#POSITIONAL[@]}" -ne 3 ]; then
+        usage
+        exit 1
+    fi
+    FETCH_MODE="${POSITIONAL[1]}"
+    if [ "$FETCH_MODE" != "ct2" ] && [ "$FETCH_MODE" != "marian" ] && [ "$FETCH_MODE" != "all" ]; then
+        echo "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" >&2
+        exit 1
+    fi
+    OUT_DIR="${POSITIONAL[2]}"
+    if ! python3 -c "import huggingface_hub" >/dev/null 2>&1; then
+        echo "[ERROR] $(_ "This command requires the 'huggingface_hub' Python package (pip install huggingface_hub).")" >&2
+        exit 1
+    fi
+    mkdir -p "$OUT_DIR"
+    FETCH_INCOMPLETE=false
+    fetch_inet_models "$FETCH_MODE" "$OUT_DIR" || FETCH_INCOMPLETE=true
+    generate_manifest "$OUT_DIR"
+    echo ""
+    if [ "$FETCH_INCOMPLETE" = "true" ]; then
+        echo "[WARN] $(_ "Fetch finished with errors: some models may be missing. Re-run the same fetch command to retry.")" >&2
+        exit 1
+    fi
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
+
+if [ "${POSITIONAL[0]:-}" = "debs" ]; then
+    if [ "${#POSITIONAL[@]}" -ne 2 ]; then
+        usage
+        exit 1
+    fi
+    OUT_DIR="${POSITIONAL[1]}"
+    mkdir -p "$OUT_DIR"
+    make_debs "$OUT_DIR"
+    generate_manifest "$OUT_DIR"
+    echo ""
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
+
+if [ "${#POSITIONAL[@]}" -lt 3 ] || [ "${#POSITIONAL[@]}" -gt 3 ]; then
+    usage
+    exit 1
+fi
+
+SRC_DIR="$(cd "$(dirname "${POSITIONAL[0]}")" && pwd)/$(basename "${POSITIONAL[0]}")"
+MODE="${POSITIONAL[1]}"
+OUT_DIR="${POSITIONAL[2]}"
+
+if [ "$MODE" != "ct2" ] && [ "$MODE" != "marian" ] && [ "$MODE" != "all" ]; then
+    echo "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" >&2
+    exit 1
+fi
+
+if [ ! -d "$SRC_DIR" ]; then
+    echo "$(_ "Error: models directory does not exist:") $SRC_DIR" >&2
+    exit 1
+fi
+
+WHISPER_DIR="$SRC_DIR/$WHISPER_PREFIX"
+if [ "$MODE" = "all" ]; then
+    SETS=(ct2 marian)
+else
+    SETS=("$MODE")
+fi
+
+missing_files=()
+expected_files=()
+
+# --- Build expected file lists ---
+WHISPER_FILES=(
+    "model.bin"
+    "config.json"
+)
+for f in "${WHISPER_FILES[@]}"; do
+    expected_files+=("$WHISPER_PREFIX/$f")
+done
+
+if [ "$MODE" = "ct2" ] || [ "$MODE" = "all" ]; then
+    CT2_MANDATORY_FILES=(
+        "model.bin"
+        "config.json"
+        "source.spm"
+        "target.spm"
+    )
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        for f in "${CT2_MANDATORY_FILES[@]}"; do
+            expected_files+=("ct2/opus-mt-$pair/$f")
+        done
+    done
+fi
+if [ "$MODE" = "marian" ] || [ "$MODE" = "all" ]; then
+    MARIAN_REQUIRED_FILES=(
+        "pytorch_model.bin"
+        "config.json"
+        "source.spm"
+        "target.spm"
+        "vocab.json"
+    )
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        for f in "${MARIAN_REQUIRED_FILES[@]}"; do
+            expected_files+=("marian/opus-mt-$pair/$f")
+        done
+    done
+fi
+
+# --- Validate expected files ---
+for rel in "${expected_files[@]}"; do
+    abs="$SRC_DIR/$rel"
+    if [ ! -f "$abs" ] || [ ! -s "$abs" ]; then
+        missing_files+=("$rel")
+    fi
+done
+
+# Vocabulario ct2: vocabulary.txt (conversión local) o vocab.json (pre-convertido)
+if [ "$MODE" = "ct2" ] || [ "$MODE" = "all" ]; then
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        base="ct2/opus-mt-$pair"
+        if [ ! -s "$SRC_DIR/$base/vocabulary.txt" ] && [ ! -s "$SRC_DIR/$base/vocab.json" ]; then
+            missing_files+=("$base/vocabulary.txt o vocab.json")
+        fi
+    done
+fi
+
+if [ "${#missing_files[@]}" -gt 0 ]; then
+    echo "$(_ "Error: the following required files are missing or empty:")" >&2
+    for m in "${missing_files[@]}"; do
+        echo "  - $m" >&2
+    done
+    echo "$(_ "Refusing to generate an incomplete repository.")" >&2
+    exit 1
+fi
+
+# --- Assemble output tree (aditivo: whisper compartido, sets acumulativos) ---
+echo "$(_ "Assembling repository in:") $OUT_DIR"
+mkdir -p "$OUT_DIR"
+
+# Autodetección hardlink vs copia: mismo filesystem (device) => hardlink.
+# Se puede forzar la copia con --copy.
+USE_COPY=false
+if [ "$COPY_MODE" = "true" ]; then
+    USE_COPY=true
+    echo "$(_ "Copying files (forced by --copy)...")"
+elif [ "$(stat -c %d "$SRC_DIR" 2>/dev/null)" = "$(stat -c %d "$OUT_DIR" 2>/dev/null)" ] \
+    && [ -n "$(stat -c %d "$SRC_DIR" 2>/dev/null)" ]; then
+    echo "$(_ "Source and destination are on the same filesystem: using hardlinks.")"
+else
+    USE_COPY=true
+    echo "$(_ "Source and destination are on different filesystems: copying files.")"
+fi
+
+copy_or_link() {
+    local src="$1"
+    local dst="$2"
+    if [ "$USE_COPY" = "true" ]; then
+        cp -a "$src" "$dst"
+    else
+        ln -f "$src" "$dst" 2>/dev/null || cp -a "$src" "$dst"
+    fi
+}
+
+if [ -d "$OUT_DIR/$WHISPER_PREFIX" ]; then
+    echo "$(_ "whisper-small already present, skipping copy.")"
+else
+    # Copia de whisper-small excluyendo .cache (artefactos de HuggingFace)
+    mkdir -p "$OUT_DIR/$WHISPER_PREFIX"
+    while IFS= read -r -d '' f; do
+        rel="${f#"$WHISPER_DIR"/}"
+        mkdir -p "$(dirname "$OUT_DIR/$WHISPER_PREFIX/$rel")"
+        copy_or_link "$f" "$OUT_DIR/$WHISPER_PREFIX/$rel"
+    done < <(find "$WHISPER_DIR" -name .cache -prune -o -type f -print0)
+fi
+
+# Copiar/refrescar los sets solicitados (idempotente; excluye *.h5, no usados)
+for set in "${SETS[@]}"; do
+    mkdir -p "$OUT_DIR/$set"
+    for pair in "${MARIAN_PAIRS[@]}"; do
+        src_pair="$SRC_DIR/$set/opus-mt-$pair"
+        dst_pair="$OUT_DIR/$set/opus-mt-$pair"
+        mkdir -p "$dst_pair"
+        for f in "$src_pair"/*; do
+            [ -e "$f" ] || continue
+            case "$f" in
+                *.h5) continue ;;
+            esac
+            copy_or_link "$f" "$dst_pair/"
+        done
+    done
+done
+
+# Aviso: sets en el directorio de salida que parecen incompletos
+check_output_set() {
+    local set_name="$1"
+    local file_name="$2"
+    if [ -d "$OUT_DIR/$set_name" ]; then
+        local incomplete=false
+        for pair in "${MARIAN_PAIRS[@]}"; do
+            if [ ! -s "$OUT_DIR/$set_name/opus-mt-$pair/$file_name" ]; then
+                incomplete=true
+            fi
+        done
+        if [ "$incomplete" = "true" ]; then
+            echo "[WARN] $(_ "The {} set in the output directory seems incomplete (missing some pairs).")" | sed "s|{}|$set_name|"
+        fi
+    fi
+}
+check_output_set "ct2" "model.bin"
+check_output_set "marian" "pytorch_model.bin"
+
+# --- Verificador de integridad (viaja con el repositorio, junto al manifest) ---
+cat > "$OUT_DIR/verify-models.py" <<'PY'
+#!/usr/bin/env python3
+"""Verifica la integridad del repositorio contra manifest.json.
+
+Uso: python3 verify-models.py [--mode ct2|marian] [directorio]
+     (directorio por defecto: el actual; --mode verifica solo whisper + un set)
+"""
+import hashlib
+import json
+import os
+import sys
+
+
+def parse_args(argv):
+    mode = None
+    repo = "."
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--mode":
+            i += 1
+            if i >= len(argv):
+                print("ERROR: --mode requires 'ct2' or 'marian'.", file=sys.stderr)
+                sys.exit(2)
+            mode = argv[i]
+        elif a.startswith("--mode="):
+            mode = a.split("=", 1)[1]
+        else:
+            repo = a
+        i += 1
+    if mode not in (None, "ct2", "marian"):
+        print(f"ERROR: unknown mode: {mode}", file=sys.stderr)
+        sys.exit(2)
+    return repo, mode
+
+
+def wanted(rel, mode):
+    if mode is None:
+        return True
+    return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
+
+
+def main():
+    repo, mode = parse_args(sys.argv[1:])
+    manifest_path = os.path.join(repo, "manifest.json")
+
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"ERROR: no se pudo leer {manifest_path}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    files = manifest.get("files", [])
+    if not files:
+        print("ERROR: manifest.json no contiene ficheros.", file=sys.stderr)
+        sys.exit(1)
+
+    if mode is not None and not any(e["path"].startswith(f"{mode}/") for e in files):
+        print(f"ERROR: no hay entradas del modo '{mode}' en el manifest.", file=sys.stderr)
+        sys.exit(1)
+
+    errors = 0
+    for entry in files:
+        rel = entry["path"]
+        if not wanted(rel, mode):
+            continue
+        p = os.path.join(repo, rel)
+        try:
+            if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
+                print("FALTA/TAMAÑO:", rel)
+                errors += 1
+                continue
+            sha = entry.get("sha256")
+            if not sha:
+                print("OK:", rel)
+                continue
+            h = hashlib.sha256()
+            with open(p, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    h.update(chunk)
+            if h.hexdigest() != sha:
+                print("SHA256 INCORRECTO:", rel)
+                errors += 1
+            else:
+                print("OK:", rel)
+        except OSError as e:
+            print(f"ERROR NO LEGIBLE: {rel} ({e})")
+            errors += 1
+
+    print("OK" if errors == 0 else f"{errors} errores")
+    sys.exit(1 if errors else 0)
+
+
+if __name__ == "__main__":
+    main()
+PY
+chmod +x "$OUT_DIR/verify-models.py"
+
+# --- Generate manifest.json with full sha256 hashing ---
+generate_manifest "$OUT_DIR"
+
+echo ""
+echo "$(_ "Repository ready:") $OUT_DIR"
+echo "$(_ "Publish it statically over HTTP or copy it to a USB drive.")"
+echo ""
+echo "$(_ "Example rsync to a server:")"
+echo "  rsync -a $OUT_DIR/ server:/var/www/public/models/traduia/"

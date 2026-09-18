@@ -1,3 +1,33 @@
+traduia (0.9.0) jammy; urgency=medium
+
+  * Allow to use HTTP repository for models set from CLI/env/config
+  * Model on disk detection
+  * traduia-make-repo helper to generate local repo from downloaded model
+  * traduia-open-url wrapper ensure that xdg-open works with valid installed browser
+  * Installation from zero-center skipping downloads when already on disk
+  * Uninstall from zero-center without remove models
+  * Models source selection in zero-center (Internet/USB/LAN) with repo validation
+  * Adaptive optimization question from available models
+  * lliurex-firefox-settings integration
+  * Allow tunable parameters from env
+  * Repo validation
+  * LliureX Ainur page entry (lliurex-www)
+  * traduia-config standalone command
+  * Fully offline install from USB/LAN repo (python wheels)
+  * traduia-make-repo debs subcommand
+  * Client mode installs firefox-settings entry; --disable-meta-checks option
+  * zero-center configured state sync; root only for modifying operations
+  * Prefer repo deb (USB/LAN debs/) when its version is >= apt's one
+  * traduia-make-repo fetch subcommand (direct HuggingFace download, additive)
+  * 'all' mode in install-models-traduia and traduia-make-repo (both model sets)
+  * Fatal pip errors with install log (/var/log/traduia-install.log)
+  * Validate repository wheels before installing them
+  * Clean venv rebuild with python3 -m venv --clear
+  * Add missing exceptiongroup wheel for Python 3.10
+  * Log pip download output on wheels export failures
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 18 Sep 2026 12:06:24 +0200
+
 traduia (0.8.7) jammy; urgency=medium
 
   * Change repository path
