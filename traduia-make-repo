@@ -37,8 +37,10 @@ usage() {
     echo "  traduia-make-repo fetch <ct2|marian|all> <output_dir>"
     echo "$(_ "Or export the Python wheels for fully offline installs (additive):")"
     echo "  traduia-make-repo wheels <output_dir>"
-    echo "$(_ "Or export the system .deb packages (traduia, zero-lliurex-traduia) for fully offline installs (additive):")"
-    echo "  traduia-make-repo debs <output_dir>"
+    echo "$(_ "Or download the system packages (traduia, zero-lliurex-traduia) from an apt repository over HTTP, for one or both distributions:")"
+    echo "  traduia-make-repo debs <output_dir> [jammy|noble|all] [--url-jammy <url>] [--url-noble <url>]"
+    echo "$(_ "Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):")"
+    echo "  traduia-make-repo full <output_dir> [--url-jammy <url>] [--url-noble <url>]"
 }
 
 # =========================================================
@@ -109,6 +111,115 @@ with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
 
 print(f"[ok] manifest.json written with {len(files)} files (mode={mode})")
 PY
+}
+
+# =========================================================
+# write_verify_script <out_dir>: escribe (o refresca) junto al
+# manifest el verificador de integridad verify-models.py, para
+# que el repositorio lo lleve siempre consigo. Se invoca desde
+# todos los subcomandos que generan manifest (local, fetch,
+# wheels y debs); es idempotente.
+# =========================================================
+write_verify_script() {
+    local out_dir="$1"
+    cat > "$out_dir/verify-models.py" <<'PY'
+#!/usr/bin/env python3
+"""Verifica la integridad del repositorio contra manifest.json.
+
+Uso: python3 verify-models.py [--mode ct2|marian] [directorio]
+     (directorio por defecto: el actual; --mode verifica solo whisper + un set)
+"""
+import hashlib
+import json
+import os
+import sys
+
+
+def parse_args(argv):
+    mode = None
+    repo = "."
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--mode":
+            i += 1
+            if i >= len(argv):
+                print("ERROR: --mode requires 'ct2' or 'marian'.", file=sys.stderr)
+                sys.exit(2)
+            mode = argv[i]
+        elif a.startswith("--mode="):
+            mode = a.split("=", 1)[1]
+        else:
+            repo = a
+        i += 1
+    if mode not in (None, "ct2", "marian"):
+        print(f"ERROR: unknown mode: {mode}", file=sys.stderr)
+        sys.exit(2)
+    return repo, mode
+
+
+def wanted(rel, mode):
+    if mode is None:
+        return True
+    return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
+
+
+def main():
+    repo, mode = parse_args(sys.argv[1:])
+    manifest_path = os.path.join(repo, "manifest.json")
+
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"ERROR: no se pudo leer {manifest_path}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    files = manifest.get("files", [])
+    if not files:
+        print("ERROR: manifest.json no contiene ficheros.", file=sys.stderr)
+        sys.exit(1)
+
+    if mode is not None and not any(e["path"].startswith(f"{mode}/") for e in files):
+        print(f"ERROR: no hay entradas del modo '{mode}' en el manifest.", file=sys.stderr)
+        sys.exit(1)
+
+    errors = 0
+    for entry in files:
+        rel = entry["path"]
+        if not wanted(rel, mode):
+            continue
+        p = os.path.join(repo, rel)
+        try:
+            if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
+                print("FALTA/TAMAÑO:", rel)
+                errors += 1
+                continue
+            sha = entry.get("sha256")
+            if not sha:
+                print("OK:", rel)
+                continue
+            h = hashlib.sha256()
+            with open(p, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    h.update(chunk)
+            if h.hexdigest() != sha:
+                print("SHA256 INCORRECTO:", rel)
+                errors += 1
+            else:
+                print("OK:", rel)
+        except OSError as e:
+            print(f"ERROR NO LEGIBLE: {rel} ({e})")
+            errors += 1
+
+    print("OK" if errors == 0 else f"{errors} errores")
+    sys.exit(1 if errors else 0)
+
+
+if __name__ == "__main__":
+    main()
+PY
+    chmod +x "$out_dir/verify-models.py"
 }
 
 # =========================================================
@@ -230,6 +341,7 @@ if [ "${POSITIONAL[0]:-}" = "wheels" ]; then
     OUT_DIR="${POSITIONAL[1]}"
     mkdir -p "$OUT_DIR"
     make_wheels "$OUT_DIR"
+    write_verify_script "$OUT_DIR"
     generate_manifest "$OUT_DIR"
     echo ""
     echo "$(_ "Repository ready:") $OUT_DIR"
@@ -245,29 +357,157 @@ fi
 # Aditivo: se puede ejecutar sobre un directorio de repositorio ya generado.
 DEBS_PKGS=(traduia zero-lliurex-traduia)
 
+# =========================================================
+# make_debs <out_dir> <distro> <base_url>: descarga los paquetes
+# del sistema (traduia, zero-lliurex-traduia) de una distribución
+# (jammy|noble) leyendo los índices apt del repositorio por HTTP
+# (python3 stdlib; no usa apt, así que es independiente de la
+# distribución de la máquina que ejecuta el comando). Recorre las
+# suites <s>, <s>-updates y <s>-security (las ausentes se omiten),
+# elige la versión mayor y verifica el sha256 contra el índice.
+# Los debs quedan en <out>/debs/<distro>/ (refresco aditivo por
+# distro: solo se vacía el subdirectorio de la distro pedida).
+# =========================================================
 make_debs() {
     local out_dir="$1"
-    local debs_dir="$out_dir/debs"
-    local tmp_dir
-    local pkg
+    local distro="$2"
+    local base_url="${3%/}"
+    local debs_dir="$out_dir/debs/$distro"
     mkdir -p "$debs_dir"
-    tmp_dir="$(mktemp -d)"
-    echo "[debs] $(_ "Downloading system packages (traduia, zero-lliurex-traduia)...")"
-    if ! (cd "$tmp_dir" && apt-get download "${DEBS_PKGS[@]}" > /dev/null); then
-        echo "[ERROR] $(_ "Error downloading system packages (apt-get download):") ${DEBS_PKGS[*]}" >&2
-        rm -rf "$tmp_dir"
-        exit 1
+    echo "[debs] $(_ "Downloading system packages for:") $distro ($base_url)"
+    local rc=0
+    python3 - "$distro" "$base_url" "$debs_dir" "${DEBS_PKGS[@]}" <<'PY' || rc=$?
+import gzip
+import hashlib
+import os
+import re
+import sys
+import urllib.request
+
+distro = sys.argv[1]
+base_url = sys.argv[2].rstrip("/")
+debs_dir = sys.argv[3]
+packages = sys.argv[4:]
+
+
+def fetch(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "traduia-make-repo"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return resp.read()
+
+
+def fetch_optional(url):
+    """Descarga la URL; devuelve None si no existe (404 / no encontrado)."""
+    try:
+        return fetch(url)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+    except FileNotFoundError:
+        return None
+    except urllib.error.URLError as e:
+        reason = getattr(e, "reason", None)
+        if isinstance(reason, FileNotFoundError) or getattr(reason, "errno", None) == 2:
+            return None
+        raise
+
+
+def version_key(v):
+    # Comparación simple estilo dpkg: segmentos numéricos y alfanuméricos
+    key = []
+    for part in re.split(r"[.~+:-]", v):
+        if part.isdigit():
+            key.append((1, int(part), ""))
+        else:
+            key.append((0, 0, part))
+    return key
+
+
+best = {}
+for suite in (distro, f"{distro}-updates", f"{distro}-security"):
+    idx_url = f"{base_url}/dists/{suite}/main/binary-amd64/Packages.gz"
+    try:
+        raw = fetch_optional(idx_url)
+    except Exception as e:
+        print(f"[ERROR] Could not fetch the Packages index from: {idx_url} ({e})", file=sys.stderr)
+        sys.exit(1)
+    if raw is None:
+        print(f"[debs] Suite not available, skipping: {suite}")
+        continue
+    try:
+        text = gzip.decompress(raw).decode("utf-8", "replace")
+    except Exception as e:
+        print(f"[ERROR] Could not parse the Packages index: {idx_url} ({e})", file=sys.stderr)
+        sys.exit(1)
+
+    stanza = {}
+    for line in text.splitlines() + [""]:
+        if line.strip() == "":
+            pkg = stanza.get("Package")
+            if pkg in packages:
+                ver = stanza.get("Version", "")
+                cand = version_key(ver)
+                if pkg not in best or cand > best[pkg]["key"]:
+                    best[pkg] = {
+                        "key": cand,
+                        "version": ver,
+                        "filename": stanza.get("Filename", ""),
+                        "sha256": stanza.get("SHA256", ""),
+                        "size": stanza.get("Size", ""),
+                    }
+            stanza = {}
+            continue
+        if ":" in line:
+            field, _, value = line.partition(":")
+            stanza[field.strip()] = value.strip()
+        elif line.startswith((" ", "\t")) and stanza:
+            last = list(stanza)[-1]
+            stanza[last] += " " + line.strip()
+
+if not best:
+    print("[ERROR] None of the packages were found in the repository indexes.", file=sys.stderr)
+    sys.exit(1)
+
+# Refresco aditivo: solo se vacía el subdirectorio de esta distro
+for name in os.listdir(debs_dir):
+    if name.endswith(".deb"):
+        os.remove(os.path.join(debs_dir, name))
+
+failed = False
+for pkg in packages:
+    if pkg not in best:
+        print(f"[ERROR] Package not found in the repository indexes: {pkg}", file=sys.stderr)
+        failed = True
+        continue
+    info = best[pkg]
+    deb_url = f"{base_url}/{info['filename']}"
+    dest = os.path.join(debs_dir, os.path.basename(info["filename"]))
+    print(f"[debs] Downloading {pkg} {info['version']} -> {dest}")
+    try:
+        data = fetch(deb_url)
+    except Exception as e:
+        print(f"[ERROR] Could not download: {deb_url} ({e})", file=sys.stderr)
+        failed = True
+        continue
+    if info["size"] and str(len(data)) != info["size"]:
+        print(f"[ERROR] Size mismatch for: {pkg}", file=sys.stderr)
+        failed = True
+        continue
+    if info["sha256"]:
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != info["sha256"]:
+            print(f"[ERROR] SHA256 mismatch for: {pkg}", file=sys.stderr)
+            failed = True
+            continue
+    with open(dest, "wb") as fh:
+        fh.write(data)
+
+sys.exit(1 if failed else 0)
+PY
+    if [ "$rc" -ne 0 ]; then
+        return 1
     fi
-    for pkg in "${DEBS_PKGS[@]}"; do
-        if ! ls "$tmp_dir"/"$pkg"_*.deb > /dev/null 2>&1; then
-            echo "[ERROR] $(_ "Error: could not download the package:") $pkg" >&2
-            rm -rf "$tmp_dir"
-            exit 1
-        fi
-    done
-    rm -f "$debs_dir"/*.deb
-    cp -a "$tmp_dir"/*.deb "$debs_dir/"
-    rm -rf "$tmp_dir"
     printf '[debs] %s\n' "$(_ "Packages ready in:") $debs_dir"
 }
 
@@ -385,6 +625,7 @@ if [ "${POSITIONAL[0]:-}" = "fetch" ]; then
     mkdir -p "$OUT_DIR"
     FETCH_INCOMPLETE=false
     fetch_inet_models "$FETCH_MODE" "$OUT_DIR" || FETCH_INCOMPLETE=true
+    write_verify_script "$OUT_DIR"
     generate_manifest "$OUT_DIR"
     echo ""
     if [ "$FETCH_INCOMPLETE" = "true" ]; then
@@ -395,16 +636,127 @@ if [ "${POSITIONAL[0]:-}" = "fetch" ]; then
     exit 0
 fi
 
+# --- Subcomando: traduia-make-repo debs <output_dir> [jammy|noble|all]
+#                  [--url-jammy <url>] [--url-noble <url>] ---
+# Descarga los paquetes del sistema (traduia, zero-lliurex-traduia)
+# leyendo los índices apt del repositorio indicado por HTTP (sin apt:
+# independiente de la distribución de la máquina que lo ejecuta).
+# Layout: <out>/debs/{jammy,noble}/. Los debs se toman de la versión
+# mayor disponible en las suites <s>, <s>-updates y <s>-security, con
+# verificación sha256 contra el índice. Defaults: ambas distros desde
+# lliurex.net; con --url-* se apunta al repositorio con los debs más
+# actualizados (admite file:// para pruebas).
+DEBS_URL_DEFAULT_JAMMY="http://lliurex.net/jammy"
+DEBS_URL_DEFAULT_NOBLE="http://lliurex.net/noble"
+
+# parse_debs_url_opts <args...>: procesa --url-jammy/--url-noble (con o
+# sin =, en cualquier posición) y deja el resto en DEBS_REST. Fija
+# DEBS_URL_JAMMY/DEBS_URL_NOBLE (compartido por los subcomandos debs y
+# full); debe llamarse con esos defaults ya asignados.
+parse_debs_url_opts() {
+    DEBS_REST=()
+    while [ "$#" -gt 0 ]; do
+        a="$1"
+        case "$a" in
+            --url-jammy)
+                if [ "$#" -lt 2 ]; then
+                    echo "[ERROR] $(_ "--url-jammy requires a value: --url-jammy <url>")" >&2
+                    exit 1
+                fi
+                DEBS_URL_JAMMY="$2"
+                shift 2
+                ;;
+            --url-jammy=*)
+                DEBS_URL_JAMMY="${a#--url-jammy=}"
+                shift
+                ;;
+            --url-noble)
+                if [ "$#" -lt 2 ]; then
+                    echo "[ERROR] $(_ "--url-noble requires a value: --url-noble <url>")" >&2
+                    exit 1
+                fi
+                DEBS_URL_NOBLE="$2"
+                shift 2
+                ;;
+            --url-noble=*)
+                DEBS_URL_NOBLE="${a#--url-noble=}"
+                shift
+                ;;
+            *)
+                DEBS_REST+=("$a")
+                shift
+                ;;
+        esac
+    done
+}
+
 if [ "${POSITIONAL[0]:-}" = "debs" ]; then
-    if [ "${#POSITIONAL[@]}" -ne 2 ]; then
+    DEBS_URL_JAMMY="$DEBS_URL_DEFAULT_JAMMY"
+    DEBS_URL_NOBLE="$DEBS_URL_DEFAULT_NOBLE"
+    parse_debs_url_opts "${POSITIONAL[@]:1}"
+    if [ "${#DEBS_REST[@]}" -lt 1 ] || [ "${#DEBS_REST[@]}" -gt 2 ]; then
         usage
         exit 1
     fi
-    OUT_DIR="${POSITIONAL[1]}"
+    OUT_DIR="${DEBS_REST[0]}"
+    DEBS_DISTRO="${DEBS_REST[1]:-all}"
+    case "$DEBS_DISTRO" in
+        jammy|noble|all) ;;
+        *)
+            echo "$(_ "Error: distribution must be 'jammy', 'noble' or 'all'.")" >&2
+            exit 1
+            ;;
+    esac
     mkdir -p "$OUT_DIR"
-    make_debs "$OUT_DIR"
+    rc=0
+    case "$DEBS_DISTRO" in
+        jammy) make_debs "$OUT_DIR" jammy "$DEBS_URL_JAMMY" || rc=$? ;;
+        noble) make_debs "$OUT_DIR" noble "$DEBS_URL_NOBLE" || rc=$? ;;
+        all)
+            make_debs "$OUT_DIR" jammy "$DEBS_URL_JAMMY" || rc=$?
+            make_debs "$OUT_DIR" noble "$DEBS_URL_NOBLE" || rc=$?
+            ;;
+    esac
+    write_verify_script "$OUT_DIR"
     generate_manifest "$OUT_DIR"
     echo ""
+    if [ "$rc" -ne 0 ]; then
+        echo "[ERROR] $(_ "Could not download the system packages (see the errors above).")" >&2
+        exit 1
+    fi
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
+
+# --- Subcomando: traduia-make-repo full <output_dir> [--url-jammy <url>] [--url-noble <url>] ---
+# Genera un repositorio 100% offline con un solo comando: todos los
+# modelos (fetch all desde HuggingFace), los wheels Python (jammy y
+# noble) y los debs del sistema de ambas distribuciones. Si un paso
+# falla se continúan los demás y se avisa al final (todo es idempotente:
+# re-ejecutar reintenta solo lo que falta).
+if [ "${POSITIONAL[0]:-}" = "full" ]; then
+    DEBS_URL_JAMMY="$DEBS_URL_DEFAULT_JAMMY"
+    DEBS_URL_NOBLE="$DEBS_URL_DEFAULT_NOBLE"
+    parse_debs_url_opts "${POSITIONAL[@]:1}"
+    if [ "${#DEBS_REST[@]}" -ne 1 ]; then
+        usage
+        exit 1
+    fi
+    OUT_DIR="${DEBS_REST[0]}"
+    mkdir -p "$OUT_DIR"
+    echo "[full] $(_ "Building a fully offline repository:") $OUT_DIR"
+    rc=0
+    fetch_inet_models all "$OUT_DIR" || rc=$?
+    make_wheels "$OUT_DIR" || rc=$?
+    make_debs "$OUT_DIR" jammy "$DEBS_URL_JAMMY" || rc=$?
+    make_debs "$OUT_DIR" noble "$DEBS_URL_NOBLE" || rc=$?
+    write_verify_script "$OUT_DIR"
+    generate_manifest "$OUT_DIR"
+    echo ""
+    if [ "$rc" -ne 0 ]; then
+        echo "[WARN] $(_ "Offline repository built with errors; re-run the same command to retry what is missing.")" >&2
+        exit 1
+    fi
     echo "$(_ "Repository ready:") $OUT_DIR"
     exit 0
 fi
@@ -579,104 +931,7 @@ check_output_set "ct2" "model.bin"
 check_output_set "marian" "pytorch_model.bin"
 
 # --- Verificador de integridad (viaja con el repositorio, junto al manifest) ---
-cat > "$OUT_DIR/verify-models.py" <<'PY'
-#!/usr/bin/env python3
-"""Verifica la integridad del repositorio contra manifest.json.
-
-Uso: python3 verify-models.py [--mode ct2|marian] [directorio]
-     (directorio por defecto: el actual; --mode verifica solo whisper + un set)
-"""
-import hashlib
-import json
-import os
-import sys
-
-
-def parse_args(argv):
-    mode = None
-    repo = "."
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a == "--mode":
-            i += 1
-            if i >= len(argv):
-                print("ERROR: --mode requires 'ct2' or 'marian'.", file=sys.stderr)
-                sys.exit(2)
-            mode = argv[i]
-        elif a.startswith("--mode="):
-            mode = a.split("=", 1)[1]
-        else:
-            repo = a
-        i += 1
-    if mode not in (None, "ct2", "marian"):
-        print(f"ERROR: unknown mode: {mode}", file=sys.stderr)
-        sys.exit(2)
-    return repo, mode
-
-
-def wanted(rel, mode):
-    if mode is None:
-        return True
-    return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
-
-
-def main():
-    repo, mode = parse_args(sys.argv[1:])
-    manifest_path = os.path.join(repo, "manifest.json")
-
-    try:
-        with open(manifest_path, encoding="utf-8") as fh:
-            manifest = json.load(fh)
-    except (json.JSONDecodeError, OSError) as e:
-        print(f"ERROR: no se pudo leer {manifest_path}: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    files = manifest.get("files", [])
-    if not files:
-        print("ERROR: manifest.json no contiene ficheros.", file=sys.stderr)
-        sys.exit(1)
-
-    if mode is not None and not any(e["path"].startswith(f"{mode}/") for e in files):
-        print(f"ERROR: no hay entradas del modo '{mode}' en el manifest.", file=sys.stderr)
-        sys.exit(1)
-
-    errors = 0
-    for entry in files:
-        rel = entry["path"]
-        if not wanted(rel, mode):
-            continue
-        p = os.path.join(repo, rel)
-        try:
-            if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
-                print("FALTA/TAMAÑO:", rel)
-                errors += 1
-                continue
-            sha = entry.get("sha256")
-            if not sha:
-                print("OK:", rel)
-                continue
-            h = hashlib.sha256()
-            with open(p, "rb") as fh:
-                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-                    h.update(chunk)
-            if h.hexdigest() != sha:
-                print("SHA256 INCORRECTO:", rel)
-                errors += 1
-            else:
-                print("OK:", rel)
-        except OSError as e:
-            print(f"ERROR NO LEGIBLE: {rel} ({e})")
-            errors += 1
-
-    print("OK" if errors == 0 else f"{errors} errores")
-    sys.exit(1 if errors else 0)
-
-
-if __name__ == "__main__":
-    main()
-PY
-chmod +x "$OUT_DIR/verify-models.py"
+write_verify_script "$OUT_DIR"
 
 # --- Generate manifest.json with full sha256 hashing ---
 generate_manifest "$OUT_DIR"

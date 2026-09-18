@@ -131,8 +131,9 @@ function valid_repo_url() {
 }
 
 # =========================================================
-# Deb del paquete traduia en el repositorio (debs/)
-# Un repositorio exportado puede incluir <repo>/debs/ con los
+# Deb del paquete traduia en el repositorio (debs/<codename>/)
+# Un repositorio exportado puede incluir <repo>/debs/<codename>/
+# (jammy, noble) con los
 # paquetes del sistema (traduia, zero-lliurex-traduia). Cuando el
 # deb de traduia tiene una versión superior o IGUAL a la disponible
 # por apt, se instala ese fichero en lugar de descargar por internet.
@@ -151,17 +152,28 @@ function deb_is_newer_or_equal() {
     dpkg --compare-versions "$ver" ge "$ref"
 }
 
-# Localiza el deb del paquete traduia en debs/ del repositorio
-# (origen USB, directorio local, o LAN, URL http/https). Deja
-# REPO_DEB_PATH (ruta local del deb; temporal si viene de LAN, con
-# REPO_DEB_TMP=1) y REPO_DEB_VER (su versión). Devuelve 0 si lo
-# encuentra; se elige el de mayor versión si hubiera varios.
+# Localiza el deb del paquete traduia en debs/<codename>/ del
+# repositorio (origen USB, directorio local, o LAN, URL http/https).
+# El codename es el de la máquina (VERSION_CODENAME de /etc/os-release;
+# override con TRADUIA_DISTRO_CODENAME): solo se consideran los debs de
+# la distribución del equipo. Deja REPO_DEB_PATH (ruta local del deb;
+# temporal si viene de LAN, con REPO_DEB_TMP=1) y REPO_DEB_VER (su
+# versión). Devuelve 0 si lo encuentra; se elige el de mayor versión
+# si hubiera varios.
 function find_repo_traduia_deb() {
     local src="${1%/}"
+    local codename="${TRADUIA_DISTRO_CODENAME:-}"
+    if [ -z "$codename" ] && [ -r /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        codename="$(. /etc/os-release && printf '%s' "$VERSION_CODENAME")"
+    fi
     local manifest_tmp="" rel f ver best="" bestver=""
     REPO_DEB_PATH=""
     REPO_DEB_VER=""
     REPO_DEB_TMP=""
+    if [ -z "$codename" ]; then
+        return 1
+    fi
     if [[ "$src" == http://* || "$src" == https://* ]]; then
         manifest_tmp="$(mktemp)"
         if ! curl -fsSL --connect-timeout 5 --max-time 15 -o "$manifest_tmp" "$src/manifest.json" 2>/dev/null; then
@@ -183,10 +195,10 @@ function find_repo_traduia_deb() {
             else
                 rm -f "$f"
             fi
-        done < <(jq -r '.files[] | select(.path | startswith("debs/")) | .path' "$manifest_tmp" 2>/dev/null | grep '\.deb$')
+        done < <(jq -r --arg d "debs/$codename/" '.files[] | select(.path | startswith($d)) | .path' "$manifest_tmp" 2>/dev/null | grep '\.deb$')
         rm -f "$manifest_tmp"
     else
-        for f in "$src"/debs/*.deb; do
+        for f in "$src"/debs/"$codename"/*.deb; do
             [ -f "$f" ] || continue
             [ "$(dpkg-deb -f "$f" Package 2>/dev/null)" = "traduia" ] || continue
             ver="$(dpkg-deb -f "$f" Version 2>/dev/null)"
