@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-17 10:25+0200\n"
+"POT-Creation-Date: 2026-09-18 12:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -21,164 +21,296 @@ msgstr ""
 msgid "[INFO] Opening: {}"
 msgstr ""
 
-#: traduia_server.py:575
+#: traduia_server.py:195
+msgid ""
+"[ERROR] No translation models found on disk. Run install-models-traduia."
+msgstr ""
+
+#: traduia_server.py:196
+msgid "No translation models found on disk. Run install-models-traduia."
+msgstr ""
+
+#: traduia_server.py:201
+msgid "[WARN] CT2 marker present but CT2 models are not complete on disk."
+msgstr ""
+
+#: traduia_server.py:203
+msgid "[WARN] Falling back to Marian models."
+msgstr ""
+
+#: traduia_server.py:204
+msgid "[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"
+msgstr ""
+
+#: traduia_server.py:206 traduia_server.py:218 traduia_server.py:230
+msgid "[ERROR] No complete model set found. Run install-models-traduia."
+msgstr ""
+
+#: traduia_server.py:207 traduia_server.py:219 traduia_server.py:231
+msgid "No complete model set found on disk. Run install-models-traduia."
+msgstr ""
+
+#: traduia_server.py:208
+msgid "[INFO] Translation mode: CT2 (override via .use_ct2 marker)"
+msgstr ""
+
+#: traduia_server.py:213
+msgid ""
+"[WARN] Marian marker present but Marian models are not complete on disk."
+msgstr ""
+
+#: traduia_server.py:215
+msgid "[WARN] Falling back to CT2 models."
+msgstr ""
+
+#: traduia_server.py:216
+msgid "[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"
+msgstr ""
+
+#: traduia_server.py:220
+msgid "[INFO] Translation mode: Marian (override via .use_marian marker)"
+msgstr ""
+
+#: traduia_server.py:227
+msgid ""
+"[WARN] Both markers present but Marian models are not complete; falling back "
+"to CT2."
+msgstr ""
+
+#: traduia_server.py:228
+msgid "[INFO] Translation mode: CT2 (fallback, Marian unavailable)"
+msgstr ""
+
+#: traduia_server.py:232
+msgid "[INFO] Translation mode: Marian (both markers present, Marian priority)"
+msgstr ""
+
+#: traduia_server.py:238
+msgid "[INFO] Translation mode: Marian (detected from disk, Marian priority)"
+msgstr ""
+
+#: traduia_server.py:240
+msgid "[INFO] Translation mode: Marian (detected from disk)"
+msgstr ""
+
+#: traduia_server.py:243
+msgid "[INFO] Translation mode: CT2 (detected from disk)"
+msgstr ""
+
+#: traduia_server.py:538
+msgid "[WARN] Failed to load CT2 model {}: {}"
+msgstr ""
+
+#: traduia_server.py:551
+msgid "[WARN] Failed to load Marian model {}: {}"
+msgstr ""
+
+#: traduia_server.py:727
 msgid "LliureX - Real-time Transcription / Translation System"
 msgstr ""
 
-#: traduia_server.py:576
+#: traduia_server.py:728
 msgid "LliureX - TraduIA"
 msgstr ""
 
-#: traduia_server.py:577
+#: traduia_server.py:729
 msgid "AlicIA"
 msgstr ""
 
-#: traduia_server.py:578
+#: traduia_server.py:730
 msgid "Display Mode"
 msgstr ""
 
-#: traduia_server.py:579
+#: traduia_server.py:731
 msgid "Language"
 msgstr ""
 
-#: traduia_server.py:580
+#: traduia_server.py:732
 msgid "View original (teacher's language)"
 msgstr ""
 
-#: traduia_server.py:581
+#: traduia_server.py:733
 msgid "View translated"
 msgstr ""
 
-#: traduia_server.py:582
+#: traduia_server.py:734
 msgid "Here you will see the teacher's speech in your chosen language…"
 msgstr ""
 
-#: traduia_server.py:584 traduia_server.py:587
+#: traduia_server.py:736 traduia_server.py:739
 msgid "disconnected"
 msgstr ""
 
-#: traduia_server.py:585
+#: traduia_server.py:737
 msgid "connecting..."
 msgstr ""
 
-#: traduia_server.py:586
+#: traduia_server.py:738
 msgid "connected"
 msgstr ""
 
-#: traduia_server.py:589
+#: traduia_server.py:741
 msgid "[TRANSLATION ERROR]"
 msgstr ""
 
-#: traduia_server.py:590
+#: traduia_server.py:742
 msgid "[ERROR] Could not connect to the server."
 msgstr ""
 
-#: traduia_server.py:592
+#: traduia_server.py:744
 msgid "English"
 msgstr ""
 
-#: traduia_server.py:592
+#: traduia_server.py:744
 msgid "French"
 msgstr ""
 
-#: traduia_server.py:592
+#: traduia_server.py:744
 msgid "German"
 msgstr ""
 
-#: traduia_server.py:593
+#: traduia_server.py:745
 msgid "Russian"
 msgstr ""
 
-#: traduia_server.py:593
+#: traduia_server.py:745
 msgid "Arabic"
 msgstr ""
 
-#: traduia_server.py:593
+#: traduia_server.py:745
 msgid "Ukrainian"
 msgstr ""
 
-#: traduia_server.py:594
+#: traduia_server.py:746
 msgid "Romanian"
 msgstr ""
 
-#: traduia_server.py:594 traduia:71
+#: traduia_server.py:746 traduia:71
 msgid "Spanish"
 msgstr ""
 
-#: traduia_server.py:594 traduia:71 traduia:80
+#: traduia_server.py:746 traduia:71 traduia:80
 msgid "Valencian"
 msgstr ""
 
-#: traduia_server.py:595
+#: traduia_server.py:747
 msgid "Italian"
 msgstr ""
 
-#: traduia_server.py:1077
+#: traduia_server.py:1229
 msgid "LliureX STT/Real-time translation"
 msgstr ""
 
-#: traduia_server.py:1116
+#: traduia_server.py:1268
 msgid "[STT] Starting Whisper ({}) for input language: {}"
 msgstr ""
 
-#: traduia_server.py:1385
+#: traduia_server.py:1283
+msgid "[WARN] Failed to load Whisper model {}: {}"
+msgstr ""
+
+#: traduia_server.py:1564
 msgid "[STT] Audio source: {} -> {}"
 msgstr ""
 
-#: traduia_server.py:1387
+#: traduia_server.py:1566
 msgid "[STT] Capturing audio (Pulse). Ctrl+C to stop."
 msgstr ""
 
-#: traduia_server.py:1420
+#: traduia_server.py:1599
 msgid "[STT] Microphone open. Ctrl+C to stop."
 msgstr ""
 
-#: traduia_server.py:1440
+#: traduia_server.py:1619
 msgid "[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})"
 msgstr ""
 
-#: traduia_server.py:1507
+#: traduia_server.py:1686
 msgid "alicia.png not found"
 msgstr ""
 
-#: traduia_server.py:1562
+#: traduia_server.py:1741
 msgid "Supported languages: en, fr, de, ru, ar, uk, ro, it"
 msgstr ""
 
-#: traduia_server.py:1607 traduia_server.py:1632
+#: traduia_server.py:1786 traduia_server.py:1811
 msgid "Activity: Wait..."
 msgstr ""
 
-#: traduia_server.py:1611
+#: traduia_server.py:1790
 msgid "Active"
 msgstr ""
 
-#: traduia_server.py:1611
+#: traduia_server.py:1790
 msgid "Inactive"
 msgstr ""
 
-#: traduia_server.py:1612
+#: traduia_server.py:1791
 msgid "Activity: {} ({:.1%})"
 msgstr ""
 
-#: traduia_server.py:1627
+#: traduia_server.py:1806
 msgid "TraduIA Server"
 msgstr ""
 
-#: traduia_server.py:1636
+#: traduia_server.py:1815
 msgid "Exit"
 msgstr ""
 
-#: traduia_server.py:1700
+#: traduia_server.py:1879
 msgid "[INFO] Stopping previous instance (PID {})..."
 msgstr ""
 
-#: traduia_server.py:1705
+#: traduia_server.py:1884
 msgid "[INFO] Forcing stop (KILL) of PID {}..."
 msgstr ""
 
-#: traduia_server.py:1753
+#: traduia_server.py:1932
 msgid "[INFO] Cleaning up..."
+msgstr ""
+
+#: traduia-verify-models:31
+msgid "ERROR: --mode requires 'ct2' or 'marian'."
+msgstr ""
+
+#: traduia-verify-models:40
+msgid "ERROR: unknown mode: {}"
+msgstr ""
+
+#: traduia-verify-models:59
+msgid "ERROR: could not read {}: {}"
+msgstr ""
+
+#: traduia-verify-models:64
+msgid "ERROR: manifest.json contains no files."
+msgstr ""
+
+#: traduia-verify-models:68
+msgid "ERROR: no entries for mode '{}' in manifest."
+msgstr ""
+
+#: traduia-verify-models:79
+msgid "MISSING/SIZE: {}"
+msgstr ""
+
+#: traduia-verify-models:84 traduia-verify-models:94
+msgid "OK: {}"
+msgstr ""
+
+#: traduia-verify-models:91
+msgid "SHA256 MISMATCH: {}"
+msgstr ""
+
+#: traduia-verify-models:96
+msgid "UNREADABLE: {} ({})"
+msgstr ""
+
+#: traduia-verify-models:100
+msgid "{} errors"
+msgstr ""
+
+#: traduia-verify-models:102
+msgid "OK"
 msgstr ""
 
 #: traduia:24
@@ -257,110 +389,806 @@ msgstr ""
 msgid "Default input (microphone):"
 msgstr ""
 
-#: install-models-traduia:27
-msgid "Creating venv"
+#: install-models-traduia:8
+msgid "--"
 msgstr ""
 
-#: install-models-traduia:30
-msgid "Activating venv"
+#: install-models-traduia:12
+msgid "Usage: install-models-traduia [options] [mode]"
 msgstr ""
 
-#: install-models-traduia:34
-msgid "Updating pip/setuptools/wheel"
+#: install-models-traduia:14
+msgid "  (no parameters)  this help"
 msgstr ""
 
-#: install-models-traduia:37
-msgid "Installing Python dependencies"
+#: install-models-traduia:15
+msgid "  install           install the standard (Marian) model set from the"
 msgstr ""
 
-#: install-models-traduia:44
-msgid "Exporting shared cache variables (for this process)"
+#: install-models-traduia:16
+msgid "                    configured source (default: internet)"
 msgstr ""
 
-#: install-models-traduia:56
-msgid "Preloading models into shared cache..."
+#: install-models-traduia:17
+msgid "  optimized         install the optimized (CTranslate2) model set"
 msgstr ""
 
-#: install-models-traduia:103
-msgid "Getting structure and downloading files from LAN..."
+#: install-models-traduia:18
+msgid "                    (experimental); combinable with \"install\""
+msgstr ""
+
+#: install-models-traduia:19
+msgid "  all               install both model sets (Marian and optimized/CT2)"
+msgstr ""
+
+#: install-models-traduia:20
+msgid "                    in the same run; Marian takes priority; combinable"
+msgstr ""
+
+#: install-models-traduia:21
+msgid "                    with \"install\" and \"optimized\""
+msgstr ""
+
+#: install-models-traduia:22
+msgid "  --url <url>       repository base URL (contains manifest.json)"
+msgstr ""
+
+#: install-models-traduia:23
+msgid "  --dir <path>      local repository directory (USB, mounted drive)"
+msgstr ""
+
+#: install-models-traduia:24
+msgid "  --from <url|path> auto-detect: URL or local path"
+msgstr ""
+
+#: install-models-traduia:25
+msgid "  --detect          print model set state (complete:* / partial / none)"
+msgstr ""
+
+#: install-models-traduia:26
+msgid "  help, --help, -h  this help"
+msgstr ""
+
+#: install-models-traduia:98
+msgid "--url requires a value: --url http://host/path"
+msgstr ""
+
+#: install-models-traduia:110
+msgid "--dir requires a value: --dir /path/to/models/repo"
+msgstr ""
+
+#: install-models-traduia:122
+msgid "--from requires a value: --from <url|path>"
 msgstr ""
 
 #: install-models-traduia:137
-msgid "LAN download finished."
+msgid "Unknown argument:"
 msgstr ""
 
-#: install-models-traduia:147
+#: install-models-traduia:149
+msgid "Options --url, --dir and --from are mutually exclusive."
+msgstr ""
+
+#: install-models-traduia:169
+msgid "Source directory does not exist:"
+msgstr ""
+
+#: install-models-traduia:355 install-models-traduia:366
+msgid "Using repository wheels for Python dependencies (offline)"
+msgstr ""
+
+#: install-models-traduia:369
+msgid ""
+"Repository declares Python wheels, but they could not be downloaded or "
+"verified."
+msgstr ""
+
+#: install-models-traduia:386
+msgid "Validating repository wheels against manifest.json"
+msgstr ""
+
+#: install-models-traduia:494
+msgid "Validating offline Python dependencies for Python"
+msgstr ""
+
+#: install-models-traduia:497
+msgid "Could not create temporary validation venv."
+msgstr ""
+
+#: install-models-traduia:513
+msgid "The offline wheels repository cannot install pip/setuptools/wheel."
+msgstr ""
+
+#: install-models-traduia:527
+msgid "Offline Python repository is incomplete for Python"
+msgstr ""
+
+#: install-models-traduia:528
+msgid "pip dependency resolution output:"
+msgstr ""
+
+#: install-models-traduia:536
+msgid "Offline Python dependencies are complete for Python"
+msgstr ""
+
+#: install-models-traduia:610
+msgid ""
+"Both model sets installed. To use the optimized mode, rename the .use_marian "
+"marker to .use_ct2 manually in:"
+msgstr ""
+
+#: install-models-traduia:623
+msgid "Python dependency installation failed."
+msgstr ""
+
+#: install-models-traduia:624
+msgid "Last lines of:"
+msgstr ""
+
+#: install-models-traduia:657
+msgid ""
+"No wheels in repository; Python dependencies will be downloaded from the "
+"internet."
+msgstr ""
+
+#: install-models-traduia:660
+msgid "Updating pip/setuptools/wheel"
+msgstr ""
+
+#: install-models-traduia:669
+msgid "Installing Python dependencies"
+msgstr ""
+
+#: install-models-traduia:677
+msgid "Installing torch"
+msgstr ""
+
+#: install-models-traduia:693
+msgid "Installing sacremoses"
+msgstr ""
+
+#: install-models-traduia:701
+msgid "Checking Python dependency consistency"
+msgstr ""
+
+#: install-models-traduia:704
+msgid "pip check failed: installed dependencies are inconsistent."
+msgstr ""
+
+#: install-models-traduia:709
+msgid "Python dependencies installed and verified."
+msgstr ""
+
+#: install-models-traduia:724
+msgid "Creating clean venv"
+msgstr ""
+
+#: install-models-traduia:727
+msgid "Could not create TraduIA virtual environment."
+msgstr ""
+
+#: install-models-traduia:731
+msgid "Activating venv"
+msgstr ""
+
+#: install-models-traduia:739
+msgid "TraduIA Python environment could not be prepared."
+msgstr ""
+
+#: install-models-traduia:743
+msgid "Exporting shared cache variables (for this process)"
+msgstr ""
+
+#: install-models-traduia:755
+msgid "Preloading models into shared cache..."
+msgstr ""
+
+#: install-models-traduia:813
+msgid "Downloading models from HTTP repository:"
+msgstr ""
+
+#: install-models-traduia:814
+msgid "Fetching manifest:"
+msgstr ""
+
+#: install-models-traduia:820 install-models-traduia:1211
+msgid "Could not fetch manifest.json from:"
+msgstr ""
+
+#: install-models-traduia:821
+msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
+msgstr ""
+
+#: install-models-traduia:985
+msgid "HTTP download finished."
+msgstr ""
+
+#: install-models-traduia:991
+msgid "Copying models from local directory:"
+msgstr ""
+
+#: install-models-traduia:1165
+msgid "Local copy finished."
+msgstr ""
+
+#: install-models-traduia:1172
 msgid "Downloading models"
 msgstr ""
 
-#: install-models-traduia:154
+#: install-models-traduia:1193
+msgid "{} models already present on disk. Skipping downloads."
+msgstr ""
+
+#: install-models-traduia:1197
+msgid "{} models incomplete on disk; completing download."
+msgstr ""
+
+#: install-models-traduia:1202 install-models-traduia:1215
+msgid "ct2 set not available in repository; skipping."
+msgstr ""
+
+#: install-models-traduia:1235
 msgid "Models downloaded!"
 msgstr ""
 
-#: install-models-traduia:163
-msgid "Torch already installed, skipping."
+#: install-models-traduia:1251
+msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr ""
 
-#: install-models-traduia:165
-msgid "Downloading torch"
-msgstr ""
-
-#: install-models-traduia:167
-msgid "Torch downloaded!"
-msgstr ""
-
-#: install-models-traduia:172
-msgid "Converting Marian models to CTranslate2..."
-msgstr ""
-
-#: install-models-traduia:285
+#: install-models-traduia:1367
 msgid "Ready."
 msgstr ""
 
-#: install-models-traduia:287
+#: install-models-traduia:1369
 msgid "Offline execution (the launcher already exports it):"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:40
+#: traduia-make-repo:20
+msgid "Usage:"
+msgstr ""
+
+#: traduia-make-repo:22
+msgid ""
+"Generates a static manifest.json (with size+sha256) for a TraduIA model repo."
+msgstr ""
+
+#: traduia-make-repo:23
+msgid ""
+"The output directory is shared: whisper-small/ + one or both model sets + "
+"manifest.json"
+msgstr ""
+
+#: traduia-make-repo:24
+msgid "It can be served statically over HTTP or copied to a USB drive."
+msgstr ""
+
+#: traduia-make-repo:25
+msgid "Mode 'all' assembles both model sets (marian and ct2)."
+msgstr ""
+
+#: traduia-make-repo:27
+msgid "The tool is additive: run it once per set you want in the same output"
+msgstr ""
+
+#: traduia-make-repo:28
+msgid ""
+"directory. whisper-small is only copied on the first run (never duplicated)."
+msgstr ""
+
+#: traduia-make-repo:30
+msgid ""
+"Hardlinks are used when source and destination are on the same filesystem;"
+msgstr ""
+
+#: traduia-make-repo:31
+msgid "otherwise files are copied automatically (e.g. to a USB drive)."
+msgstr ""
+
+#: traduia-make-repo:33
+msgid "Options:"
+msgstr ""
+
+#: traduia-make-repo:34
+msgid ""
+"Force copying instead of hardlinking (optional; auto-detected by default)"
+msgstr ""
+
+#: traduia-make-repo:36
+msgid "Or download the models directly from HuggingFace (additive, par a par):"
+msgstr ""
+
+#: traduia-make-repo:38
+msgid "Or export the Python wheels for fully offline installs (additive):"
+msgstr ""
+
+#: traduia-make-repo:40
+msgid ""
+"Or export the system .deb packages (traduia, zero-lliurex-traduia) for fully "
+"offline installs (additive):"
+msgstr ""
+
+#: traduia-make-repo:50
+msgid "Hashing files (sha256)..."
+msgstr ""
+
+#: traduia-make-repo:152
+msgid "Downloading wheels for:"
+msgstr ""
+
+#: traduia-make-repo:168 traduia-make-repo:190
+msgid "Error downloading wheels for target:"
+msgstr ""
+
+#: traduia-make-repo:169 traduia-make-repo:191
+msgid "pip output:"
+msgstr ""
+
+#: traduia-make-repo:199
+msgid ""
+"The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
+"missing."
+msgstr ""
+
+#: traduia-make-repo:203
+msgid "Wheels ready in:"
+msgstr ""
+
+#: traduia-make-repo:235 traduia-make-repo:394 traduia-make-repo:408
+#: traduia-make-repo:685
+msgid "Repository ready:"
+msgstr ""
+
+#: traduia-make-repo:255
+msgid "Downloading system packages (traduia, zero-lliurex-traduia)..."
+msgstr ""
+
+#: traduia-make-repo:257
+msgid "Error downloading system packages (apt-get download):"
+msgstr ""
+
+#: traduia-make-repo:263
+msgid "Error: could not download the package:"
+msgstr ""
+
+#: traduia-make-repo:271
+msgid "Packages ready in:"
+msgstr ""
+
+#: traduia-make-repo:286
+msgid "Downloading models from HuggingFace..."
+msgstr ""
+
+#: traduia-make-repo:361
+msgid "Fetch finished."
+msgstr ""
+
+#: traduia-make-repo:377 traduia-make-repo:422
+msgid "Error: mode must be 'ct2', 'marian' or 'all'."
+msgstr ""
+
+#: traduia-make-repo:382
+msgid ""
+"This command requires the 'huggingface_hub' Python package (pip install "
+"huggingface_hub)."
+msgstr ""
+
+#: traduia-make-repo:391
+msgid ""
+"Fetch finished with errors: some models may be missing. Re-run the same "
+"fetch command to retry."
+msgstr ""
+
+#: traduia-make-repo:427
+msgid "Error: models directory does not exist:"
+msgstr ""
+
+#: traduia-make-repo:497
+msgid "Error: the following required files are missing or empty:"
+msgstr ""
+
+#: traduia-make-repo:501
+msgid "Refusing to generate an incomplete repository."
+msgstr ""
+
+#: traduia-make-repo:506
+msgid "Assembling repository in:"
+msgstr ""
+
+#: traduia-make-repo:514
+msgid "Copying files (forced by --copy)..."
+msgstr ""
+
+#: traduia-make-repo:517
+msgid "Source and destination are on the same filesystem: using hardlinks."
+msgstr ""
+
+#: traduia-make-repo:520
+msgid "Source and destination are on different filesystems: copying files."
+msgstr ""
+
+#: traduia-make-repo:534
+msgid "whisper-small already present, skipping copy."
+msgstr ""
+
+#: traduia-make-repo:574
+msgid ""
+"The {} set in the output directory seems incomplete (missing some pairs)."
+msgstr ""
+
+#: traduia-make-repo:686
+msgid "Publish it statically over HTTP or copy it to a USB drive."
+msgstr ""
+
+#: traduia-make-repo:688
+msgid "Example rsync to a server:"
+msgstr ""
+
+#: traduia-open-url:21
+msgid "Error: check-traduia-server not found."
+msgstr ""
+
+#: traduia-open-url:56
+msgid "No default web browser configured. Trying to set one..."
+msgstr ""
+
+#: traduia-open-url:89
+msgid "Setting default web browser to:"
+msgstr ""
+
+#: traduia-open-url:93
+msgid "Warning: could not set default web browser:"
+msgstr ""
+
+#: traduia-open-url:95
+msgid "Warning: no suitable browser (.desktop) found on this system."
+msgstr ""
+
+#: traduia-open-url:102
+msgid "Error: xdg-open not found."
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:53
+msgid "Installation cancelled"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:61
+msgid "This command must be run as root"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:229
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:244
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:282
+msgid "cards file processing failed:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:237
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:313
+msgid "icon not found:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:246
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:284
+msgid "cards file not found:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:259
+msgid "Metas check skipped (TRADUIA_SKIP_METAS_CHECK=1)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:264
+msgid "Checking LliureX meta:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:267
+msgid "LliureX metas found:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:270
+msgid "LliureX meta not installed:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:272
+msgid "Skipping web entries: no LliureX metas installed"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:348
 msgid "Client"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:41
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:349
 msgid "Server"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:44
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:352
+msgid "Asking install mode"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:353
 msgid "Mode selector"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:44
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:353
 msgid "Install mode:"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:62
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:365
+msgid "Install mode selected:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:378
+msgid "Model source"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:379
+msgid "Where are the models taken from?"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:380
+msgid "Internet"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:381
+msgid "USB"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:382
+msgid "LAN"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:386
+msgid "Asking model source (Internet/USB/LAN)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:392
+msgid "Model source selected:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:400
+msgid "Asking models repository path (USB)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:401
+msgid "Select the models repository manifest (USB):"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:413
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:428
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:707
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:713
+msgid "Valid models repository:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:416
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:417
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:431
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:432
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:718
+msgid "The models repository is not valid:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:422
+msgid "Asking models repository URL (LAN)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:423
+msgid "Models repository URL (LAN):"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:470
 msgid "Model Optimization?"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:63
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:471
 msgid "Optimization mode:"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:64
-msgid "Blank initially"
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:472
+msgid "Marian"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:65
-msgid "No"
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:473
+msgid "Optimized (experimental)"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:66
-msgid "Yes (Experimental)"
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:475
+msgid "Asking optimization mode"
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:81
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:481
+msgid "Optimization mode selected:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:517
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:607
+msgid "Using repository deb:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:519
+msgid "Failed to install repository deb:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:528
 msgid "Downloading models..."
 msgstr ""
 
-#: zero-lliurex-traduia.install-files/usr/share/zero-lliurex-traduia/traduia_script:87
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:554
 msgid "Setting server desktop"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:564
+msgid "Configuring lliurex-firefox-settings entry"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:568
+msgid "Configuring Ainur (lliurex-www) entry"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:571
+msgid "Skipping Ainur entry: lliurex-www not installed"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:605
+msgid "Installing traduia package"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:609
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:617
+msgid "Failed to install traduia package"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:631
+msgid "Keep"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:632
+msgid "Delete"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:633
+msgid "Asking remove models"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:634
+msgid "Remove models?"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:634
+msgid "Do you want to delete the downloaded models?"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:641
+msgid "Removing traduia package"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:646
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:661
+msgid "Removing lliurex-firefox-settings entry"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:649
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:664
+msgid "Removing Ainur (lliurex-www) entry"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:652
+msgid "Failed to remove traduia package"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:673
+msgid "lliurex-firefox-settings entry:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:677
+msgid "Traduia card present:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:681
+msgid "Traduia card not present"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:684
+msgid "cards.js not found:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:687
+msgid "Ainur (lliurex-www) entry:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:689
+msgid "Entry present:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:692
+msgid "Entry not present:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:699
+msgid "validate requires a directory or URL"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:727
+msgid "TraduIA package detected"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:729
+msgid "TraduIA package not detected"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:732
+msgid "Install"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:733
+msgid "Remove"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:734
+msgid "Asking operation"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:736
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:738
+msgid "TraduIA configuration"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:736
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:738
+msgid "What do you want to do?"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:744
+msgid "Operation selected:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:751
+msgid "Unknown operation:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:757
+msgid "Usage: traduia-config [command] [--disable-meta-checks]"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:759
+msgid "  (no parameters)  interactive: detects the traduia package and offers"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:760
+msgid "                    Install or Remove (only Install if not installed)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:761
+msgid "  install           preinstall + apt-get install traduia + postinstall"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:762
+msgid "  remove            ask about models + apt-get remove + cleanup"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:763
+msgid ""
+"  preinstall        Q&A (mode/source/optimization) + markers (zero-center)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:764
+msgid "  postinstall       model download + web entries (zero-center)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:765
+msgid "  status            web entries status"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:766
+msgid "  validate <dir|url>  quick models repository validation"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:767
+msgid "  --disable-meta-checks  skip the LliureX metas check (web entries)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:768
+msgid "  help              this help"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:789
+msgid "LliureX metas check disabled (--disable-meta-checks)"
 msgstr ""

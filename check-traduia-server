@@ -1,27 +1,15 @@
 #!/usr/bin/env python3
 import socket
 import sys
-import urllib.request
-import json
 import os
 
-def get_local_ips():
-    ips = set(['127.0.0.1', '::1'])
-    try:
-        # Get all interfaces info
-        for info in socket.getaddrinfo(socket.gethostname(), None):
-            ips.add(info[4][0])
-    except:
-        pass
+# Puerto de la aplicación (constante estática; override por env para pruebas).
+APP_PORT = int(os.environ.get("TRADUIA_APP_PORT", "8000"))
+# Hostname del servidor de aula (override por env para pruebas).
+SERVER_HOST = os.environ.get("TRADUIA_SERVER_HOST", "server")
 
-    # Another way to get common local IP
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            ips.add(s.getsockname()[0])
-    except:
-        pass
-    return ips
+DEFAULT_HOST = "/usr/share/doc/traduia/not-available.html"
+
 
 def is_port_open(host, port, timeout=2):
     try:
@@ -30,74 +18,33 @@ def is_port_open(host, port, timeout=2):
     except:
         return False
 
-def check_json_4141(host, timeout=2):
-    url = f"http://{host}:4141"
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            content_type = response.headers.get('Content-Type', '')
-            if 'application/json' in content_type:
-                return True
-            # Fallback check if it's valid JSON even without header
-            data = response.read().decode('utf-8')
-            json.loads(data)
-            return True
-    except:
-        return False
 
 def main():
-    target_host = "server"
-    target_codename = "remote"
-    local_ips = get_local_ips()
-    return_host = ""
-    default_host = "/usr/share/doc/traduia/not-available.html"
-    return_codename = ""
-    default_codename = "not-available"
-    default_port = 8000
-
     # Detect system language
     sys_lang = os.environ.get("LANG", "en").split("_")[0].split(".")[0].split("-")[0].lower()
 
+    # Orden de intentos: primero el host "server" (si existe), luego localhost.
+    candidates = []
     try:
-        # check "server"
-        remote_ip = socket.gethostbyname(target_host)
-        is_resolvable = True
+        socket.gethostbyname(SERVER_HOST)
+        candidates.append(SERVER_HOST)
     except socket.gaierror:
-        # "server" is not available
-        is_resolvable = False
-        remote_ip = None
-    if is_resolvable and remote_ip in local_ips:
-        return_host = "localhost"
-        return_codename = "local"
-    if not is_resolvable:
-        return_host = "localhost"
-        return_codename = "local"
+        pass
+    candidates.append("localhost")
 
-    if is_port_open(return_host,8000):
-        return_host = f"{return_host}"
-    else:
-        # here goes to default (local static error page)
-        return_host = default_host
-        return_codename = default_codename
-        default_port = ''
+    for host in candidates:
+        if is_port_open(host, APP_PORT):
+            url = f"http://{host}:{APP_PORT}"
+            codename = "remote" if host == SERVER_HOST else "local"
+            sys.stdout.write(f"{url}\n")
+            sys.stderr.write(f"{codename}\n")
+            return
 
-    if is_port_open(return_host, 4141) and check_json_4141(return_host):
-            return_codename = f"{return_codename}+http"
+    # Ningún servidor activo: página estática local.
+    url = f"file://{DEFAULT_HOST}#lang={sys_lang}"
+    sys.stdout.write(f"{url}\n")
+    sys.stderr.write("not-available\n")
 
-    if not return_host or "not-available" in return_host:
-        if not return_host:
-            return_host = default_host
-        return_host = f"file://{return_host}#lang={sys_lang}"
-        if return_codename:
-            return_codename = f"{return_codename}+{default_codename}"
-        else:
-            return_codename = default_codename
-    else:
-        if default_port:
-            default_port = f":{default_port}"
-        return_host = f"http://{return_host}{default_port}"
-
-    sys.stdout.write(f"{return_host}\n")
-    sys.stderr.write(f"{return_codename}\n")
 
 if __name__ == "__main__":
     main()
