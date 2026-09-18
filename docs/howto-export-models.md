@@ -18,7 +18,8 @@ se consume (secciones 4 y 5).
 > instaladas** (jammy → Python 3.10, noble → Python 3.12). Para disponer de
 > la versión correcta del paquete, el sistema operativo debe estar
 > **actualizado con las últimas correcciones del repositorio de LliureX**
-> (`sudo apt update && sudo apt upgrade`). El instalador crea el entorno
+> mediante las herramientas de actualización de LliureX: `lliurex-upgrade`
+> (gráfico) o `lliurex-up` (consola). El instalador crea el entorno
 > virtual con `python3 -m venv` y la comprobación previa offline crea además un venv
 > temporal de validación; si el paquete falta o no coincide con la versión de
 > `python3` del sistema (por ejemplo, tras una actualización de Python), la
@@ -141,7 +142,9 @@ traduia-make-repo fetch all /srv/export/traduia
 - **Aditivo**: los pares ya completos en el directorio de salida se omiten;
   se puede ejecutar una vez por set (o con `all`) sobre un directorio ya
   generado. Tras el `fetch` se regenera el `manifest.json` (el `mode` se
-  detecta del contenido, incluyendo `both`).
+  detecta del contenido, incluyendo `both`) y se escribe/actualiza el
+  verificador `verify-models.py` (sección 3), igual que en el resto de
+  subcomandos.
 - **Combinable**: `fetch` + `wheels` + `debs` sobre el mismo directorio de
   salida producen un repositorio completo (modelos + dependencias Python +
   paquetes del sistema) para una instalación totalmente offline.
@@ -172,7 +175,8 @@ traduia-make-repo wheels /srv/export/traduia
 - Si alguna descarga de `pip download` falla, se muestra la salida de pip
   (últimas 60 líneas) junto al error, en lugar de descartarla.
 - Los wheels quedan en `wheels/` y se incorporan al `manifest.json`
-  (verificables con la sección 3, igual que los modelos).
+  (verificables con la sección 3, igual que los modelos); el subcomando
+  también escribe/actualiza el verificador `verify-models.py`.
 - Al instalar desde USB/LAN, `install-models-traduia` los detecta, los
   **valida antes de instalar** (sección 5.3) y los usa con
   `pip install --no-index --find-links` (más `pip check`). Sin wheels, avisa
@@ -190,7 +194,8 @@ Estructura resultante:
 ├── ct2/opus-mt-{par}/…    # (solo si se añadió el set ct2)
 ├── marian/opus-mt-{par}/… # (solo si se añadió el set marian)
 ├── wheels/…               # (si se ejecutó "wheels": deps Python, offline total)
-└── debs/…                 # (si se ejecutó "debs": paquetes traduia y zero-lliurex-traduia)
+├── debs/jammy/…           # (si se ejecutó "debs": traduia y zero-lliurex-traduia de jammy)
+└── debs/noble/…           # (si se ejecutó "debs": traduia y zero-lliurex-traduia de noble)
 ```
 
 Ejemplo de `manifest.json`:
@@ -213,28 +218,77 @@ Para una instalación **100% offline** también deben incluirse los paquetes
 `traduia-config`). Sin ellos, en un equipo sin red: (1) `traduia-config` no
 está disponible y (2) `apt-get install traduia` no puede completarse. Se
 añaden sobre el **mismo** directorio de salida (aditivo, igual que los sets y
-los wheels; re-ejecutar refresca los debs):
+los wheels; re-ejecutar refresca los debs de la distro pedida):
 
 ```bash
+# Ambas distribuciones (jammy y noble):
 traduia-make-repo debs /srv/export/traduia
+
+# Solo una distribución:
+traduia-make-repo debs /srv/export/traduia jammy
+traduia-make-repo debs /srv/export/traduia noble
+
+# Apuntando al repositorio con los debs más actualizados:
+traduia-make-repo debs /srv/export/traduia all \
+    --url-jammy <URL_REPO_JAMMY> \
+    --url-noble <URL_REPO_NOBLE>
 ```
 
-- Usa `apt-get download` en la máquina origen (no requiere root) para obtener
-  **solo** esos dos paquetes desde las fuentes apt configuradas (la máquina
-  origen debe tener acceso a ellas: internet o el repositorio de LliureX), y
-  los copia a `debs/` del directorio de salida. `apt-get download` no trae
-  las dependencias de los paquetes.
+- **Mecanismo independiente del sistema**: los debs se obtienen leyendo los
+  **índices apt del repositorio por HTTP** (`dists/<suite>/main/binary-amd64/Packages.gz`)
+  con python3 (no usa `apt` ni `apt-get download`), así que una sola máquina
+  — sea jammy o noble — puede bajar los debs de **ambas** distribuciones.
+  Por cada distro se recorren las suites `<s>`, `<s>-updates` y
+  `<s>-security` (las ausentes se omiten) y se elige la **versión mayor**
+  disponible de cada paquete, verificando el `SHA256` del índice.
+- **URLs por distribución**: por defecto se usa `http://lliurex.net/jammy` y
+  `http://lliurex.net/noble`. Con `--url-jammy <url>` y `--url-noble <url>`
+  se apunta al repositorio desde el que se quieran tomar los debs más
+  actualizados (acepta `file://` para pruebas). Ambas opciones se aceptan
+  antes o después del resto de argumentos.
+- **Layout**: cada distro en su subdirectorio — `debs/jammy/` y
+  `debs/noble/`. Al re-ejecutar solo se refresca el subdirectorio de la
+  distro pedida.
 - Regenera el `manifest.json` (los debs quedan indexados con size+sha256 y
-  verificables con la sección 3, igual que los modelos).
+  verificables con la sección 3, igual que los modelos) y escribe/actualiza
+  el verificador `verify-models.py`.
 - En el cliente, con origen **USB (offline total)** se instalan desde el
-  repositorio, primero `zero-lliurex-traduia` (aporta `traduia-config`) y
-  después `traduia`, porque desde la red fallaría (ver sección 5.2). Con
-  origen **LAN** no hace falta: se asume red parcial y el repositorio
-  habitual por red sí dispone de `traduia` para instalarlo con `apt-get` de
-  forma normal.
+  subdirectorio de **su** distribución (ver sección 5.2), primero
+  `zero-lliurex-traduia` (aporta `traduia-config`) y después `traduia`,
+  porque desde la red fallaría. Con origen **LAN** no hace falta: se asume
+  red parcial y el repositorio habitual por red sí dispone de `traduia`
+  para instalarlo con `apt-get` de forma normal.
 - Las dependencias del sistema de estos paquetes (python3-venv, kdialog, jq,
   lliurex-firefox-settings, …) deben estar disponibles en el equipo offline
   (caché apt, repositorios del aula o medios de instalación).
+
+### 2.4 Repositorio completo con un solo comando (`full`)
+
+El subcomando `full` agrupa las tres partes anteriores y genera el
+repositorio 100% offline en un solo paso:
+
+```bash
+# Con los repositorios por defecto (lliurex.net, para ambas distros):
+traduia-make-repo full /srv/export/traduia
+
+# Apuntando al repositorio con los debs más actualizados:
+traduia-make-repo full /srv/export/traduia \
+    --url-jammy <URL_REPO_JAMMY> \
+    --url-noble <URL_REPO_NOBLE>
+```
+
+- **Equivale a** ejecutar `fetch all` (whisper + marian + ct2 desde
+  HuggingFace), `wheels` (dependencias Python para jammy cp310 y noble
+  cp312) y `debs all` (paquetes `traduia` y `zero-lliurex-traduia` de
+  jammy y noble), más el `manifest.json` global y el verificador
+  `verify-models.py`.
+- **Idempotente**: si algún paso falla se continúan los demás y al final se
+  avisa (`[WARN]`) con código de salida 1; re-ejecutar el mismo comando
+  reintenta solo lo que falta (los modelos ya descargados se omiten, los
+  wheels y los debs se refrescan). Al terminar sin errores imprime
+  `Repository ready`.
+- `--url-jammy`/`--url-noble` tienen el mismo significado que en `debs`
+  (sección 2.3) y solo afectan al paso de descarga de los debs.
 
 ## 3. Parte común — Verificación de la integridad
 
@@ -280,7 +334,7 @@ rsync -a /srv/export/traduia/ server:/var/www/public/models/traduia/
 > instalación **aborta** con error. Sin wheels, las dependencias van a PyPI
 > (aviso `[WARN]`).
 
-> Si el repositorio lleva también `debs/` (sección 2.3), los clientes pueden
+> Si el repositorio lleva también `debs/<distro>/` (sección 2.3), los clientes pueden
 > obtener los paquetes `traduia` y `zero-lliurex-traduia` desde el propio
 > repo HTTP (útil en equipos sin acceso a los repositorios de LliureX): se
 > descargan los `*.deb` y se instalan con `apt install ./…` (o `dpkg -i` +
@@ -391,7 +445,8 @@ USB/traduia/
 ├── ct2/opus-mt-{par}/…    # (si se llevó el set ct2)
 ├── marian/opus-mt-{par}/… # (si se llevó el set marian)
 ├── wheels/…               # (opcional: dependencias Python, offline total)
-└── debs/…                 # (opcional: paquetes traduia y zero-lliurex-traduia)
+├── debs/jammy/…           # (opcional: paquetes de jammy)
+└── debs/noble/…           # (opcional: paquetes de noble)
 ```
 
 Espacio aproximado (tamaños reales): el modo **ct2 ≈ 1.3 GB** (whisper
@@ -423,11 +478,13 @@ instalado. Con origen **USB** (offline total) se instalan desde el
 repositorio, en este orden:
 
 ```bash
+# En los ejemplos, <distro> es el codename del equipo (jammy o noble).
+
 # 1. zero-lliurex-traduia: proporciona traduia-config
-sudo apt install /media/usuario/USB/traduia/debs/zero-lliurex-traduia_*.deb
+sudo apt install /media/usuario/USB/traduia/debs/<distro>/zero-lliurex-traduia_*.deb
 
 # 2. traduia: desde la red fallaría; se instala el fichero del repositorio
-sudo apt install /media/usuario/USB/traduia/debs/traduia_*.deb
+sudo apt install /media/usuario/USB/traduia/debs/<distro>/traduia_*.deb
 # (o dpkg -i + apt -f install)
 ```
 
@@ -435,11 +492,13 @@ Con origen **LAN** no es necesario este paso: se asume red parcial y el
 repositorio habitual por red sí dispone de `traduia`, que se instala con
 `apt-get` de forma normal (sección 5.2.2).
 
-Si el repositorio USB/LAN incluye `debs/traduia_*.deb` (sección 2.3), el
-instalador prefiere ese fichero cuando su versión es **superior o igual** a la
-disponible por apt (misma versión con build distinta incluida): instala el
-fichero con `apt-get install -y <deb>`. Solo se usa `apt-get install -y
-traduia` si el deb no existe en el repositorio o su versión es menor.
+Si el repositorio USB/LAN incluye `debs/<distro>/traduia_*.deb` (sección
+2.3, con `<distro>` el codename del equipo), el instalador prefiere ese
+fichero cuando su versión es **superior o igual** a la disponible por apt
+(misma versión con build distinta incluida): instala el fichero con
+`apt-get install -y <deb>`. Solo se usa `apt-get install -y traduia` si el
+deb de la distribución del equipo no existe en el repositorio o su versión
+es menor.
 
 **Opción rápida (recomendada)** — sin cp/rsync manual, el instalador copia
 desde el directorio:
@@ -519,7 +578,7 @@ El comando `install` reproduce el flujo de zero-center:
    si el repositorio solo trae un set (`ct2` o `marian`), la optimización no
    se pregunta: se elige el set presente.
 2. **Instalación del paquete** `traduia`: si el origen es USB/LAN y el
-   repositorio incluye un deb de `traduia` en `debs/` con versión **superior
+   repositorio incluye un deb de `traduia` en `debs/<distro>/` con versión **superior
    o igual** a la disponible por apt (`apt-cache policy`), se instala ese
    fichero con apt (`apt-get install -y <deb>`); en caso contrario se usa
    `apt-get install -y traduia`. En el flujo de zero-center el apt del
@@ -577,7 +636,7 @@ entorno del proceso `postinstall`.
 
 > **Offline total (USB)**: `traduia-config` proviene del paquete
 > `zero-lliurex-traduia` y el paquete `traduia` debe estar instalado: se
-> instalan antes desde `debs/` del repositorio (ver sección 5.2), porque el
+> instalan antes desde `debs/<distro>/` del repositorio (ver sección 5.2), porque el
 > `apt-get install -y traduia` interno fallaría sin red. Con origen **LAN** se
 > asume red parcial: `traduia` se instala con apt de forma normal y este paso
 > no es necesario.
