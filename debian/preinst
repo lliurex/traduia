@@ -1,0 +1,33 @@
+#!/bin/sh
+# preinst script for traduia.
+#
+# See: dh_installdeb(1).
+
+set -e
+
+case "$1" in
+    install|upgrade)
+        OLD_MODELS='/usr/lib/ai/traduia_models'
+        if [ -d "$OLD_MODELS" ]; then
+            echo "[migrate] Removing old models directory: $OLD_MODELS"
+            rm -rf "$OLD_MODELS"
+        fi
+        OLD_VENV='/usr/lib/traduia/venv'
+        if [ -d "$OLD_VENV" ]; then
+            echo "[migrate] Removing old venv: $OLD_VENV"
+            rm -rf "$OLD_VENV"
+        fi
+    ;;
+
+    abort-upgrade|abort-remove|abort-install)
+    ;;
+
+    *)
+        echo "preinst called with unknown argument '$1'" >&2
+        exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0
