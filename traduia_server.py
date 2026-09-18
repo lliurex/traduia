@@ -38,7 +38,12 @@ def open_web_with_ip(html_path, port=None):
 
     print(_("[INFO] Opening: {}").format(url))
 
-    webbrowser.open(url)
+    # Abrir a través del wrapper que garantiza un navegador por defecto
+    # (en caso contrario xdg-open fallaría silenciosamente).
+    try:
+        subprocess.Popen(["/usr/bin/traduia-open-url", url])
+    except Exception:
+        webbrowser.open(url)
 
 import json
 import queue
@@ -90,6 +95,51 @@ except:
 import uvicorn
 
 # =========================================================
+# ENVIRONMENT SETTINGS (runtime-adjustable knobs)
+# Every tunable environment variable is read once, here.
+# =========================================================
+
+# ALICIA_INPUT_LANG: language of the teacher's speech: "es" (Spanish) or
+# "ca" (Valencian). Any other value falls back to "es". Default: "es".
+ENV_INPUT_LANG = (os.getenv("ALICIA_INPUT_LANG", "es") or "es").strip().split("|")[0].strip()
+
+# ALICIA_VAD_THRESHOLD: VAD speech probability threshold [0.0-1.0].
+# Higher values reject more ambient noise but may cut soft speech. Default: 0.65.
+ENV_VAD_THRESHOLD = float(os.getenv("ALICIA_VAD_THRESHOLD", "0.65"))
+
+# ALICIA_SILENCE_PEAK: minimum peak amplitude [0.0-1.0] for a chunk to be
+# considered non-silence and sent to Whisper. Default: 0.0015.
+ENV_SILENCE_PEAK = float(os.getenv("ALICIA_SILENCE_PEAK", "0.0015"))
+
+# ALICIA_SILENCE_RMS: minimum RMS energy for a chunk to be considered voice
+# (typical mic range: 0.002-0.008 depending on input gain). Default: 0.0040.
+ENV_SILENCE_RMS = float(os.getenv("ALICIA_SILENCE_RMS", "0.0040"))
+
+# ALICIA_MAX_NOSPEECH: discard transcribed segments whose no-speech probability
+# is >= this value (typical of noise-only audio). Default: 0.55.
+ENV_MAX_NOSPEECH = float(os.getenv("ALICIA_MAX_NOSPEECH", "0.55"))
+
+# ALICIA_MIN_LOGPROB: discard transcribed segments whose average log-probability
+# is below this value. More negative = more permissive. Out-of-vocabulary words
+# (e.g. "LliureX") lower segment confidence, so do not set this too strict. Default: -0.9.
+ENV_MIN_LOGPROB = float(os.getenv("ALICIA_MIN_LOGPROB", "-0.9"))
+
+# ALICIA_DEBUG: set to "1" to log every discarded segment with its metrics. Default: "0".
+ENV_DEBUG = os.getenv("ALICIA_DEBUG", "0") == "1"
+
+# ALICIA_PULSE_SOURCE: PulseAudio microphone source to capture from (via parec).
+# If empty, ALICIA_PULSE_MONITOR or the default PortAudio input is used instead.
+ENV_PULSE_SOURCE = (os.getenv("ALICIA_PULSE_SOURCE") or "").strip()
+
+# ALICIA_PULSE_MONITOR: PulseAudio monitor (speakers) device to capture from.
+# Only used when ALICIA_PULSE_SOURCE is not set.
+ENV_PULSE_MONITOR = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
+
+# ALICIA_HOTWORDS: extra hotwords (proper nouns, terms) concatenated after the
+# built-in list. Comma-separated. Default: "" (only the built-in list).
+ENV_HOTWORDS_EXTRA = (os.getenv("ALICIA_HOTWORDS") or "").strip()
+
+# =========================================================
 # CONFIG GENERAL
 # =========================================================
 
@@ -97,14 +147,104 @@ RATE = 16000
 CHANNELS = 1
 BLOCK = RATE // 10  # ~100 ms
 
-INPUT_LANG = (os.getenv("ALICIA_INPUT_LANG", "es") or "es").strip().split("|")[0].strip()
+INPUT_LANG = ENV_INPUT_LANG
 if INPUT_LANG not in ("es", "ca"):
     INPUT_LANG = "es"
 
 # =========================================================
 # USE_CT2: True = CTranslate2; False = MarianMT nativo (transformers)
+#
+# Resolución del modo de traducción:
+#   - Marcadores explícitos: .use_ct2 (CT2) / .use_marian (Marian)
+#     Un marcador único actúa como override (se valida contra el disco).
+#     Ambos marcadores presentes => prioridad Marian.
+#   - Sin marcadores: detección desde disco. Si ambos sets están
+#     completos => prioridad Marian.
 # =========================================================
-USE_CT2 = Path('/opt/ai/traduia/models/.use_ct2').exists()
+
+MODEL_ROOT = Path('/opt/ai/traduia/models')
+MARKER_CT2 = MODEL_ROOT / '.use_ct2'
+MARKER_MARIAN = MODEL_ROOT / '.use_marian'
+
+MARIAN_PAIRS = (
+    "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+    "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+)
+
+
+def _set_complete(subdir: str, file_name: str) -> bool:
+    """True si los 10 pares <subdir>/opus-mt-{pair}/<file_name> existen y no están vacíos."""
+    for pair in MARIAN_PAIRS:
+        f = MODEL_ROOT / subdir / f"opus-mt-{pair}" / file_name
+        try:
+            if not f.is_file() or f.stat().st_size == 0:
+                return False
+        except OSError:
+            return False
+    return True
+
+
+def _resolve_use_ct2() -> bool:
+    """Resuelve el modo de traducción y devuelve True si se usa CTranslate2."""
+    m_ct2 = MARKER_CT2.exists()
+    m_mar = MARKER_MARIAN.exists()
+    d_ct2 = _set_complete("ct2", "model.bin")
+    d_mar = _set_complete("marian", "pytorch_model.bin")
+
+    if not d_ct2 and not d_mar and not m_ct2 and not m_mar:
+        print(_("[ERROR] No translation models found on disk. Run install-models-traduia."))
+        raise RuntimeError(_("No translation models found on disk. Run install-models-traduia."))
+
+    # --- Override explícito por marcador único ---
+    if m_ct2 and not m_mar:
+        if not d_ct2:
+            print(_("[WARN] CT2 marker present but CT2 models are not complete on disk."))
+            if d_mar:
+                print(_("[WARN] Falling back to Marian models."))
+                print(_("[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"))
+                return False
+            print(_("[ERROR] No complete model set found. Run install-models-traduia."))
+            raise RuntimeError(_("No complete model set found on disk. Run install-models-traduia."))
+        print(_("[INFO] Translation mode: CT2 (override via .use_ct2 marker)"))
+        return True
+
+    if m_mar and not m_ct2:
+        if not d_mar:
+            print(_("[WARN] Marian marker present but Marian models are not complete on disk."))
+            if d_ct2:
+                print(_("[WARN] Falling back to CT2 models."))
+                print(_("[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"))
+                return True
+            print(_("[ERROR] No complete model set found. Run install-models-traduia."))
+            raise RuntimeError(_("No complete model set found on disk. Run install-models-traduia."))
+        print(_("[INFO] Translation mode: Marian (override via .use_marian marker)"))
+        return False
+
+    # --- Ambos marcadores: prioridad Marian ---
+    if m_ct2 and m_mar:
+        if not d_mar:
+            if d_ct2:
+                print(_("[WARN] Both markers present but Marian models are not complete; falling back to CT2."))
+                print(_("[INFO] Translation mode: CT2 (fallback, Marian unavailable)"))
+                return True
+            print(_("[ERROR] No complete model set found. Run install-models-traduia."))
+            raise RuntimeError(_("No complete model set found on disk. Run install-models-traduia."))
+        print(_("[INFO] Translation mode: Marian (both markers present, Marian priority)"))
+        return False
+
+    # --- Sin marcadores: detección desde disco (Marian prioridad si ambos) ---
+    if d_mar:
+        if d_ct2:
+            print(_("[INFO] Translation mode: Marian (detected from disk, Marian priority)"))
+        else:
+            print(_("[INFO] Translation mode: Marian (detected from disk)"))
+        return False
+
+    print(_("[INFO] Translation mode: CT2 (detected from disk)"))
+    return True
+
+
+USE_CT2 = _resolve_use_ct2()
 
 
 # =========================================================
@@ -151,12 +291,12 @@ DEFAULT_WHISPER_APPEND_PUNCTUATIONS = "\"\'.。，!！?？:：”)]}、"  # Merg
 DEFAULT_WHISPER_MULTILINGUAL = False             # Run language detection on every segment.
 DEFAULT_WHISPER_VAD_FILTER = False               # Enable Silero VAD to filter non-speech.
 DEFAULT_WHISPER_VAD_PARAMETERS = {               # VAD options (dict).
-    "threshold": 0.5,                            #   Speech probability threshold.
+    "threshold": 0.65,                            #   Speech probability threshold.
     "neg_threshold": None,                       #   Silence threshold (None = auto max(threshold-0.15, 0.01)).
-    "min_speech_duration_ms": 0,                 #   Drop speech chunks shorter than this (ms).
+    "min_speech_duration_ms": 250,               #   Drop speech chunks shorter than this (ms).
     "max_speech_duration_s": float("inf"),       #   Split speech chunks longer than this (s).
-    "min_silence_duration_ms": 2000,             #   Silence duration to separate speech chunks (ms).
-    "speech_pad_ms": 400,                        #   Pad each speech chunk on both sides (ms).
+    "min_silence_duration_ms": 500,             #   Silence duration to separate speech chunks (ms).
+    "speech_pad_ms": 150,                        #   Pad each speech chunk on both sides (ms).
 }
 DEFAULT_WHISPER_MAX_NEW_TOKENS = None            # Max new tokens per chunk (None = model default).
 DEFAULT_WHISPER_CHUNK_LENGTH = None              # Override feature-extractor chunk length (seconds).
@@ -258,8 +398,8 @@ WHISPER_PREPEND_PUNCTUATIONS = DEFAULT_WHISPER_PREPEND_PUNCTUATIONS
 WHISPER_APPEND_PUNCTUATIONS = DEFAULT_WHISPER_APPEND_PUNCTUATIONS
 WHISPER_MULTILINGUAL = DEFAULT_WHISPER_MULTILINGUAL
 WHISPER_VAD_FILTER = True                        # DEFAULT: False — filter non-speech with Silero VAD
-WHISPER_VAD_PARAMETERS = {                       # DEFAULT: min_silence=2000, pad=400 — tighter for speech detection
-    "threshold": DEFAULT_WHISPER_VAD_PARAMETERS["threshold"],
+WHISPER_VAD_PARAMETERS = {                       # DEFAULT: min_silence=500, pad=150 — tighter for speech detection
+    "threshold": ENV_VAD_THRESHOLD,
     "neg_threshold": DEFAULT_WHISPER_VAD_PARAMETERS["neg_threshold"],
     "min_speech_duration_ms": DEFAULT_WHISPER_VAD_PARAMETERS["min_speech_duration_ms"],
     "max_speech_duration_s": DEFAULT_WHISPER_VAD_PARAMETERS["max_speech_duration_s"],
@@ -270,7 +410,7 @@ WHISPER_MAX_NEW_TOKENS = DEFAULT_WHISPER_MAX_NEW_TOKENS
 WHISPER_CHUNK_LENGTH = DEFAULT_WHISPER_CHUNK_LENGTH
 WHISPER_CLIP_TIMESTAMPS = DEFAULT_WHISPER_CLIP_TIMESTAMPS
 WHISPER_HALLUCINATION_SILENCE_THRESHOLD = DEFAULT_WHISPER_HALLUCINATION_SILENCE_THRESHOLD
-WHISPER_HOTWORDS = DEFAULT_WHISPER_HOTWORDS
+WHISPER_HOTWORDS = "LliureX, TraduIA, AlicIA" + (", " + ENV_HOTWORDS_EXTRA if ENV_HOTWORDS_EXTRA else "")   # SOLO nombres propios (aplicable a es y ca) + ALICIA_HOTWORDS
 WHISPER_LANGUAGE_DETECTION_THRESHOLD = DEFAULT_WHISPER_LANGUAGE_DETECTION_THRESHOLD
 WHISPER_LANGUAGE_DETECTION_SEGMENTS = DEFAULT_WHISPER_LANGUAGE_DETECTION_SEGMENTS
 
@@ -323,10 +463,10 @@ activity_window: deque = deque(maxlen=MAX_WINDOW_SIZE)
 INACTIVITY_RATIO = 0.1  # umbral de actividad (10%): systray, /activity y auto-shutdown
 
 PROMPT_CA = (
-   "Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, llepolies, orxata, espenta, menut, celler, gerundi, conjugació, subjuntiu, pretèrit, sintaxi, verb, oració, paràgraf, literatura, Cervantes, Numància, Lorca, Quixot."
+   "Classe en un aula amb LliureX i TraduIA. Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, llepolies, orxata, espenta, menut, celler, gerundi, conjugació, subjuntiu, pretèrit, sintaxi, verb, oració, paràgraf, literatura, Cervantes, Numància, Lorca, Quixot."
 )
 PROMPT_ES = (
-   "Español de España, con palabras como coche, ordenador, móvil, vámonos, trabajo, gafas, libreta, gerundio, conjugación, subjuntivo, pretérito, sintaxis, verbo, oración, párrafo, literatura, Cervantes, Numancia, Lorca, Quijote."
+   "Clase en un aula con LliureX y TraduIA. Español de España, con palabras como coche, ordenador, móvil, vámonos, trabajo, gafas, libreta, gerundio, conjugación, subjuntivo, pretérito, sintaxis, verbo, oración, párrafo, literatura, Cervantes, Numancia, Lorca, Quijote."
 )
 
 # BASE_DIR = Path(__file__).resolve().parent
@@ -381,18 +521,22 @@ if USE_CT2:
     def _load_marian(model_name, cache_tok, cache_model):
         if model_name not in cache_tok or model_name not in cache_model:
             ct2_path = _marian_ct2_path(model_name)
-            tok = MarianTokenizer.from_pretrained(ct2_path)
-            translator = ctranslate2.Translator(
-                ct2_path,
-                device=CT2_DEVICE,
-                device_index=CT2_DEVICE_INDEX,
-                compute_type=CT2_COMPUTE_TYPE,
-                inter_threads=CT2_INTER_THREADS,
-                intra_threads=CT2_INTRA_THREADS,
-                max_queued_batches=CT2_MAX_QUEUED_BATCHES,
-                flash_attention=CT2_FLASH_ATTENTION,
-                tensor_parallel=CT2_TENSOR_PARALLEL,
-            )
+            try:
+                tok = MarianTokenizer.from_pretrained(ct2_path)
+                translator = ctranslate2.Translator(
+                    ct2_path,
+                    device=CT2_DEVICE,
+                    device_index=CT2_DEVICE_INDEX,
+                    compute_type=CT2_COMPUTE_TYPE,
+                    inter_threads=CT2_INTER_THREADS,
+                    intra_threads=CT2_INTRA_THREADS,
+                    max_queued_batches=CT2_MAX_QUEUED_BATCHES,
+                    flash_attention=CT2_FLASH_ATTENTION,
+                    tensor_parallel=CT2_TENSOR_PARALLEL,
+                )
+            except Exception as e:
+                print(_("[WARN] Failed to load CT2 model {}: {}").format(ct2_path, e))
+                raise
             cache_tok[model_name] = tok
             cache_model[model_name] = translator
         return cache_tok[model_name], cache_model[model_name]
@@ -400,8 +544,12 @@ else:
     def _load_marian(model_name, cache_tok, cache_model):
         if model_name not in cache_tok or model_name not in cache_model:
             local_path = _marian_local_path(model_name)
-            tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
-            model = MarianMTModel.from_pretrained(local_path, local_files_only=True)
+            try:
+                tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
+                model = MarianMTModel.from_pretrained(local_path, local_files_only=True)
+            except Exception as e:
+                print(_("[WARN] Failed to load Marian model {}: {}").format(local_path, e))
+                raise
             cache_tok[model_name] = tok
             cache_model[model_name] = model
         return cache_tok[model_name], cache_model[model_name]
@@ -1118,18 +1266,22 @@ def broadcast_line(text: str) -> None:
 
 def stt_worker():
     print(_("[STT] Starting Whisper ({}) for input language: {}").format(WHISPER_MODEL_NAME, INPUT_LANG))
-    model = WhisperModel(
-        WHISPER_MODEL_NAME,
-        device=WHISPER_DEVICE,
-        device_index=WHISPER_DEVICE_INDEX,
-        compute_type=WHISPER_COMPUTE_TYPE,
-        cpu_threads=WHISPER_CPU_THREADS,
-        num_workers=WHISPER_NUM_WORKERS,
-        download_root=WHISPER_DOWNLOAD_ROOT,
-        local_files_only=WHISPER_LOCAL_FILES_ONLY,
-        revision=WHISPER_REVISION,
-        use_auth_token=WHISPER_USE_AUTH_TOKEN,
-    )
+    try:
+        model = WhisperModel(
+            WHISPER_MODEL_NAME,
+            device=WHISPER_DEVICE,
+            device_index=WHISPER_DEVICE_INDEX,
+            compute_type=WHISPER_COMPUTE_TYPE,
+            cpu_threads=WHISPER_CPU_THREADS,
+            num_workers=WHISPER_NUM_WORKERS,
+            download_root=WHISPER_DOWNLOAD_ROOT,
+            local_files_only=WHISPER_LOCAL_FILES_ONLY,
+            revision=WHISPER_REVISION,
+            use_auth_token=WHISPER_USE_AUTH_TOKEN,
+        )
+    except Exception as e:
+        print(_("[WARN] Failed to load Whisper model {}: {}").format(WHISPER_MODEL_NAME, e))
+        raise
 
     audio_q: "queue.Queue[np.ndarray]" = queue.Queue()
 
@@ -1161,8 +1313,14 @@ def stt_worker():
     # - SILENCE_PEAK: pico máximo por debajo del cual consideramos silencio.
     # - SILENCE_RMS : energía RMS por debajo del cual consideramos silencio/ruido bajo.
     # Valores razonables para micrófonos típicos en aula.
-    SILENCE_PEAK = float(os.getenv("ALICIA_SILENCE_PEAK", "0.0015"))
-    SILENCE_RMS  = float(os.getenv("ALICIA_SILENCE_RMS",  "0.0040"))
+    # Umbrales ajustables por entorno; valores definidos en ENVIRONMENT SETTINGS
+    # (inicio del fichero): ALICIA_SILENCE_PEAK, ALICIA_SILENCE_RMS,
+    # ALICIA_MAX_NOSPEECH, ALICIA_MIN_LOGPROB y ALICIA_DEBUG.
+    SILENCE_PEAK      = ENV_SILENCE_PEAK
+    SILENCE_RMS       = ENV_SILENCE_RMS
+    MAX_NOSPEECH_PROB = ENV_MAX_NOSPEECH
+    MIN_AVG_LOGPROB   = ENV_MIN_LOGPROB
+    DEBUG_STT         = ENV_DEBUG
 
     # Lista de patrones típicos de alucinación en silencio/ruido.
     # Se puede ampliar sin riesgo.
@@ -1328,7 +1486,24 @@ def stt_worker():
                 segs = list(segments)
                 if not segs:
                     continue
-                text = "".join(s.text for s in segs).strip()
+
+                # Filtro de calidad por segmento: descarta los que probablemente
+                # no contienen voz o tienen confianza muy baja (típico de ruido).
+                valid_segs = []
+                for s in segs:
+                    if s.no_speech_prob < MAX_NOSPEECH_PROB and s.avg_logprob >= MIN_AVG_LOGPROB:
+                        valid_segs.append(s)
+                    elif DEBUG_STT:
+                        print(
+                            "[STT][DROP] no_speech={:.2f} logprob={:.2f} :: {}".format(
+                                s.no_speech_prob, s.avg_logprob, s.text.strip()
+                            )
+                        )
+
+                if not valid_segs:
+                    continue
+
+                text = "".join(s.text for s in valid_segs).strip()
 
                 if INPUT_LANG == "es":
                     text = clean_spanish_line(text)
@@ -1355,8 +1530,8 @@ def stt_worker():
                     last_log = now
                 continue
 
-    pulse_source = (os.getenv("ALICIA_PULSE_SOURCE") or "").strip()
-    pulse_monitor = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
+    pulse_source = ENV_PULSE_SOURCE
+    pulse_monitor = ENV_PULSE_MONITOR
 
     def start_pulse_producer(pulse_dev: str) -> subprocess.Popen:
         # `parec` entrega PCM raw; lo convertimos a float32 [-1,1]
