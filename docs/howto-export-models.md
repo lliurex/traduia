@@ -73,6 +73,13 @@ traduia-make-repo full /srv/export/traduia \
   librería estándar.
 - `--url-jammy`/`--url-noble` tienen el mismo significado que en `debs`
   (sección 4.5) y solo afectan al paso de descarga de los debs.
+- **Limpieza y permisos automáticos**: al terminar, el repositorio se
+  prepara para su distribución: se eliminan los artefactos internos de
+  HuggingFace (metadatos `.cache/` y ficheros `.gitattributes`) y se
+  garantizan permisos de lectura universal (`a+rX`), de modo que el
+  contenido se pueda copiar a un USB con un usuario normal aunque el
+  comando se haya ejecutado con `sudo` (el `verify-models.py` conserva su
+  bit de ejecución).
 
 ### 2.2 Qué contiene el repositorio
 
