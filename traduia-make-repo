@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Los ficheros del repositorio deben ser legibles por cualquier usuario
+# del equipo destino, sea cual sea la umask de la sesión que lo ejecuta.
+umask 022
+
 export TEXTDOMAIN="traduia"
 export TEXTDOMAINDIR="/usr/share/locale"
 
@@ -44,11 +48,29 @@ usage() {
 }
 
 # =========================================================
+# finalize_out_dir <out_dir>: prepara el árbol de salida para su
+# distribución (USB/HTTP): elimina artefactos innecesarios de
+# HuggingFace (.cache de metadatos de descarga y .gitattributes
+# de los repos) y garantiza permisos de lectura universal (a+rX),
+# con independencia de la umask de la sesión que ejecuta el
+# comando (p. ej. sudo). Los bits de ejecución ya existentes
+# (verify-models.py) se conservan.
+# =========================================================
+finalize_out_dir() {
+    local dir="$1"
+    [ -d "$dir" ] || return 0
+    find "$dir" -depth -type d -name .cache -exec rm -rf {} +
+    find "$dir" -type f -name .gitattributes -delete
+    chmod -R a+rX "$dir"
+}
+
+# =========================================================
 # generate_manifest <out_dir>: (re)genera manifest.json con
 # tamaño+sha256 de todo el árbol (sets, wheels, verify-models.py).
 # =========================================================
 generate_manifest() {
     local out_dir="$1"
+    finalize_out_dir "$out_dir"
     echo "$(_ "Hashing files (sha256)...")"
     python3 - "$out_dir" <<'PY'
 import hashlib
