@@ -69,6 +69,8 @@ USE_CT2=false
 USE_ALL=false
 CLI_URL=""
 DETECT_ONLY=false
+# Args originales para la cabecera del log (el parser hace shift).
+IMT_RUN_ARGS="$*"
 
 # Sin argumentos: ayuda (uso explícito con "install" o "optimized")
 if [ $# -eq 0 ]; then
@@ -182,6 +184,23 @@ fi
 
 MODELS_URL="${CLI_URL:-${TRADUIA_MODELS_URL:-}}"
 MODELS_DIR="${CLI_DIR:-}"
+
+# =========================================================
+# Logging integral a /var/log/traduia-install.log (en común con
+# traduia-config). Todo el stdout/stderr va a consola y al fichero;
+# si el fichero no es escribible (p. ej. sin root) se continúa sin
+# teeing. Cuando se ejecuta bajo traduia-config (TRADUIA_CONFIG_LOGGING=1)
+# el padre ya tee-nea la salida y solo se escribe la cabecera directa.
+# Literal en inglés: no pasa por i18n.
+# =========================================================
+TRADUIA_IMT_LOG="${TRADUIA_IMT_LOG:-/var/log/traduia-install.log}"
+if touch "$TRADUIA_IMT_LOG" 2>/dev/null; then
+    printf 'Starting install-models-traduia (%s) at %s\n' \
+        "$IMT_RUN_ARGS" "$(date '+%d/%m/%Y %H:%M:%S')" >>"$TRADUIA_IMT_LOG"
+    if [ -z "${TRADUIA_CONFIG_LOGGING:-}" ]; then
+        exec > >(tee -a "$TRADUIA_IMT_LOG") 2>&1
+    fi
+fi
 
 # =========================================================
 # Validación temprana del repositorio (--url/--dir/--from)
@@ -361,7 +380,10 @@ detect_repo_wheels() {
             && repo_has_wheels "$tmp_manifest"; then
             tmp_dir="$(mktemp -d)"
             if fetch_repo_wheels "$tmp_manifest" "$tmp_dir"; then
-                WHEELS_LINKS="$tmp_dir"
+                # Los wheels se descargan en $tmp_dir/wheels (el prefijo
+                # "wheels/" viaja en el manifest); --find-links solo
+                # escanea el primer nivel del directorio.
+                WHEELS_LINKS="$tmp_dir/wheels"
                 WHEELS_TMP_DIR="$tmp_dir"
                 echo "[setup] $(_ "Using repository wheels for Python dependencies (offline)")"
             else
@@ -646,7 +668,7 @@ install_python_deps() {
     fi
 
     mkdir -p "$(dirname "$PIP_LOG")"
-    : >"$PIP_LOG"
+    touch "$PIP_LOG"
 
     if [ -n "$WHEELS_LINKS" ]; then
         offline_args=(
