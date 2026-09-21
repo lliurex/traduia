@@ -1,3 +1,13 @@
+traduia (0.9.2) jammy; urgency=medium
+
+  * Fix HTTP/LAN offline install (wheels not found by pip)
+  * Report install-models-traduia failures in traduia-config (zero-center state)
+  * Log full install output to /var/log/traduia-install.log
+  * Clean exported repositories: remove HF artifacts, universal read permissions
+  * Validate wheelhouse per target (cp310/cp312) in traduia-make-repo
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 21 Sep 2026 12:11:28 +0200
+
 traduia (0.9.1) jammy; urgency=medium
 
   * Generate verify-models.py in every traduia-make-repo subcommand
