@@ -550,18 +550,24 @@ do_postinstall() {
         else
             OPTIMIZED=""
         fi
+        local models_rc=0
         if [ "$MODELS_SOURCE" == "internet" ]; then
             if [ -n "$OPTIMIZED" ]; then
-                /usr/sbin/install-models-traduia install optimized
+                /usr/sbin/install-models-traduia install optimized || models_rc=$?
             else
-                /usr/sbin/install-models-traduia install
+                /usr/sbin/install-models-traduia install || models_rc=$?
             fi
         else
             if [ -n "$OPTIMIZED" ]; then
-                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" optimized
+                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" optimized || models_rc=$?
             else
-                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE"
+                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" || models_rc=$?
             fi
+        fi
+        if [ "$models_rc" -ne 0 ]; then
+            echo "[ERROR] Model installation failed (exit $models_rc). See the details above and in /var/log/traduia-install.log" >&2
+            zero-center set-non-configured zero-lliurex-traduia >/dev/null 2>&1 || true
+            return 1
         fi
         echo "$(_ "Setting server desktop")"
         sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
@@ -799,6 +805,22 @@ done
 if [ "$META_SKIP_CLI" = "true" ]; then
     TRADUIA_SKIP_METAS_CHECK=1
     echo "[INFO] $(_ "LliureX metas check disabled (--disable-meta-checks)")"
+fi
+
+# =========================================================
+# Logging integral a /var/log/traduia-install.log (en común con
+# install-models-traduia). Todo el stdout/stderr va a consola y
+# al fichero; si el fichero no es escribible (p. ej. sin root)
+# se continúa sin teeing. Literal en inglés: no pasa por i18n.
+# =========================================================
+TRADUIA_CONFIG_LOG="${TRADUIA_CONFIG_LOG:-/var/log/traduia-install.log}"
+if touch "$TRADUIA_CONFIG_LOG" 2>/dev/null; then
+    printf 'Starting traduia-config (%s) at %s\n' \
+        "$*" "$(date '+%d/%m/%Y %H:%M:%S')" >>"$TRADUIA_CONFIG_LOG"
+    exec > >(tee -a "$TRADUIA_CONFIG_LOG") 2>&1
+    # install-models-traduia (hijo) no debe tee-ear también: la salida
+    # del hijo ya queda capturada por este tee (evita doble escritura).
+    export TRADUIA_CONFIG_LOGGING=1
 fi
 
 case "${ARGS[0]:-}" in
