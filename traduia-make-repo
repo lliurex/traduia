@@ -333,6 +333,29 @@ make_wheels() {
         exit 1
     fi
 
+    # Comprobación de completitud por target: si falta algún wheel para
+    # un ABI (p. ej. cp312), la instalación offline fallaría con
+    # "from versions: none". Se detecta aquí, en el build.
+    for t in "${targets[@]}"; do
+        abi="${t##*:}"
+        missing=()
+        for pkg in numpy torch ctranslate2; do
+            if ! compgen -G "$wheels_dir/${pkg}-*${abi}*.whl" >/dev/null; then
+                missing+=("$pkg")
+            fi
+        done
+        for pkg in pip setuptools wheel faster_whisper; do
+            if ! compgen -G "$wheels_dir/${pkg}-*py3-none-any*.whl" >/dev/null; then
+                missing+=("$pkg")
+            fi
+        done
+        if [ "${#missing[@]}" -gt 0 ]; then
+            echo "[ERROR] The wheels repository is incomplete for target $abi. Missing: ${missing[*]}" >&2
+            echo "[ERROR] Re-run 'traduia-make-repo wheels <output_dir>' to complete it." >&2
+            exit 1
+        fi
+    done
+
     echo "[wheels] $(_ "Wheels ready in:") $wheels_dir"
 }
 
