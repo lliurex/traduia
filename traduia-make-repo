@@ -155,15 +155,19 @@ import hashlib
 import json
 import os
 import sys
+from datetime import datetime, timezone
 
 
 def parse_args(argv):
     mode = None
+    rebuild = False
     repo = "."
     i = 0
     while i < len(argv):
         a = argv[i]
-        if a == "--mode":
+        if a == "--rebuild-manifest":
+            rebuild = True
+        elif a == "--mode":
             i += 1
             if i >= len(argv):
                 print("ERROR: --mode requires 'ct2' or 'marian'.", file=sys.stderr)
@@ -177,7 +181,84 @@ def parse_args(argv):
     if mode not in (None, "ct2", "marian"):
         print(f"ERROR: unknown mode: {mode}", file=sys.stderr)
         sys.exit(2)
-    return repo, mode
+    return repo, mode, rebuild
+
+
+def rebuild_manifest(repo):
+    """Regenera manifest.json con el contenido actual del árbol.
+
+    Mismo recorrido que generate_manifest de traduia-make-repo:
+    excluye los directorios .cache de HuggingFace, los pesos .h5 no
+    usados y el propio manifest.json. Escritura atómica y legible
+    por todos. Uso avanzado (parámetro oculto).
+    """
+    manifest_path = os.path.join(repo, "manifest.json")
+    files = []
+    for root, dirs, fnames in os.walk(repo):
+        dirs[:] = [d for d in dirs if d != ".cache"]
+        dirs.sort()
+        for fname in sorted(fnames):
+            if fname.endswith(".h5"):
+                continue
+            abs_path = os.path.join(root, fname)
+            rel_path = os.path.relpath(abs_path, repo)
+            if rel_path == "manifest.json":
+                continue
+            try:
+                size = os.path.getsize(abs_path)
+                h = hashlib.sha256()
+                with open(abs_path, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                        h.update(chunk)
+            except OSError as e:
+                print(f"ERROR NO LEGIBLE: {rel_path} ({e})", file=sys.stderr)
+                return 1
+            files.append({"path": rel_path, "size": size, "sha256": h.hexdigest()})
+
+    def _has_set(sub):
+        sub_dir = os.path.join(repo, sub)
+        if not os.path.isdir(sub_dir):
+            return False
+        return any(os.path.isdir(os.path.join(sub_dir, d)) for d in os.listdir(sub_dir))
+
+    ct2_set = _has_set("ct2")
+    marian_set = _has_set("marian")
+    if ct2_set and marian_set:
+        mode = "both"
+    elif ct2_set:
+        mode = "ct2"
+    elif marian_set:
+        mode = "marian"
+    else:
+        mode = "none"
+
+    if not files:
+        print("ERROR: no hay ficheros para el manifest.", file=sys.stderr)
+        return 1
+
+    manifest = {
+        "version": 1,
+        "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "mode": mode,
+        "files": files,
+    }
+    tmp_path = manifest_path + ".tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+        os.replace(tmp_path, manifest_path)
+        os.chmod(manifest_path, 0o644)
+    except OSError as e:
+        print(f"ERROR: no se pudo escribir {manifest_path}: {e}", file=sys.stderr)
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return 1
+    print(f"[rebuild] manifest.json regenerado: {len(files)} ficheros (mode={mode})")
+    print("AVISO: el manifest refleja el contenido actual del repositorio.")
+    return 0
 
 
 def wanted(rel, mode):
@@ -187,7 +268,11 @@ def wanted(rel, mode):
 
 
 def main():
-    repo, mode = parse_args(sys.argv[1:])
+    repo, mode, rebuild = parse_args(sys.argv[1:])
+
+    if rebuild:
+        sys.exit(rebuild_manifest(repo))
+
     manifest_path = os.path.join(repo, "manifest.json")
 
     try:
