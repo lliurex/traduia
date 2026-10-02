@@ -70,7 +70,7 @@ from starlette.responses import (
     FileResponse,
 )
 from faster_whisper import WhisperModel
-from transformers import MarianTokenizer, MarianMTModel
+from transformers import MarianConfig, MarianTokenizer, MarianMTModel
 from pathlib import Path
 dist_packages_paths=set()
 for path in Path('/usr/lib').glob('python*/dist-packages'):
@@ -516,42 +516,72 @@ else:
     _engine_cache_es = _m_es_model
     _engine_cache_ca = _m_ca_model
 
+# transformers.from_pretrained usa estado global no thread-safe: /translate corre
+# en varios hilos y las cargas concurrentes dejan lm_head sin atar y en meta
+# (LOAD REPORT: lm_head.weight MISSING). Serializamos solo la carga.
+_marian_load_lock = threading.Lock()
+
 
 if USE_CT2:
     def _load_marian(model_name, cache_tok, cache_model):
         if model_name not in cache_tok or model_name not in cache_model:
-            ct2_path = _marian_ct2_path(model_name)
-            try:
-                tok = MarianTokenizer.from_pretrained(ct2_path)
-                translator = ctranslate2.Translator(
-                    ct2_path,
-                    device=CT2_DEVICE,
-                    device_index=CT2_DEVICE_INDEX,
-                    compute_type=CT2_COMPUTE_TYPE,
-                    inter_threads=CT2_INTER_THREADS,
-                    intra_threads=CT2_INTRA_THREADS,
-                    max_queued_batches=CT2_MAX_QUEUED_BATCHES,
-                    flash_attention=CT2_FLASH_ATTENTION,
-                    tensor_parallel=CT2_TENSOR_PARALLEL,
-                )
-            except Exception as e:
-                print(_("[WARN] Failed to load CT2 model {}: {}").format(ct2_path, e))
-                raise
-            cache_tok[model_name] = tok
-            cache_model[model_name] = translator
+            with _marian_load_lock:
+                if model_name not in cache_tok or model_name not in cache_model:
+                    ct2_path = _marian_ct2_path(model_name)
+                    try:
+                        tok = MarianTokenizer.from_pretrained(ct2_path)
+                        translator = ctranslate2.Translator(
+                            ct2_path,
+                            device=CT2_DEVICE,
+                            device_index=CT2_DEVICE_INDEX,
+                            compute_type=CT2_COMPUTE_TYPE,
+                            inter_threads=CT2_INTER_THREADS,
+                            intra_threads=CT2_INTRA_THREADS,
+                            max_queued_batches=CT2_MAX_QUEUED_BATCHES,
+                            flash_attention=CT2_FLASH_ATTENTION,
+                            tensor_parallel=CT2_TENSOR_PARALLEL,
+                        )
+                    except Exception as e:
+                        print(_("[WARN] Failed to load CT2 model {}: {}").format(ct2_path, e))
+                        raise
+                    cache_tok[model_name] = tok
+                    cache_model[model_name] = translator
         return cache_tok[model_name], cache_model[model_name]
 else:
     def _load_marian(model_name, cache_tok, cache_model):
         if model_name not in cache_tok or model_name not in cache_model:
-            local_path = _marian_local_path(model_name)
-            try:
-                tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
-                model = MarianMTModel.from_pretrained(local_path, local_files_only=True)
-            except Exception as e:
-                print(_("[WARN] Failed to load Marian model {}: {}").format(local_path, e))
-                raise
-            cache_tok[model_name] = tok
-            cache_model[model_name] = model
+            with _marian_load_lock:
+                if model_name not in cache_tok or model_name not in cache_model:
+                    local_path = _marian_local_path(model_name)
+                    try:
+                        config = MarianConfig.from_pretrained(local_path, local_files_only=True)
+                        if not getattr(config, "tie_word_embeddings", True):
+                            print(_("[WARN] {}: tie_word_embeddings=false; forzando True").format(local_path))
+                            config.tie_word_embeddings = True
+                        tok = MarianTokenizer.from_pretrained(local_path, local_files_only=True)
+                        model, loading_info = MarianMTModel.from_pretrained(
+                            local_path,
+                            config=config,
+                            local_files_only=True,
+                            output_loading_info=True,
+                        )
+                    except Exception as e:
+                        print(_("[WARN] Failed to load Marian model {}: {}").format(local_path, e))
+                        raise
+                    if getattr(config, "share_encoder_decoder_embeddings", False):
+                        tied_target = model.model.shared.weight
+                    else:
+                        tied_target = model.model.decoder.embed_tokens.weight
+                    if "lm_head.weight" in (loading_info.get("missing_keys") or []) \
+                            and model.lm_head.weight is not tied_target:
+                        print(_("[WARN] {}: lm_head sin atar; reparando desde el embedding").format(local_path))
+                        model.lm_head.weight = tied_target
+                    print(_("[INFO] {} cargado (lm_head_atado={}, missing={})").format(
+                        local_path, model.lm_head.weight is tied_target,
+                        loading_info.get("missing_keys")))
+                    model.eval()
+                    cache_tok[model_name] = tok
+                    cache_model[model_name] = model
         return cache_tok[model_name], cache_model[model_name]
 
 def _detect_low_diversity(words, window=12, threshold=0.45):
