@@ -1,3 +1,13 @@
+traduia (0.9.3) jammy; urgency=medium
+
+  * Serialize Marian/CT2 model loading with a lock (concurrent from_pretrained)
+  * Force tie_word_embeddings=true when missing/false, with warning
+  * Repair untied lm_head from the shared embedding when reported missing
+  * Log tied state on each model load as canary
+  * traduia-make-repo: add --rebuild-manifest option (regenerate manifest.json)
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 02 Oct 2026 16:54:31 +0200
+
 traduia (0.9.2) jammy; urgency=medium
 
   * Fix HTTP/LAN offline install (wheels not found by pip)
