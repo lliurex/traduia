@@ -11,17 +11,105 @@ export TEXTDOMAIN="traduia"
 export TEXTDOMAINDIR="/usr/share/locale"
 
 _() {
-    gettext "$1"
+    gettext -- "$1"
 }
 
 export GDK_BACKEND="${GDK_BACKEND:-x11}"
 export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::DeprecationWarning}"
 
+# =========================================================
+# Opciones de línea de comandos
+# =========================================================
+CONSOLE_MODE=false
+CLI_INPUT_LANG=""
+CLI_AUDIO_SOURCE=""
+ERROR_TO_STDERR=false
+
+usage() {
+    echo "$(_ "Usage: traduia [options]")"
+    echo ""
+    echo "$(_ "  -console, --console     ask the questions on the console (no kdialog)")"
+    echo "$(_ "  --input-lang <es|ca>    teacher input language (skips the question)")"
+    echo "$(_ "  --audio-source <value>  audio source (skips the question):")"
+    echo "$(_ "                            mic | speakers | <pulse-source-name>")"
+    echo "$(_ "  -h, --help              this help")"
+}
+
+normalize_lang() {
+    case "$(printf "%s" "$1" | tr "[:upper:]" "[:lower:]")" in
+        es|spanish|español|espanol) echo "es" ;;
+        ca|valencian|valencià|valencia) echo "ca" ;;
+        *) echo "" ;;
+    esac
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -console|--console)
+            CONSOLE_MODE=true
+            shift
+            ;;
+        --input-lang)
+            if [ $# -lt 2 ]; then
+                echo "[ERROR] $(_ "--input-lang requires a value: es|ca")" >&2
+                exit 2
+            fi
+            CLI_INPUT_LANG="$2"
+            shift 2
+            ;;
+        --input-lang=*)
+            CLI_INPUT_LANG="${1#--input-lang=}"
+            shift
+            ;;
+        --audio-source)
+            if [ $# -lt 2 ]; then
+                echo "[ERROR] $(_ "--audio-source requires a value: mic|speakers|<pulse-source-name>")" >&2
+                exit 2
+            fi
+            CLI_AUDIO_SOURCE="$2"
+            shift 2
+            ;;
+        --audio-source=*)
+            CLI_AUDIO_SOURCE="${1#--audio-source=}"
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "[ERROR] $(_ "Unknown argument:") $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+if $CONSOLE_MODE || [ -n "$CLI_INPUT_LANG" ] || [ -n "$CLI_AUDIO_SOURCE" ]; then
+    ERROR_TO_STDERR=true
+fi
+
+if [ -n "$CLI_INPUT_LANG" ]; then
+    CLI_INPUT_LANG="$(normalize_lang "$CLI_INPUT_LANG")"
+    if [ -z "$CLI_INPUT_LANG" ]; then
+        echo "[ERROR] $(_ "--input-lang must be es or ca")" >&2
+        exit 2
+    fi
+fi
+
+show_error() {
+    if $ERROR_TO_STDERR; then
+        echo "[ERROR] $*" >&2
+    else
+        kdialog --title "$APP_NAME" --error "$*" 2>/dev/null || true
+    fi
+}
+
 # === Activar venv ===
 if [[ -f "$TRADUIA_VENV/bin/activate" ]]; then
   source "$TRADUIA_VENV/bin/activate"
 else
-  kdialog --title "$APP_NAME" --error "$(_ "Could not find the virtual environment venv in:")\n$TRADUIA_VENV"
+  show_error "$(_ "Could not find the virtual environment venv in:")\n$TRADUIA_VENV"
   exit 1
 fi
 
@@ -29,22 +117,22 @@ PY_BIN="$TRADUIA_VENV/bin/python3"
 TRANSCRIPTOR_PY="$TRADUIA_DIR/traduia_server.py"
 
 if [[ ! -x "$PY_BIN" ]]; then
-  kdialog --title "$APP_NAME" --error "$(_ "Python does not exist in venv:")\n$PY_BIN"
+  show_error "$(_ "Python does not exist in venv:")\n$PY_BIN"
   exit 1
 fi
 
 if [[ ! -f "$TRANSCRIPTOR_PY" ]]; then
-  kdialog --title "$APP_NAME" --error "$(_ "Could not find the transcriber:")\n$TRANSCRIPTOR_PY"
+  show_error "$(_ "Could not find the transcriber:")\n$TRANSCRIPTOR_PY"
   exit 1
 fi
 
 # === Chequeos deps ===
 if ! "$PY_BIN" -c "import sounddevice" >/dev/null 2>&1; then
-  kdialog --title "$APP_NAME" --error "$(_ "'sounddevice' is missing in the venv.")"
+  show_error "$(_ "'sounddevice' is missing in the venv.")"
   exit 1
 fi
 if ! "$PY_BIN" -c "import uvicorn" >/dev/null 2>&1; then
-  kdialog --title "$APP_NAME" --error "$(_ "'uvicorn' is missing in the venv.\n\npip install uvicorn")"
+  show_error "$(_ "'uvicorn' is missing in the venv.\n\npip install uvicorn")"
   exit 1
 fi
 
@@ -53,7 +141,7 @@ fi
 # =========================================================
 HF_ROOT=$TRADUIA_MODELS
 if [[ ! -d "$HF_ROOT" ]]; then
-  kdialog --title "$APP_NAME" --error "$(_ "Shared cache does not exist:")\n$HF_ROOT\n\n$(_ "Run install-models-traduia.")"
+  show_error "$(_ "Shared cache does not exist:")\n$HF_ROOT\n\n$(_ "Run install-models-traduia.")"
   exit 1
 fi
 
@@ -63,29 +151,9 @@ export TRANSFORMERS_CACHE="$HF_ROOT"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 
-
 # =========================================================
-# Selector de idioma de entrada (profesor)
+# Config persistente (defaults de la UI)
 # =========================================================
-LANG_CHOICE="$(kdialog --title "$APP_NAME" \
-  --combobox "$(_ "Input language:")" "$(_ "Spanish")" "$(_ "Valencian")" \
-  2>/dev/null || true)"
-
-if [[ -z "${LANG_CHOICE:-}" ]]; then
-  echo "[launcher] $(_ "Cancelled (language).")"
-  exit 0
-fi
-
-LANG_LABEL="${LANG_CHOICE%%|*}"
-if [[ "${LANG_LABEL}" == "$(_ "Valencian")" ]]; then
-  export ALICIA_INPUT_LANG="ca"
-  INPUT_LANG="ca"
-else
-  export ALICIA_INPUT_LANG="es"
-  INPUT_LANG="es"
-fi
-
-
 CONFIG_DIR="$HOME/.config/alicia-transcriptor"
 CONFIG_FILE="$CONFIG_DIR/config.env"
 mkdir -p "$CONFIG_DIR"
@@ -100,28 +168,59 @@ get_conf() {
   [[ -z "$val" ]] && echo "$def" || echo "$val"
 }
 
-# Defaults UI
 CONF_INPUT_LANG="$(get_conf ALICIA_INPUT_LANG "es")"
 CONF_GATE_MODE="$(get_conf ALICIA_GATE_MODE "aula")"
 CONF_AUTO_CALIBRATE="$(get_conf ALICIA_AUTO_CALIBRATE "1")"
 CONF_CALIBRATE_SECONDS="$(get_conf ALICIA_CALIBRATE_SECONDS "2.0")"
 
 # =========================================================
-# UI 1: Fuente de audio
-# - Micro interno
-# - Micro externo
-# - Altavoces (audio del sistema) -> se autoselecciona el sink.monitor por defecto
+# Selector de idioma de entrada (profesor)
 # =========================================================
+INPUT_LANG=""
+if [[ -n "$CLI_INPUT_LANG" ]]; then
+  INPUT_LANG="$CLI_INPUT_LANG"
+elif $CONSOLE_MODE; then
+  while [[ -z "$INPUT_LANG" ]]; do
+    printf "%s [es/ca] (%s): " "$(_ "Input language:")" "$CONF_INPUT_LANG" >&2
+    read -r LANG_INPUT || LANG_INPUT=""
+    if [[ -z "$LANG_INPUT" ]]; then
+      LANG_INPUT="$CONF_INPUT_LANG"
+    fi
+    INPUT_LANG="$(normalize_lang "$LANG_INPUT")"
+    if [[ -z "$INPUT_LANG" ]]; then
+      echo "$(_ "Invalid option, try again.")" >&2
+    fi
+  done
+else
+  LANG_CHOICE="$(kdialog --title "$APP_NAME" \
+    --combobox "$(_ "Input language:")" "$(_ "Spanish")" "$(_ "Valencian")" \
+    2>/dev/null || true)"
+  if [[ -z "${LANG_CHOICE:-}" ]]; then
+    echo "[launcher] $(_ "Cancelled (language).")"
+    exit 0
+  fi
+  LANG_LABEL="${LANG_CHOICE%%|*}"
+  if [[ "${LANG_LABEL}" == "$(_ "Valencian")" ]]; then
+    INPUT_LANG="ca"
+  else
+    INPUT_LANG="es"
+  fi
+fi
+
+export ALICIA_INPUT_LANG="$INPUT_LANG"
+
 # =========================================================
-# Selector único: micrófono o altavoces (Pulse/PipeWire) estilo LliureX
-# (Se elimina la pantalla 1; solo aparece una lista)
+# Selector de fuente de audio
+# - micrófono (entrada por defecto)
+# - altavoces (monitor de la salida por defecto)
+# - nombre explícito de fuente PulseAudio
 # =========================================================
 if ! command -v pactl >/dev/null 2>&1; then
-  kdialog --title "$APP_NAME" --error "$(_ "'pactl' not found. Cannot list system audio devices.")"
+  show_error "$(_ "'pactl' not found. Cannot list system audio devices.")"
   exit 1
 fi
 if ! command -v parec >/dev/null 2>&1; then
-  kdialog --title "$APP_NAME" --error "$(_ "'parec' not found.\n\nInstall: pulseaudio-utils (or equivalent).")"
+  show_error "$(_ "'parec' not found.\n\nInstall: pulseaudio-utils (or equivalent).")"
   exit 1
 fi
 
@@ -131,39 +230,110 @@ DEFAULT_MONITOR="${DEFAULT_SINK}.monitor"
 
 PACTL_SOURCES="$(pactl list short sources 2>/dev/null || true)"
 if [[ -z "${PACTL_SOURCES:-}" ]]; then
-  kdialog --title "$APP_NAME" --error "$(_ "No sources detected via pactl.")"
+  show_error "$(_ "No sources detected via pactl.")"
   exit 1
 fi
 
-KDIALOG_DATA=()
+RESOLVED_SOURCE=""
 
-# Opción 1 (V8: "Auriculares USB" / micrófonos): aquí usamos SIEMPRE la ENTRADA por defecto del sistema
-if [[ -z "${DEFAULT_SOURCE:-}" ]]; then
-  kdialog --title "$APP_NAME" --error "$(_ "Could not detect the default input (microphone) via pactl.")"
-  exit 1
+resolve_mic() {
+  if [[ -z "${DEFAULT_SOURCE:-}" ]]; then
+    show_error "$(_ "Could not detect the default input (microphone) via pactl.")"
+    exit 1
+  fi
+  RESOLVED_SOURCE="$DEFAULT_SOURCE"
+}
+
+resolve_speakers() {
+  local mon=""
+  mon="$(printf "%s\n" "$PACTL_SOURCES" | awk -v d="$DEFAULT_MONITOR" '$2==d {print $2}' | head -n1)"
+  if [[ -z "${mon:-}" ]]; then
+    mon="$(printf "%s\n" "$PACTL_SOURCES" | awk '$2 ~ /\.monitor$/ {print $2}' | head -n1)"
+  fi
+  if [[ -z "${mon:-}" ]]; then
+    show_error "$(_ "Could not detect the default output (speakers/monitor) via pactl.")"
+    exit 1
+  fi
+  RESOLVED_SOURCE="$mon"
+}
+
+source_exists() {
+  printf "%s\n" "$PACTL_SOURCES" | awk -v d="$1" '$2==d {found=1} END{exit !found}'
+}
+
+SEL_SOURCE=""
+if [[ -n "$CLI_AUDIO_SOURCE" ]]; then
+  case "$CLI_AUDIO_SOURCE" in
+    mic|microphone)
+      resolve_mic
+      SEL_SOURCE="$RESOLVED_SOURCE"
+      ;;
+    speakers|monitor)
+      resolve_speakers
+      SEL_SOURCE="$RESOLVED_SOURCE"
+      ;;
+    *)
+      if ! source_exists "$CLI_AUDIO_SOURCE"; then
+        show_error "$(_ "Audio source not found:") $CLI_AUDIO_SOURCE"
+        exit 2
+      fi
+      SEL_SOURCE="$CLI_AUDIO_SOURCE"
+      ;;
+  esac
+elif $CONSOLE_MODE; then
+  echo "$(_ "Choose the audio source:")" >&2
+  echo "  1) $(_ "Transcribes the input (microphone) configured as system default") [${DEFAULT_SOURCE:-?}]" >&2
+  echo "  2) $(_ "Transcribes the output (speakers) configured as system default") [${DEFAULT_MONITOR:-?}]" >&2
+  while [[ -z "$SEL_SOURCE" ]]; do
+    printf "%s [1]: " "$(_ "Selection")" >&2
+    read -r AUDIO_INPUT || AUDIO_INPUT=""
+    case "$AUDIO_INPUT" in
+      ""|1|mic|microphone)
+        resolve_mic
+        SEL_SOURCE="$RESOLVED_SOURCE"
+        ;;
+      2|speakers|monitor)
+        resolve_speakers
+        SEL_SOURCE="$RESOLVED_SOURCE"
+        ;;
+      *)
+        if source_exists "$AUDIO_INPUT"; then
+          SEL_SOURCE="$AUDIO_INPUT"
+        else
+          echo "$(_ "Invalid option, try again.")" >&2
+        fi
+        ;;
+    esac
+  done
+else
+  KDIALOG_DATA=()
+
+  if [[ -z "${DEFAULT_SOURCE:-}" ]]; then
+    show_error "$(_ "Could not detect the default input (microphone) via pactl.")"
+    exit 1
+  fi
+  KDIALOG_DATA+=("$DEFAULT_SOURCE" "$(_ "Transcribes the input (microphone) configured as system default")")
+
+  MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk -v d="$DEFAULT_MONITOR" '$2==d {print $2}' | head -n1)"
+  if [[ -z "${MON_SRC:-}" ]]; then
+    MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk '$2 ~ /\.monitor$/ {print $2}' | head -n1)"
+  fi
+  if [[ -z "${MON_SRC:-}" ]]; then
+    show_error "$(_ "Could not detect the default output (speakers/monitor) via pactl.")"
+    exit 1
+  fi
+  KDIALOG_DATA+=("$MON_SRC" "$(_ "Transcribes the output (speakers) configured as system default")")
+
+  SEL_SOURCE="$(
+    kdialog --title "$APP_NAME" \
+      --menu "$(_ "Choose the audio source:")" \
+      "${KDIALOG_DATA[@]}" \
+      2>/dev/null || true
+  )"
+  [[ -z "${SEL_SOURCE:-}" ]] && exit 0
 fi
-KDIALOG_DATA+=("$DEFAULT_SOURCE" "$(_ "Transcribes the input (microphone) configured as system default")")
 
-# Opción 2 (V8: "Altavoces (audio del sistema)"): usamos la SALIDA por defecto del sistema (monitor)
-MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk -v d="$DEFAULT_MONITOR" '$2==d {print $2}' | head -n1)"
-if [[ -z "${MON_SRC:-}" ]]; then
-  MON_SRC="$(printf "%s\n" "$PACTL_SOURCES" | awk '$2 ~ /\.monitor$/ {print $2}' | head -n1)"
-fi
-if [[ -z "${MON_SRC:-}" ]]; then
-  kdialog --title "$APP_NAME" --error "$(_ "Could not detect the default output (speakers/monitor) via pactl.")"
-  exit 1
-fi
-KDIALOG_DATA+=("$MON_SRC" "$(_ "Transcribes the output (speakers) configured as system default")")
-
-SEL_SOURCE="$(
-  kdialog --title "$APP_NAME" \
-    --menu "$(_ "Choose the audio source:")" \
-    "${KDIALOG_DATA[@]}" \
-    2>/dev/null || true
-)"
-[[ -z "${SEL_SOURCE:-}" ]] && exit 0
-
-# Normalizar salida de kdialog
+# Normalizar salida
 SEL_SOURCE="${SEL_SOURCE%%|*}"
 SEL_SOURCE="$(printf "%s" "$SEL_SOURCE" | head -n 1 | tr -d '\r')"
 SEL_SOURCE="$(printf "%s" "$SEL_SOURCE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -185,8 +355,6 @@ fi
 
 AUDIO_CHOICE="$SEL_NAME"
 
-# Guardar config (HOME solo config)
-
 # Defaults (por si el script se ejecuta sin pasar por el selector de idioma u otros flags)
 : "${INPUT_LANG:=${ALICIA_INPUT_LANG:-es}}"
 : "${GATE_MODE:=0}"
@@ -195,7 +363,7 @@ AUDIO_CHOICE="$SEL_NAME"
 
 # =========================================================
 {
-  echo "# Autogenerated by kdialog launcher"
+  echo "# Autogenerated by traduia launcher"
   echo "ALICIA_AUDIO_CHOICE=${AUDIO_CHOICE}"
   echo "ALICIA_AUDIO_DEVICE=${SEL_ID}"
   printf "ALICIA_AUDIO_DEVICE_NAME=%q\n" "$SEL_NAME"

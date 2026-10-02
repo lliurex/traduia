@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_PY="${TRADUIA_VENV_PY:-/opt/ai/traduia/venv/bin/python3}"
+
+if [[ ! -x "$VENV_PY" ]]; then
+    echo "checking installed .... [ERROR] $VENV_PY not found"
+    exit 1
+fi
+
+export HF_HOME="${HF_HOME:-/opt/ai/traduia/models}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME}"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+
+exec "$VENV_PY" -B "$TESTS_DIR/test_translation.py"

@@ -576,9 +576,6 @@ else:
                             and model.lm_head.weight is not tied_target:
                         print(_("[WARN] {}: lm_head sin atar; reparando desde el embedding").format(local_path))
                         model.lm_head.weight = tied_target
-                    print(_("[INFO] {} cargado (lm_head_atado={}, missing={})").format(
-                        local_path, model.lm_head.weight is tied_target,
-                        loading_info.get("missing_keys")))
                     model.eval()
                     cache_tok[model_name] = tok
                     cache_model[model_name] = model
