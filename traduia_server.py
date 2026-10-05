@@ -49,12 +49,14 @@ import json
 import queue
 import threading
 import time
+import asyncio
 import subprocess
 import signal
 import fcntl
 import psutil
 import re
 from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Iterator, List, Tuple, Optional
 
 import numpy as np
@@ -138,6 +140,17 @@ ENV_PULSE_MONITOR = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
 # ALICIA_HOTWORDS: extra hotwords (proper nouns, terms) concatenated after the
 # built-in list. Comma-separated. Default: "" (only the built-in list).
 ENV_HOTWORDS_EXTRA = (os.getenv("ALICIA_HOTWORDS") or "").strip()
+
+# ALICIA_TRANSLATE_WORKERS: number of different model pairs translated in
+# parallel. Higher values parallelize different languages, but may complete
+# consecutive lines out of order unless the web client sequences them.
+# Set to "1" to force sequential translations server-side (FIFO).
+# Default: "2".
+ENV_TRANSLATE_WORKERS = max(1, int(os.getenv("ALICIA_TRANSLATE_WORKERS", "2")))
+
+# ALICIA_TR_CACHE_MAX: maximum number of cached translations (keyed by model
+# pair + text) kept during the single-flight TTL window (30 s). Default: "512".
+ENV_TR_CACHE_MAX = max(1, int(os.getenv("ALICIA_TR_CACHE_MAX", "512")))
 
 # =========================================================
 # CONFIG GENERAL
@@ -688,7 +701,90 @@ else:
         return out[0] if out else ""
 
 
-def translate_from_es(text: str, target: str) -> str:
+# =========================================================
+# TRANSLATION CACHE (single-flight, TTL)
+# ---------------------------------------------------------
+# /translate runs concurrently for every connected client, but all of them
+# request the same transcription line almost simultaneously. Cache each model
+# pair result for a short TTL and let concurrent requests for the same key
+# share a single inference (single-flight). Keying by (model_name, text) also
+# shares the CA->ES pivot between different target languages.
+# =========================================================
+
+_TR_CACHE_TTL = 30.0
+_TR_CACHE: "dict[Tuple[str, str], Tuple[float, str]]" = {}
+_TR_PENDING: "dict[Tuple[str, str], Future]" = {}
+_TR_LOCK = threading.Lock()
+_TR_EXECUTOR = ThreadPoolExecutor(
+    max_workers=ENV_TRANSLATE_WORKERS, thread_name_prefix="traduia-tr"
+)
+
+
+def _tr_purge_locked(now: float) -> None:
+    for key, (ts, _value) in list(_TR_CACHE.items()):
+        if now - ts > _TR_CACHE_TTL:
+            del _TR_CACHE[key]
+    if len(_TR_CACHE) > ENV_TR_CACHE_MAX:
+        excess = len(_TR_CACHE) - ENV_TR_CACHE_MAX
+        for key, _entry in sorted(_TR_CACHE.items(), key=lambda kv: kv[1][0])[:excess]:
+            del _TR_CACHE[key]
+
+
+def _tr_begin(key):
+    """Return (future, cached_value, is_creator) for a translation key."""
+    now = time.monotonic()
+    with _TR_LOCK:
+        entry = _TR_CACHE.get(key)
+        if entry is not None and now - entry[0] <= _TR_CACHE_TTL:
+            return None, entry[1], False
+        future = _TR_PENDING.get(key)
+        if future is not None:
+            return future, None, False
+        future = Future()
+        _TR_PENDING[key] = future
+        return future, None, True
+
+
+def _tr_finish(key, future, value) -> None:
+    now = time.monotonic()
+    with _TR_LOCK:
+        _TR_CACHE[key] = (now, value)
+        _TR_PENDING.pop(key, None)
+        _tr_purge_locked(now)
+    if not future.done():
+        future.set_result(value)
+
+
+def _tr_fail(key, future, exc) -> None:
+    with _TR_LOCK:
+        _TR_PENDING.pop(key, None)
+    if not future.done():
+        future.set_exception(exc)
+
+
+async def _translate_pair_async(text, model_name, cache_tok, cache_model):
+    key = (model_name, text)
+    future, cached, creator = _tr_begin(key)
+    if cached is not None:
+        return cached
+    if not creator:
+        return await asyncio.wrap_future(future)
+    loop = asyncio.get_running_loop()
+    try:
+        tok, engine = await loop.run_in_executor(
+            _TR_EXECUTOR, _load_marian, model_name, cache_tok, cache_model
+        )
+        value = await loop.run_in_executor(
+            _TR_EXECUTOR, _translate_text, text, tok, engine
+        )
+    except BaseException as exc:
+        _tr_fail(key, future, exc)
+        raise
+    _tr_finish(key, future, value)
+    return value
+
+
+async def translate_from_es_async(text: str, target: str) -> str:
     mapping = {
         "en": MARIAN_ES_EN,
         "fr": MARIAN_ES_FR,
@@ -701,11 +797,12 @@ def translate_from_es(text: str, target: str) -> str:
     }
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
-    tok, engine = _load_marian(mapping[target], _m_es_tok, _engine_cache_es)
-    return _translate_text(text, tok, engine)
+    return await _translate_pair_async(
+        text, mapping[target], _m_es_tok, _engine_cache_es
+    )
 
 
-def translate_from_ca(text: str, target: str) -> str:
+async def translate_from_ca_async(text: str, target: str) -> str:
     """
     CA -> EN directo con opus-mt-ca-en.
     CA -> X (fr,de,ru,ar,uk,ro,it) vía CA->ES + ES->X.
@@ -715,22 +812,24 @@ def translate_from_ca(text: str, target: str) -> str:
         return ""
 
     if target == "en":
-        tok, engine = _load_marian(MARIAN_CA_EN, _m_ca_tok, _engine_cache_ca)
-        return _translate_text(txt, tok, engine)
+        return await _translate_pair_async(
+            txt, MARIAN_CA_EN, _m_ca_tok, _engine_cache_ca
+        )
 
-    tok_ca_es, engine_ca_es = _load_marian(MARIAN_CA_ES, _m_ca_tok, _engine_cache_ca)
-    text_es = _translate_text(txt, tok_ca_es, engine_ca_es)
-    return translate_from_es(text_es, target) if text_es else ""
+    text_es = await _translate_pair_async(
+        txt, MARIAN_CA_ES, _m_ca_tok, _engine_cache_ca
+    )
+    return await translate_from_es_async(text_es, target) if text_es else ""
 
 
-def translate_text(text: str, target: str) -> str:
+async def translate_text_async(text: str, target: str) -> str:
     target = target.lower()
     if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro", "it"):
         return f"[NO SOPORTADO -> {target}]"
     if INPUT_LANG == "es":
-        return translate_from_es(text, target)
+        return await translate_from_es_async(text, target)
     else:
-        return translate_from_ca(text, target)
+        return await translate_from_ca_async(text, target)
 
 
 # =========================================================
@@ -1021,6 +1120,8 @@ HTML_CLIENT = r"""<!doctype html>
     const aliciaLogo= document.getElementById("alicia-logo");
 
     let es = null;
+    let lineQueue = [];
+    let processing = false;
     let INPUT_LANG = "es";
     let UI_LANG = "en";
 
@@ -1070,6 +1171,24 @@ HTML_CLIENT = r"""<!doctype html>
         return data.text || "";
       } catch (e) {
         return getI18n().errorTranslation + " " + e;
+      }
+    }
+
+    async function processQueue() {
+      if (processing) return;
+      processing = true;
+      try {
+        while (lineQueue.length) {
+          const item = lineQueue.shift();
+          if (item.mode === "original") {
+            appendLine(item.text);
+            continue;
+          }
+          const translated = await translateLine(item.text, item.target);
+          appendLine(translated);
+        }
+      } finally {
+        processing = false;
       }
     }
 
@@ -1136,6 +1255,8 @@ HTML_CLIENT = r"""<!doctype html>
         es.close();
         es = null;
       }
+      lineQueue = [];
+      processing = false;
       out.value = "";
       setStatus("conectando");
 
@@ -1149,7 +1270,7 @@ HTML_CLIENT = r"""<!doctype html>
 
       es.onopen = () => setStatus("conectado");
 
-      es.onmessage = async (e) => {
+      es.onmessage = (e) => {
         if (!e.data) return;
         let obj;
         try {
@@ -1159,17 +1280,12 @@ HTML_CLIENT = r"""<!doctype html>
         }
         if (obj.type !== "line") return;
 
-        const mode   = modeSel.value;
-        const target = targetSel.value;
-        const text   = obj.text || "";
-
-        if (mode === "original") {
-          appendLine(text);
-          return;
-        }
-
-        const translated = await translateLine(text, target);
-        appendLine(translated);
+        lineQueue.push({
+          text: obj.text || "",
+          mode: modeSel.value,
+          target: targetSel.value,
+        });
+        processQueue();
       };
 
       es.onerror = () => {
@@ -1760,7 +1876,7 @@ class TranslateResponse(BaseModel):
 
 
 @app.post("/translate", response_model=TranslateResponse)
-def translate(req: TranslateRequest):
+async def translate(req: TranslateRequest):
     target = req.target_lang.lower()
     if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro", "it"):
         return JSONResponse(
@@ -1770,7 +1886,7 @@ def translate(req: TranslateRequest):
     txt = req.text.strip()
     if not txt:
         return TranslateResponse(text="")
-    out = translate_text(txt, target)
+    out = await translate_text_async(txt, target)
     return TranslateResponse(text=out)
 
 # =========================================================

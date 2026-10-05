@@ -9,10 +9,9 @@ Runs from a git clone against a server installation:
 Unless TRADUIA_SERVER_DIR is set, it asks interactively which server to
 import (system or repo). No default is applied.
 """
+import asyncio
 import sys
-import threading
 import unittest
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import common
 
@@ -65,22 +64,17 @@ class TestParallelTranslations(unittest.TestCase):
         jobs.append((phrases[0], "en"))
         jobs.append((phrases[1], "fr"))
 
-        results = [None] * len(jobs)
-        lock = threading.Lock()
+        async def work(index, text, target):
+            translated = await ts.translate_text_async(text, target)
+            print("[%s] %s --> %s" % (target, text, translated), flush=True)
+            return translated
 
-        def work(index, text, target):
-            translated = ts.translate_text(text, target)
-            with lock:
-                results[index] = translated
-                print("[%s] %s --> %s" % (target, text, translated), flush=True)
+        async def run_all():
+            return await asyncio.gather(
+                *(work(index, text, target) for index, (text, target) in enumerate(jobs))
+            )
 
-        with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
-            futures = [
-                pool.submit(work, index, text, target)
-                for index, (text, target) in enumerate(jobs)
-            ]
-            for future in as_completed(futures):
-                future.result()
+        results = asyncio.run(run_all())
 
         failures = 0
         for index, (text, target) in enumerate(jobs):
