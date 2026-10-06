@@ -49,17 +49,20 @@ import json
 import queue
 import threading
 import time
+import asyncio
+import contextvars
 import subprocess
 import signal
 import fcntl
 import psutil
 import re
 from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Iterator, List, Tuple, Optional
 
 import numpy as np
 import sounddevice as sd
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -138,6 +141,42 @@ ENV_PULSE_MONITOR = (os.getenv("ALICIA_PULSE_MONITOR") or "").strip()
 # ALICIA_HOTWORDS: extra hotwords (proper nouns, terms) concatenated after the
 # built-in list. Comma-separated. Default: "" (only the built-in list).
 ENV_HOTWORDS_EXTRA = (os.getenv("ALICIA_HOTWORDS") or "").strip()
+
+# ALICIA_TRANSLATE_WORKERS: number of different model pairs translated in
+# parallel. Higher values parallelize different languages, but may complete
+# consecutive lines out of order unless the web client sequences them.
+# Set to "1" to force sequential translations server-side (FIFO).
+# Default: "2".
+ENV_TRANSLATE_WORKERS = max(1, int(os.getenv("ALICIA_TRANSLATE_WORKERS", "2")))
+
+# ALICIA_TR_CACHE_MAX: maximum number of cached translations (keyed by model
+# pair + text) kept during the single-flight TTL window (30 s). Default: "512".
+ENV_TR_CACHE_MAX = max(1, int(os.getenv("ALICIA_TR_CACHE_MAX", "512")))
+
+# =========================================================
+# TRACE (developer log, enabled with ALICIA_DEBUG=1)
+# ---------------------------------------------------------
+# One legible line per event on stdout, with a wall-clock timestamp.
+# Never persisted; no gettext. Fields named "text"/"out" are JSON-quoted.
+# =========================================================
+
+_TRACE_QUOTED_FIELDS = ("text", "out")
+
+
+def trace(event, **fields):
+    if not ENV_DEBUG:
+        return
+    now = time.time()
+    stamp = "%s.%03d" % (
+        time.strftime("%H:%M:%S", time.localtime(now)),
+        int((now % 1) * 1000),
+    )
+    parts = []
+    for key, value in fields.items():
+        if key in _TRACE_QUOTED_FIELDS and isinstance(value, str):
+            value = json.dumps(value, ensure_ascii=False)
+        parts.append(" %s=%s" % (key, value))
+    print("[TRACE] %s %s%s" % (stamp, event, "".join(parts)), flush=True)
 
 # =========================================================
 # CONFIG GENERAL
@@ -527,6 +566,8 @@ if USE_CT2:
         if model_name not in cache_tok or model_name not in cache_model:
             with _marian_load_lock:
                 if model_name not in cache_tok or model_name not in cache_model:
+                    trace("tr:model:load:start", model=model_name)
+                    load_t0 = time.perf_counter()
                     ct2_path = _marian_ct2_path(model_name)
                     try:
                         tok = MarianTokenizer.from_pretrained(ct2_path)
@@ -546,12 +587,16 @@ if USE_CT2:
                         raise
                     cache_tok[model_name] = tok
                     cache_model[model_name] = translator
+                    trace("tr:model:load:end", model=model_name,
+                          dur="%.3fs" % (time.perf_counter() - load_t0))
         return cache_tok[model_name], cache_model[model_name]
 else:
     def _load_marian(model_name, cache_tok, cache_model):
         if model_name not in cache_tok or model_name not in cache_model:
             with _marian_load_lock:
                 if model_name not in cache_tok or model_name not in cache_model:
+                    trace("tr:model:load:start", model=model_name)
+                    load_t0 = time.perf_counter()
                     local_path = _marian_local_path(model_name)
                     try:
                         config = MarianConfig.from_pretrained(local_path, local_files_only=True)
@@ -579,6 +624,8 @@ else:
                     model.eval()
                     cache_tok[model_name] = tok
                     cache_model[model_name] = model
+                    trace("tr:model:load:end", model=model_name,
+                          dur="%.3fs" % (time.perf_counter() - load_t0))
         return cache_tok[model_name], cache_model[model_name]
 
 def _detect_low_diversity(words, window=12, threshold=0.45):
@@ -688,7 +735,115 @@ else:
         return out[0] if out else ""
 
 
-def translate_from_es(text: str, target: str) -> str:
+# =========================================================
+# TRANSLATION CACHE (single-flight, TTL)
+# ---------------------------------------------------------
+# /translate runs concurrently for every connected client, but all of them
+# request the same transcription line almost simultaneously. Cache each model
+# pair result for a short TTL and let concurrent requests for the same key
+# share a single inference (single-flight). Keying by (model_name, text) also
+# shares the CA->ES pivot between different target languages.
+# =========================================================
+
+_TR_CACHE_TTL = 30.0
+_TR_CACHE: "dict[Tuple[str, str], Tuple[float, str]]" = {}
+_TR_PENDING: "dict[Tuple[str, str], Future]" = {}
+_TR_LOCK = threading.Lock()
+_TR_EXECUTOR = ThreadPoolExecutor(
+    max_workers=ENV_TRANSLATE_WORKERS, thread_name_prefix="traduia-tr"
+)
+
+# Per-request status bucket (miss/wait/hit) for the trace.
+_TR_STATUS = contextvars.ContextVar("traduia_tr_status", default=None)
+
+
+def _tr_mark(status: str) -> None:
+    bucket = _TR_STATUS.get()
+    if bucket is not None:
+        bucket.append(status)
+
+
+def _tr_purge_locked(now: float) -> None:
+    for key, (ts, _value) in list(_TR_CACHE.items()):
+        if now - ts > _TR_CACHE_TTL:
+            del _TR_CACHE[key]
+    if len(_TR_CACHE) > ENV_TR_CACHE_MAX:
+        excess = len(_TR_CACHE) - ENV_TR_CACHE_MAX
+        for key, _entry in sorted(_TR_CACHE.items(), key=lambda kv: kv[1][0])[:excess]:
+            del _TR_CACHE[key]
+
+
+def _tr_begin(key):
+    """Return (future, cached_value, is_creator) for a translation key."""
+    now = time.monotonic()
+    with _TR_LOCK:
+        entry = _TR_CACHE.get(key)
+        if entry is not None and now - entry[0] <= _TR_CACHE_TTL:
+            return None, entry[1], False
+        future = _TR_PENDING.get(key)
+        if future is not None:
+            return future, None, False
+        future = Future()
+        _TR_PENDING[key] = future
+        return future, None, True
+
+
+def _tr_finish(key, future, value) -> None:
+    now = time.monotonic()
+    with _TR_LOCK:
+        _TR_CACHE[key] = (now, value)
+        _TR_PENDING.pop(key, None)
+        _tr_purge_locked(now)
+    if not future.done():
+        future.set_result(value)
+
+
+def _tr_fail(key, future, exc) -> None:
+    with _TR_LOCK:
+        _TR_PENDING.pop(key, None)
+    if not future.done():
+        future.set_exception(exc)
+
+
+async def _translate_pair_async(text, model_name, cache_tok, cache_model):
+    key = (model_name, text)
+    future, cached, creator = _tr_begin(key)
+    if cached is not None:
+        _tr_mark("hit")
+        trace("tr:pair:hit", model=model_name, text=text, out=cached)
+        return cached
+    if not creator:
+        _tr_mark("wait")
+        t0 = time.perf_counter()
+        trace("tr:pair:wait:start", model=model_name, text=text)
+        value = await asyncio.wrap_future(future)
+        trace("tr:pair:wait:end", model=model_name,
+              dur="%.3fs" % (time.perf_counter() - t0), out=value)
+        return value
+    _tr_mark("miss")
+    loop = asyncio.get_running_loop()
+    t0 = time.perf_counter()
+    trace("tr:pair:start", model=model_name, role="creator", text=text)
+    try:
+        tok, engine = await loop.run_in_executor(
+            _TR_EXECUTOR, _load_marian, model_name, cache_tok, cache_model
+        )
+        value = await loop.run_in_executor(
+            _TR_EXECUTOR, _translate_text, text, tok, engine
+        )
+    except BaseException as exc:
+        trace("tr:pair:end", model=model_name,
+              dur="%.3fs" % (time.perf_counter() - t0),
+              error=type(exc).__name__)
+        _tr_fail(key, future, exc)
+        raise
+    _tr_finish(key, future, value)
+    trace("tr:pair:end", model=model_name,
+          dur="%.3fs" % (time.perf_counter() - t0), out=value)
+    return value
+
+
+async def translate_from_es_async(text: str, target: str) -> str:
     mapping = {
         "en": MARIAN_ES_EN,
         "fr": MARIAN_ES_FR,
@@ -701,11 +856,12 @@ def translate_from_es(text: str, target: str) -> str:
     }
     if target not in mapping:
         return f"[NO SOPORTADO ES->{target}]"
-    tok, engine = _load_marian(mapping[target], _m_es_tok, _engine_cache_es)
-    return _translate_text(text, tok, engine)
+    return await _translate_pair_async(
+        text, mapping[target], _m_es_tok, _engine_cache_es
+    )
 
 
-def translate_from_ca(text: str, target: str) -> str:
+async def translate_from_ca_async(text: str, target: str) -> str:
     """
     CA -> EN directo con opus-mt-ca-en.
     CA -> X (fr,de,ru,ar,uk,ro,it) vía CA->ES + ES->X.
@@ -715,22 +871,24 @@ def translate_from_ca(text: str, target: str) -> str:
         return ""
 
     if target == "en":
-        tok, engine = _load_marian(MARIAN_CA_EN, _m_ca_tok, _engine_cache_ca)
-        return _translate_text(txt, tok, engine)
+        return await _translate_pair_async(
+            txt, MARIAN_CA_EN, _m_ca_tok, _engine_cache_ca
+        )
 
-    tok_ca_es, engine_ca_es = _load_marian(MARIAN_CA_ES, _m_ca_tok, _engine_cache_ca)
-    text_es = _translate_text(txt, tok_ca_es, engine_ca_es)
-    return translate_from_es(text_es, target) if text_es else ""
+    text_es = await _translate_pair_async(
+        txt, MARIAN_CA_ES, _m_ca_tok, _engine_cache_ca
+    )
+    return await translate_from_es_async(text_es, target) if text_es else ""
 
 
-def translate_text(text: str, target: str) -> str:
+async def translate_text_async(text: str, target: str) -> str:
     target = target.lower()
     if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro", "it"):
         return f"[NO SOPORTADO -> {target}]"
     if INPUT_LANG == "es":
-        return translate_from_es(text, target)
+        return await translate_from_es_async(text, target)
     else:
-        return translate_from_ca(text, target)
+        return await translate_from_ca_async(text, target)
 
 
 # =========================================================
@@ -1021,6 +1179,8 @@ HTML_CLIENT = r"""<!doctype html>
     const aliciaLogo= document.getElementById("alicia-logo");
 
     let es = null;
+    let lineQueue = [];
+    let processing = false;
     let INPUT_LANG = "es";
     let UI_LANG = "en";
 
@@ -1070,6 +1230,24 @@ HTML_CLIENT = r"""<!doctype html>
         return data.text || "";
       } catch (e) {
         return getI18n().errorTranslation + " " + e;
+      }
+    }
+
+    async function processQueue() {
+      if (processing) return;
+      processing = true;
+      try {
+        while (lineQueue.length) {
+          const item = lineQueue.shift();
+          if (item.mode === "original") {
+            appendLine(item.text);
+            continue;
+          }
+          const translated = await translateLine(item.text, item.target);
+          appendLine(translated);
+        }
+      } finally {
+        processing = false;
       }
     }
 
@@ -1136,6 +1314,8 @@ HTML_CLIENT = r"""<!doctype html>
         es.close();
         es = null;
       }
+      lineQueue = [];
+      processing = false;
       out.value = "";
       setStatus("conectando");
 
@@ -1149,7 +1329,7 @@ HTML_CLIENT = r"""<!doctype html>
 
       es.onopen = () => setStatus("conectado");
 
-      es.onmessage = async (e) => {
+      es.onmessage = (e) => {
         if (!e.data) return;
         let obj;
         try {
@@ -1159,17 +1339,12 @@ HTML_CLIENT = r"""<!doctype html>
         }
         if (obj.type !== "line") return;
 
-        const mode   = modeSel.value;
-        const target = targetSel.value;
-        const text   = obj.text || "";
-
-        if (mode === "original") {
-          appendLine(text);
-          return;
-        }
-
-        const translated = await translateLine(text, target);
-        appendLine(translated);
+        lineQueue.push({
+          text: obj.text || "",
+          mode: modeSel.value,
+          target: targetSel.value,
+        });
+        processQueue();
       };
 
       es.onerror = () => {
@@ -1275,10 +1450,40 @@ def init_app():
 def sse_pack(obj: dict) -> bytes:
     return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n".encode("utf-8")
 
+# Trace correlation: broadcast text -> line sequence (ALICIA_DEBUG only).
+_LINE_SEQ = {}
+_LINE_SEQ_LOCK = threading.Lock()
+_LINE_SEQ_TTL = 30.0
+_line_seq_counter = 0
+
+
+def _line_seq(text):
+    now = time.monotonic()
+    with _LINE_SEQ_LOCK:
+        entry = _LINE_SEQ.get(text)
+        if entry is None:
+            return "-"
+        seq, ts = entry
+        if now - ts > _LINE_SEQ_TTL:
+            del _LINE_SEQ[text]
+            return "-"
+        return seq
+
+
 def broadcast_line(text: str) -> None:
-    global _subscribers
-    payload = {"type": "line", "text": text, "src_lang": INPUT_LANG}
+    global _subscribers, _line_seq_counter
+    with _LINE_SEQ_LOCK:
+        _line_seq_counter += 1
+        seq = _line_seq_counter
+        _LINE_SEQ[text] = (seq, time.monotonic())
+        if len(_LINE_SEQ) > 256:
+            now = time.monotonic()
+            for key, (_seq, ts) in list(_LINE_SEQ.items()):
+                if now - ts > _LINE_SEQ_TTL:
+                    del _LINE_SEQ[key]
+    payload = {"type": "line", "text": text, "src_lang": INPUT_LANG, "seq": seq}
     data = sse_pack(payload)
+    trace("stt:broadcast", seq=seq, text=text)
     with _sub_lock:
         for q in list(_subscribers):
             try:
@@ -1469,8 +1674,12 @@ def stt_worker():
             activity_window.append(1 if is_voice else 0)
 
             if not is_voice:
+                trace("stt:skip", reason="no_voice",
+                      win="%.2fs" % (chunk.shape[0] / RATE))
                 continue
 
+            trace("stt:transcribe:start", win="%.2fs" % (chunk.shape[0] / RATE))
+            stt_t0 = time.perf_counter()
             try:
                 segments, info = model.transcribe(
                     chunk,
@@ -1512,6 +1721,9 @@ def stt_worker():
 
                 segs = list(segments)
                 if not segs:
+                    trace("stt:transcribe:end",
+                          dur="%.3fs" % (time.perf_counter() - stt_t0),
+                          segs=0, valid=0)
                     continue
 
                 # Filtro de calidad por segmento: descarta los que probablemente
@@ -1527,6 +1739,9 @@ def stt_worker():
                             )
                         )
 
+                trace("stt:transcribe:end",
+                      dur="%.3fs" % (time.perf_counter() - stt_t0),
+                      segs=len(segs), valid=len(valid_segs))
                 if not valid_segs:
                     continue
 
@@ -1760,7 +1975,7 @@ class TranslateResponse(BaseModel):
 
 
 @app.post("/translate", response_model=TranslateResponse)
-def translate(req: TranslateRequest):
+async def translate(req: TranslateRequest, request: Request):
     target = req.target_lang.lower()
     if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro", "it"):
         return JSONResponse(
@@ -1770,7 +1985,32 @@ def translate(req: TranslateRequest):
     txt = req.text.strip()
     if not txt:
         return TranslateResponse(text="")
-    out = translate_text(txt, target)
+    client = request.client
+    cli = "%s:%s" % (client.host, client.port) if client else "-"
+    seq = _line_seq(txt)
+    status_bucket = []
+    token = _TR_STATUS.set(status_bucket)
+    t0 = time.perf_counter()
+    trace("tr:req:start", seq=seq, cli=cli, target=target, text=txt)
+    try:
+        out = await translate_text_async(txt, target)
+    except BaseException as exc:
+        trace("tr:req:end", cli=cli, target=target, status="error",
+              dur="%.3fs" % (time.perf_counter() - t0),
+              error=type(exc).__name__)
+        raise
+    finally:
+        _TR_STATUS.reset(token)
+    if "miss" in status_bucket:
+        status = "miss"
+    elif "wait" in status_bucket:
+        status = "wait"
+    elif status_bucket:
+        status = "hit"
+    else:
+        status = "-"
+    trace("tr:req:end", cli=cli, target=target, status=status,
+          dur="%.3fs" % (time.perf_counter() - t0), out=out)
     return TranslateResponse(text=out)
 
 # =========================================================
