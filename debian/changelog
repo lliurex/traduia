@@ -1,3 +1,13 @@
+traduia (0.9.4) noble; urgency=medium
+
+  * Cache translations: the same text and language is translated only once
+  * Make /translate asynchronous with a configurable number of workers (ALICIA_TRANSLATE_WORKERS, default 2)
+  * Client: show translated lines in order, one translation at a time
+  * Launcher: allow setting ALICIA_TRANSLATE_WORKERS via config.env or environment
+  * Debug: new tracing messages 
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 06 Oct 2026 13:03:41 +0200
+
 traduia (0.9.3) noble; urgency=medium
 
   * Serialize Marian/CT2 model loading with a lock (concurrent from_pretrained)
