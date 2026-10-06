@@ -172,6 +172,7 @@ CONF_INPUT_LANG="$(get_conf ALICIA_INPUT_LANG "es")"
 CONF_GATE_MODE="$(get_conf ALICIA_GATE_MODE "aula")"
 CONF_AUTO_CALIBRATE="$(get_conf ALICIA_AUTO_CALIBRATE "1")"
 CONF_CALIBRATE_SECONDS="$(get_conf ALICIA_CALIBRATE_SECONDS "2.0")"
+CONF_TRANSLATE_WORKERS="$(get_conf ALICIA_TRANSLATE_WORKERS "2")"
 
 # =========================================================
 # Selector de idioma de entrada (profesor)
@@ -360,6 +361,8 @@ AUDIO_CHOICE="$SEL_NAME"
 : "${GATE_MODE:=0}"
 : "${AUTO_CALIBRATE:=1}"
 : "${CALIBRATE_SECONDS:=3}"
+# Precedencia: entorno > config.env > 2
+: "${TRANSLATE_WORKERS:=${ALICIA_TRANSLATE_WORKERS:-$CONF_TRANSLATE_WORKERS}}"
 
 # =========================================================
 {
@@ -372,6 +375,7 @@ AUDIO_CHOICE="$SEL_NAME"
   echo "ALICIA_GATE_MODE=${GATE_MODE}"
   echo "ALICIA_AUTO_CALIBRATE=${AUTO_CALIBRATE}"
   echo "ALICIA_CALIBRATE_SECONDS=${CALIBRATE_SECONDS}"
+  echo "ALICIA_TRANSLATE_WORKERS=${TRANSLATE_WORKERS}"
 } > "$CONFIG_FILE"
 
 # Export para app
@@ -379,6 +383,7 @@ export ALICIA_INPUT_LANG="$INPUT_LANG"
 export ALICIA_GATE_MODE="$GATE_MODE"
 export ALICIA_AUTO_CALIBRATE="$AUTO_CALIBRATE"
 export ALICIA_CALIBRATE_SECONDS="$CALIBRATE_SECONDS"
+export ALICIA_TRANSLATE_WORKERS="$TRANSLATE_WORKERS"
 
 # Si es micro, pasamos el ID PortAudio. Si es altavoces, pasamos ALICIA_PULSE_MONITOR.
 if [[ -n "$SEL_ID" ]]; then
