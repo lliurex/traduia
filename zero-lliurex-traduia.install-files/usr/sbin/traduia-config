@@ -73,6 +73,9 @@ TRADUIA_MODE_FILE="/tmp/.traduia_install_mode"
 TRADUIA_SOURCE_FILE="/tmp/.traduia_models_source"
 TRADUIA_OPTIMIZE_FILE="/tmp/.traduia_optimize_model"
 
+# Marcador persistente del modo de instalación (Server/Client)
+TRADUIA_MODE_FLAG="/opt/ai/traduia/.mode"
+
 function remove_models(){
     models='/opt/ai/traduia/models'
     if [ -e "$models" ]; then
@@ -571,6 +574,17 @@ do_postinstall() {
         fi
         echo "$(_ "Setting server desktop")"
         sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
+        mkdir -p /opt/ai/traduia
+        printf 'Server\n' > "$TRADUIA_MODE_FLAG"
+    fi
+
+    # ==== Exclusivo del modo Client: marcador y escritorio ====
+    if [ -n "$mode" ] && [ "$mode" == "Client" ]; then
+        mkdir -p /opt/ai/traduia
+        printf 'Client\n' > "$TRADUIA_MODE_FLAG"
+        if [ -f /usr/share/applications/traduia-server.desktop ]; then
+            sed -i -e 's|NoDisplay=false|NoDisplay=true|i' /usr/share/applications/traduia-server.desktop
+        fi
     fi
 
     # ==== Entradas web: común a Client y Server ====
@@ -642,6 +656,7 @@ do_install() {
 do_remove() {
     require_root
     rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" || true
+    rm -f "$TRADUIA_MODE_FLAG"
 
     # Solo se pregunta sobre los modelos si existen en disco.
     REMOVE_MODELS=false
