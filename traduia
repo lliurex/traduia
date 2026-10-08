@@ -23,12 +23,14 @@ export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::DeprecationWarning}"
 CONSOLE_MODE=false
 CLI_INPUT_LANG=""
 CLI_AUDIO_SOURCE=""
+DISABLE_AUTOSHUTDOWN=false
 ERROR_TO_STDERR=false
 
 usage() {
     echo "$(_ "Usage: traduia [options]")"
     echo ""
     echo "$(_ "  -console, --console     ask the questions on the console (no kdialog)")"
+    echo "$(_ "  --disable-autoshutdown  keep the server running with no activity (no auto-shutdown)")"
     echo "$(_ "  --input-lang <es|ca>    teacher input language (skips the question)")"
     echo "$(_ "  --audio-source <value>  audio source (skips the question):")"
     echo "$(_ "                            mic | speakers | <pulse-source-name>")"
@@ -47,6 +49,10 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -console|--console)
             CONSOLE_MODE=true
+            shift
+            ;;
+        --disable-autoshutdown)
+            DISABLE_AUTOSHUTDOWN=true
             shift
             ;;
         --input-lang)
@@ -384,6 +390,13 @@ export ALICIA_GATE_MODE="$GATE_MODE"
 export ALICIA_AUTO_CALIBRATE="$AUTO_CALIBRATE"
 export ALICIA_CALIBRATE_SECONDS="$CALIBRATE_SECONDS"
 export ALICIA_TRANSLATE_WORKERS="$TRANSLATE_WORKERS"
+
+# Deshabilitar el autoapagado por inactividad (solo para esta ejecución).
+if $DISABLE_AUTOSHUTDOWN; then
+  export ALICIA_DISABLE_AUTOSHUTDOWN=1
+else
+  unset ALICIA_DISABLE_AUTOSHUTDOWN || true
+fi
 
 # Si es micro, pasamos el ID PortAudio. Si es altavoces, pasamos ALICIA_PULSE_MONITOR.
 if [[ -n "$SEL_ID" ]]; then
