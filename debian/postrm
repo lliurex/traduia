@@ -29,6 +29,10 @@ case "$1" in
         if [ -e "$venv" ]; then
             rm -rf "$venv"
         fi
+        mode_flag='/opt/ai/traduia/.mode'
+        if [ -e "$mode_flag" ]; then
+            rm -f "$mode_flag"
+        fi
         d='/usr/lib/traduia'
         if [ -d "$d" ]; then
             rmdir "$d" || true

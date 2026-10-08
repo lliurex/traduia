@@ -1,0 +1,48 @@
+#!/bin/sh
+# postinst script for traduia.
+#
+# See: dh_installdeb(1).
+
+set -e
+
+case "$1" in
+    configure)
+        mode_flag='/opt/ai/traduia/.mode'
+        server_desktop='/usr/share/applications/traduia-server.desktop'
+        mode="$(cat "$mode_flag" 2>/dev/null || true)"
+        if [ "$mode" != "Server" ] && [ "$mode" != "Client" ]; then
+            mode=""
+            if [ -d /opt/ai/traduia/models ] && [ -n "$(ls -A /opt/ai/traduia/models 2>/dev/null)" ]; then
+                mode="Server"
+            elif [ -f /var/lib/lliurex-www/links/traduia.json ]; then
+                mode="Server"
+            fi
+            if [ "$mode" = "Server" ]; then
+                mkdir -p /opt/ai/traduia
+                printf 'Server\n' > "$mode_flag"
+            fi
+        fi
+        if [ -f "$server_desktop" ]; then
+            if [ "$mode" = "Server" ]; then
+                sed -i -e 's|noDisplay=true|NoDisplay=false|i' "$server_desktop"
+            elif [ "$mode" = "Client" ]; then
+                sed -i -e 's|noDisplay=false|NoDisplay=true|i' "$server_desktop"
+            fi
+            if command -v update-desktop-database >/dev/null 2>&1; then
+                update-desktop-database /usr/share/applications || true
+            fi
+        fi
+    ;;
+
+    abort-upgrade|abort-remove|abort-install)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument '$1'" >&2
+        exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0
