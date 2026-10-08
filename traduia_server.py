@@ -56,7 +56,6 @@ import signal
 import fcntl
 import psutil
 import re
-from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Iterator, List, Tuple, Optional
 
@@ -87,13 +86,19 @@ for path in list(dist_packages_paths):
     if path not in sys.path:
         sys.path.append(path)
 try:
-    from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+    from PySide6.QtWidgets import (
+        QApplication, QSystemTrayIcon, QMenu, QDialog, QLabel, QPushButton,
+        QVBoxLayout, QHBoxLayout,
+    )
     from PySide6.QtGui import QIcon, QCursor
-    from PySide6.QtCore import QThread, Signal, QTimer, QPoint
+    from PySide6.QtCore import QThread, Signal, QTimer, QPoint, Qt
 except:
-    from PySide2.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+    from PySide2.QtWidgets import (
+        QApplication, QSystemTrayIcon, QMenu, QDialog, QLabel, QPushButton,
+        QVBoxLayout, QHBoxLayout,
+    )
     from PySide2.QtGui import QIcon, QCursor
-    from PySide2.QtCore import QThread, Signal, QTimer, QPoint
+    from PySide2.QtCore import QThread, Signal, QTimer, QPoint, Qt
 
 import uvicorn
 
@@ -152,6 +157,11 @@ ENV_TRANSLATE_WORKERS = max(1, int(os.getenv("ALICIA_TRANSLATE_WORKERS", "2")))
 # ALICIA_TR_CACHE_MAX: maximum number of cached translations (keyed by model
 # pair + text) kept during the single-flight TTL window (30 s). Default: "512".
 ENV_TR_CACHE_MAX = max(1, int(os.getenv("ALICIA_TR_CACHE_MAX", "512")))
+
+# ALICIA_DISABLE_AUTOSHUTDOWN: set to "1" (launcher --disable-autoshutdown) to
+# keep the server running even with no classroom activity: the inactivity
+# monitor is not started. Default: "0" (auto-shutdown enabled).
+ENV_DISABLE_AUTOSHUTDOWN = os.getenv("ALICIA_DISABLE_AUTOSHUTDOWN", "0") == "1"
 
 # =========================================================
 # TRACE (developer log, enabled with ALICIA_DEBUG=1)
@@ -493,13 +503,65 @@ if USE_CT2:
 
 
 # =========================================================
-# MONITOR DE ACTIVIDAD (10 MINUTOS)
+# MONITOR DE INACTIVIDAD (AUTO-APAGADO)
+# ---------------------------------------------------------
+# Contador determinista en tiempo real: cada frase válida transcrita
+# repone el contador a INACTIVITY_SHUTDOWN_SECS. Si llega a 0 se pide un
+# aviso nativo (extensible) y, tras la gracia, el servidor se apaga.
 # =========================================================
-MONITOR_WINDOW_MINS = 10
-CHUNK_DURATION = 5.0  # Coincide con MIN_SECONDS en stt_worker
-MAX_WINDOW_SIZE = int((MONITOR_WINDOW_MINS * 60) // CHUNK_DURATION)
-activity_window: deque = deque(maxlen=MAX_WINDOW_SIZE)
-INACTIVITY_RATIO = 0.1  # umbral de actividad (10%): systray, /activity y auto-shutdown
+INACTIVITY_SHUTDOWN_SECS = 5 * 60  # N: valor tras cada frase válida
+INACTIVITY_BOOT_SECS = 2 * INACTIVITY_SHUTDOWN_SECS  # valor inicial al arrancar
+INACTIVITY_TICK_SECS = 10  # decaimiento del contador
+INACTIVITY_GRACE_SECS = 60  # margen para responder al aviso
+
+
+class InactivityMonitor:
+    """Contador determinista de inactividad, sin dependencias de Qt."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._remaining = INACTIVITY_BOOT_SECS
+        self._seen_phrase = False
+        self._pending = False
+
+    def reset(self):
+        with self._lock:
+            self._remaining = INACTIVITY_SHUTDOWN_SECS
+            self._seen_phrase = True
+            self._pending = False
+
+    def tick(self):
+        with self._lock:
+            if self._pending:
+                return False
+            self._remaining = max(0, self._remaining - INACTIVITY_TICK_SECS)
+            if self._remaining == 0:
+                self._pending = True
+                return True
+            return False
+
+    def is_pending(self):
+        with self._lock:
+            return self._pending
+
+    def state(self):
+        with self._lock:
+            remaining = self._remaining
+            seen = self._seen_phrase
+            pending = self._pending
+        total = INACTIVITY_SHUTDOWN_SECS if seen else INACTIVITY_BOOT_SECS
+        age = max(0, total - remaining)
+        return {
+            "remaining_secs": remaining,
+            "seen_phrase": seen,
+            "pending": pending,
+            "last_phrase_secs_ago": age,
+            "is_active": (not pending) and seen and age < 60,
+        }
+
+
+_inactivity_monitor: Optional["InactivityMonitor"] = None
+_tray_ref = None
 
 PROMPT_CA = (
    "Classe en un aula amb LliureX i TraduIA. Valencià, amb paraules com xiquet, faena, espill, hui, eixir, cotxera, llepolies, orxata, espenta, menut, celler, gerundi, conjugació, subjuntiu, pretèrit, sintaxi, verb, oració, paràgraf, literatura, Cervantes, Numància, Lorca, Quixot."
@@ -1671,7 +1733,6 @@ def stt_worker():
                 continue
 
             is_voice = looks_like_voice(chunk)
-            activity_window.append(1 if is_voice else 0)
 
             if not is_voice:
                 trace("stt:skip", reason="no_voice",
@@ -1752,6 +1813,9 @@ def stt_worker():
 
                 if not text or is_hallucination_line(text):
                     continue
+
+                if _inactivity_monitor is not None:
+                    _inactivity_monitor.reset()
 
                 # print(f"[STT][{INPUT_LANG}]", text)
                 broadcast_line(text)
@@ -1850,21 +1914,41 @@ def start_stt_if_needed():
     _stt_thread.start()
     _stt_started = True
 
-    # Monitor de auto-apagado por inactividad
-    def auto_shutdown_check():
-        while not _stop_event.is_set():
-            time.sleep(10)
-            if len(activity_window) < 20:
-                continue
-            ratio = sum(activity_window) / len(activity_window)
-            if ratio < INACTIVITY_RATIO:
-                print(_("[INFO] Auto-shutdown due to inactivity (Ratio: {:.4f})").format(ratio))
-                _stop_event.set()
-                os.kill(os.getpid(), signal.SIGINT)
-                break
 
-    t_shutdown = threading.Thread(target=auto_shutdown_check, daemon=True)
-    t_shutdown.start()
+def inactivity_loop(monitor):
+    while not _stop_event.wait(INACTIVITY_TICK_SECS):
+        if not monitor.tick():
+            continue
+        if _tray_ref is not None:
+            _tray_ref.request_inactivity_prompt()
+        deadline = time.monotonic() + INACTIVITY_GRACE_SECS
+        while (not _stop_event.is_set() and monitor.is_pending()
+               and time.monotonic() < deadline):
+            time.sleep(0.5)
+        if _tray_ref is not None:
+            _tray_ref.hide_inactivity_prompt()
+        if _stop_event.is_set():
+            break
+        if monitor.is_pending():
+            print(_("[INFO] Auto-shutdown due to inactivity."))
+            _stop_event.set()
+            os.kill(os.getpid(), signal.SIGINT)
+            break
+
+
+def start_inactivity_monitor():
+    global _inactivity_monitor
+    if _inactivity_monitor is not None:
+        return
+    if ENV_DISABLE_AUTOSHUTDOWN:
+        print(_("[INFO] Auto-shutdown disabled."))
+        return
+    _inactivity_monitor = InactivityMonitor()
+    threading.Thread(
+        target=inactivity_loop, args=(_inactivity_monitor,),
+        daemon=True, name="traduia-inactivity",
+    ).start()
+
 
 def start_system_tray():
     tray = TrayIcon()
@@ -1874,6 +1958,7 @@ def start_system_tray():
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
+    start_inactivity_monitor()
     start_stt_if_needed()
     open_web_with_ip("/usr/share/doc/traduia/show-server.html", port=8000)
     yield
@@ -1898,17 +1983,30 @@ def health():
 
 @app.get("/activity")
 def get_activity():
-    if not activity_window:
-        return {"ratio": 0.0, "is_active": False, "samples": 0}
+    monitor = _inactivity_monitor
+    if monitor is None:
+        return {
+            "state": "disabled",
+            "is_active": False,
+            "remaining_secs": 0,
+            "last_phrase_secs_ago": None,
+        }
 
-    ratio = sum(activity_window) / len(activity_window)
-    is_active = ratio > INACTIVITY_RATIO
+    state = monitor.state()
+    if state["pending"]:
+        name = "pending"
+    elif not state["seen_phrase"]:
+        name = "waiting"
+    elif state["is_active"]:
+        name = "active"
+    else:
+        name = "idle"
 
     return {
-        "ratio": round(ratio, 4),
-        "is_active": is_active,
-        "samples": len(activity_window),
-        "window_mins": MONITOR_WINDOW_MINS
+        "state": name,
+        "is_active": state["is_active"],
+        "remaining_secs": state["remaining_secs"],
+        "last_phrase_secs_ago": state["last_phrase_secs_ago"] if state["seen_phrase"] else None,
     }
 
 @app.get("/", include_in_schema=False)
@@ -2035,27 +2133,110 @@ class FastApiThread(threading.Thread):
             self.server.should_exit = True
 
 class TrayIcon(QSystemTrayIcon):
+    inactivity_prompt = Signal()
+    inactivity_dismiss = Signal()
+
     def __init__(self):
         super().__init__()
         self._setup_icon()
         self._setup_menu()
         self.activated.connect(self._on_tray_activated)
         self.api_thread = FastApiThread()
+        self._prompt_dialog = None
+        self._prompt_label = None
+        self._prompt_timer = None
+        self._prompt_deadline = None
+        self.inactivity_prompt.connect(self._on_inactivity_prompt)
+        self.inactivity_dismiss.connect(self._on_inactivity_dismiss)
 
-        # Timer para actualizar el ratio de actividad en el widget
+        # Timer para actualizar el estado de actividad en el widget
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_activity_info)
         self.timer.start(10000)  # 10 segundos
         self._update_activity_info()
 
+    def request_inactivity_prompt(self):
+        self.inactivity_prompt.emit()
+
+    def hide_inactivity_prompt(self):
+        self.inactivity_dismiss.emit()
+
+    def _on_inactivity_prompt(self):
+        if self._prompt_dialog is not None:
+            return
+        dlg = QDialog()
+        dlg.setWindowTitle(_("TraduIA Server"))
+        dlg.setModal(False)
+        dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowStaysOnTopHint)
+        layout = QVBoxLayout(dlg)
+        self._prompt_label = QLabel()
+        layout.addWidget(self._prompt_label)
+        buttons = QHBoxLayout()
+        extend_btn = QPushButton(_("Extend 5 minutes"))
+        no_btn = QPushButton(_("No"))
+        buttons.addWidget(extend_btn)
+        buttons.addWidget(no_btn)
+        layout.addLayout(buttons)
+        extend_btn.clicked.connect(self._on_inactivity_extend)
+        no_btn.clicked.connect(self._on_inactivity_dismiss)
+        dlg.finished.connect(self._on_inactivity_dismiss)
+        self._prompt_dialog = dlg
+        self._prompt_deadline = time.monotonic() + INACTIVITY_GRACE_SECS
+        self._prompt_timer = QTimer()
+        self._prompt_timer.timeout.connect(self._update_inactivity_countdown)
+        self._prompt_timer.start(1000)
+        self._update_inactivity_countdown()
+        dlg.show()
+        dlg.raise_()
+        self.showMessage(
+            _("TraduIA Server"),
+            _("The server will shut down due to inactivity. Do you want to extend?"),
+            QSystemTrayIcon.Warning,
+            10000,
+        )
+
+    def _update_inactivity_countdown(self):
+        if self._prompt_dialog is None or self._prompt_deadline is None:
+            return
+        remaining = max(0, int(self._prompt_deadline - time.monotonic() + 0.999))
+        self._prompt_label.setText(
+            _("The server will shut down due to inactivity in {} seconds.").format(remaining)
+        )
+
+    def _on_inactivity_extend(self, *args):
+        if _inactivity_monitor is not None:
+            _inactivity_monitor.reset()
+        self._on_inactivity_dismiss()
+
+    def _on_inactivity_dismiss(self, *args):
+        dlg = self._prompt_dialog
+        self._prompt_dialog = None
+        self._prompt_label = None
+        self._prompt_deadline = None
+        if self._prompt_timer is not None:
+            self._prompt_timer.stop()
+            self._prompt_timer = None
+        if dlg is not None:
+            dlg.close()
+
     def _update_activity_info(self):
-        if not activity_window:
-            status_text = _("Activity: Wait...")
+        monitor = _inactivity_monitor
+        if monitor is None:
+            status_text = _("Activity: auto-shutdown disabled")
         else:
-            ratio = sum(activity_window) / len(activity_window)
-            is_active = ratio > INACTIVITY_RATIO
-            status = _("Active") if is_active else _("Inactive")
-            status_text = _("Activity: {} ({:.1%})").format(status, ratio)
+            state = monitor.state()
+            if state["pending"]:
+                status_text = _("Activity: shutdown pending")
+            elif not state["seen_phrase"]:
+                status_text = _("Activity: waiting")
+            else:
+                age = state["last_phrase_secs_ago"]
+                if age < 60:
+                    status_text = _("Activity: now")
+                elif age < 120:
+                    status_text = _("Activity: last minute")
+                else:
+                    status_text = _("Activity: {} min ago").format(int(age // 60))
 
         self.setToolTip(f"{_('TraduIA Server')}\n{status_text}")
         if hasattr(self, "status_action"):
@@ -2075,7 +2256,7 @@ class TrayIcon(QSystemTrayIcon):
     def _setup_menu(self):
         menu = QMenu()
 
-        self.status_action = menu.addAction(_("Activity: Wait..."))
+        self.status_action = menu.addAction(_("Activity: waiting"))
         self.status_action.setDisabled(True)
         menu.addSeparator()
 
@@ -2185,6 +2366,7 @@ if __name__ == "__main__":
 
     tray = TrayIcon()
     tray.show()
+    _tray_ref = tray
 
     # Small delay to ensure the previous instance has fully released the port
     # before we attempt to bind to it in the background thread.
