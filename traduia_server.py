@@ -163,6 +163,12 @@ ENV_TR_CACHE_MAX = max(1, int(os.getenv("ALICIA_TR_CACHE_MAX", "512")))
 # monitor is not started. Default: "0" (auto-shutdown enabled).
 ENV_DISABLE_AUTOSHUTDOWN = os.getenv("ALICIA_DISABLE_AUTOSHUTDOWN", "0") == "1"
 
+# TRADUIA_LOCAL: set to "1" to run from a repo clone: BASE_DIR points to the
+# directory of this file and show-server.html is looked up next to it (with
+# fallback to the installed doc). The venv and the models are ALWAYS taken
+# from the installation (/opt/ai/traduia). Default: "0" (installed layout).
+ENV_LOCAL = os.getenv("TRADUIA_LOCAL", "0") == "1"
+
 # =========================================================
 # TRACE (developer log, enabled with ALICIA_DEBUG=1)
 # ---------------------------------------------------------
@@ -570,8 +576,7 @@ PROMPT_ES = (
    "Clase en un aula con LliureX y TraduIA. Español de España, con palabras como coche, ordenador, móvil, vámonos, trabajo, gafas, libreta, gerundio, conjugación, subjuntivo, pretérito, sintaxis, verbo, oración, párrafo, literatura, Cervantes, Numancia, Lorca, Quijote."
 )
 
-# BASE_DIR = Path(__file__).resolve().parent
-BASE_DIR = Path('/usr/lib/traduia')
+BASE_DIR = Path(__file__).resolve().parent if ENV_LOCAL else Path('/usr/lib/traduia')
 
 if USE_CT2:
     MARIAN_CT2_BASE = Path('/opt/ai/traduia/models/ct2')
@@ -961,6 +966,11 @@ def get_i18n_data():
     languages = ['en', 'es', 'ca']
     data = {}
     locale_dir = '/usr/share/locale'
+    if ENV_LOCAL:
+        # En modo local, usar las traducciones del propio clon si existen.
+        local_locale = BASE_DIR / 'i18n' / 'locale'
+        if local_locale.is_dir():
+            locale_dir = str(local_locale)
     for lang in languages:
         try:
             if lang == 'en':
@@ -1960,7 +1970,14 @@ def start_system_tray():
 async def lifespan(app:FastAPI):
     start_inactivity_monitor()
     start_stt_if_needed()
-    open_web_with_ip("/usr/share/doc/traduia/show-server.html", port=8000)
+    # show-server.html: en modo local junto al server (clon); instalado si no.
+    show_server = (
+        BASE_DIR / "show-server.html" if ENV_LOCAL
+        else Path("/usr/share/doc/traduia/show-server.html")
+    )
+    if not show_server.exists():
+        show_server = Path("/usr/share/doc/traduia/show-server.html")
+    open_web_with_ip(str(show_server), port=8000)
     yield
     _stop_event.set()
     # Espera corta (no bloqueante) para salida limpia
