@@ -3,7 +3,6 @@ set -euo pipefail
 
 APP_NAME="AlicIA Transcriptor (LliureX)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TRADUIA_DIR="/usr/lib/traduia"
 TRADUIA_VENV="/opt/ai/traduia/venv"
 TRADUIA_MODELS="/opt/ai/traduia/models"
 
@@ -23,13 +22,15 @@ export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::DeprecationWarning}"
 CONSOLE_MODE=false
 CLI_INPUT_LANG=""
 CLI_AUDIO_SOURCE=""
+LOCAL_FLAG=false
 DISABLE_AUTOSHUTDOWN=false
 ERROR_TO_STDERR=false
 
 usage() {
     echo "$(_ "Usage: traduia [options]")"
     echo ""
-    echo "$(_ "  -console, --console     ask the questions on the console (no kdialog)")"
+    echo "$(_ "  --console               ask the questions on the console (no kdialog)")"
+    echo "$(_ "  --local                 use the traduia_server.py next to this launcher (repo clone)")"
     echo "$(_ "  --disable-autoshutdown  keep the server running with no activity (no auto-shutdown)")"
     echo "$(_ "  --input-lang <es|ca>    teacher input language (skips the question)")"
     echo "$(_ "  --audio-source <value>  audio source (skips the question):")"
@@ -47,8 +48,12 @@ normalize_lang() {
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        -console|--console)
+        --console)
             CONSOLE_MODE=true
+            shift
+            ;;
+        --local)
+            LOCAL_FLAG=true
             shift
             ;;
         --disable-autoshutdown)
@@ -91,7 +96,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if $CONSOLE_MODE || [ -n "$CLI_INPUT_LANG" ] || [ -n "$CLI_AUDIO_SOURCE" ]; then
+if $CONSOLE_MODE || $LOCAL_FLAG || [ -n "$CLI_INPUT_LANG" ] || [ -n "$CLI_AUDIO_SOURCE" ]; then
     ERROR_TO_STDERR=true
 fi
 
@@ -110,6 +115,40 @@ show_error() {
         kdialog --title "$APP_NAME" --error "$*" 2>/dev/null || true
     fi
 }
+
+# =========================================================
+# Servidor a ejecutar: instalado por defecto; el clon del repo solo con
+# --local (o TRADUIA_LOCAL=1). El venv y los modelos son SIEMPRE los de la
+# instalación (/opt/ai/traduia), independientemente del modo.
+# =========================================================
+TRADUIA_LOCAL_MODE=false
+if [[ "${TRADUIA_LOCAL:-0}" == "1" || "$LOCAL_FLAG" == "true" ]]; then
+    TRADUIA_LOCAL_MODE=true
+fi
+
+if [[ -n "${TRADUIA_DIR:-}" ]]; then
+    # Override explícito: se respeta; implica modo local si no es la instalación.
+    if [[ "$TRADUIA_DIR" != "/usr/lib/traduia" ]]; then
+        TRADUIA_LOCAL_MODE=true
+    else
+        TRADUIA_LOCAL_MODE=false
+    fi
+elif $TRADUIA_LOCAL_MODE; then
+    if [[ -f "$SCRIPT_DIR/traduia_server.py" ]]; then
+        TRADUIA_DIR="$SCRIPT_DIR"
+    else
+        echo "$(_ "Cannot launch local copy")" >&2
+        exit 1
+    fi
+else
+    TRADUIA_DIR="/usr/lib/traduia"
+fi
+
+if $TRADUIA_LOCAL_MODE; then
+    export TRADUIA_LOCAL=1
+else
+    unset TRADUIA_LOCAL || true
+fi
 
 # === Activar venv ===
 if [[ -f "$TRADUIA_VENV/bin/activate" ]]; then
@@ -417,4 +456,4 @@ else
   unset ALICIA_PULSE_SOURCE || true
 fi
 
-exec "$PY_BIN" -B /usr/lib/traduia/traduia_server.py
+exec "$PY_BIN" -B "$TRANSCRIPTOR_PY"
