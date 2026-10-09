@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>IP + QR</title>
+  <title>Acceso a TraduIA</title>
   <style>
     html, body {
       margin: 0;
@@ -61,6 +61,28 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <script>
+    const pageTitles = {
+      'es': 'Acceso a TraduIA',
+      'ca': 'Accés a TraduIA',
+      'en': 'Access to TraduIA'
+    };
+    pageTitles['va'] = pageTitles['ca'];
+
+    function applyPageLanguage() {
+      const hash = window.location.hash.substring(1);
+      let lang = (new URLSearchParams(hash).get("lang") || "").toLowerCase().substring(0, 2);
+      if (!lang) {
+        lang = (navigator.language || navigator.userLanguage || "en").toLowerCase().substring(0, 2);
+      }
+      if (!pageTitles[lang]) {
+        lang = "en";
+      }
+      document.title = pageTitles[lang];
+      document.documentElement.lang = lang;
+    }
+
+    applyPageLanguage();
+
     function getQueryParam(name) {
       return new URLSearchParams(window.location.search).get(name);
     }
