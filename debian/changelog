@@ -1,3 +1,9 @@
+traduia (0.9.6) jammy; urgency=medium
+
+  * Replace old SSE protocol with WS protocol
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Wed, 14 Oct 2026 18:46:51 +0200
+
 traduia (0.9.5) jammy; urgency=medium
 
   * New deterministic inactivity monitor with warning dialog
