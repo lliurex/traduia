@@ -50,23 +50,20 @@ import queue
 import threading
 import time
 import asyncio
-import contextvars
 import subprocess
 import signal
 import fcntl
 import psutil
 import re
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Iterator, List, Tuple, Optional
+from typing import List, Tuple, Optional
 
 import numpy as np
 import sounddevice as sd
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from starlette.responses import (
-    StreamingResponse,
     JSONResponse,
     HTMLResponse,
     FileResponse,
@@ -622,9 +619,9 @@ else:
     _engine_cache_es = _m_es_model
     _engine_cache_ca = _m_ca_model
 
-# transformers.from_pretrained usa estado global no thread-safe: /translate corre
-# en varios hilos y las cargas concurrentes dejan lm_head sin atar y en meta
-# (LOAD REPORT: lm_head.weight MISSING). Serializamos solo la carga.
+# transformers.from_pretrained usa estado global no thread-safe: el hub de
+# traducción corre en varios hilos y las cargas concurrentes dejan lm_head sin
+# atar y en meta (LOAD REPORT: lm_head.weight MISSING). Serializamos la carga.
 _marian_load_lock = threading.Lock()
 
 
@@ -805,11 +802,11 @@ else:
 # =========================================================
 # TRANSLATION CACHE (single-flight, TTL)
 # ---------------------------------------------------------
-# /translate runs concurrently for every connected client, but all of them
-# request the same transcription line almost simultaneously. Cache each model
-# pair result for a short TTL and let concurrent requests for the same key
-# share a single inference (single-flight). Keying by (model_name, text) also
-# shares the CA->ES pivot between different target languages.
+# El hub WS traduce cada línea para todos los suscriptores de un idioma a la
+# vez. Cacheamos cada par (modelo, texto) durante un TTL corto y dejamos que
+# las peticiones concurrentes de la misma clave compartan una sola inferencia
+# (single-flight). Cachear por par (no por destino) comparte el pivote CA->ES
+# entre idiomas destino distintos.
 # =========================================================
 
 _TR_CACHE_TTL = 30.0
@@ -819,16 +816,6 @@ _TR_LOCK = threading.Lock()
 _TR_EXECUTOR = ThreadPoolExecutor(
     max_workers=ENV_TRANSLATE_WORKERS, thread_name_prefix="traduia-tr"
 )
-
-# Per-request status bucket (miss/wait/hit) for the trace.
-_TR_STATUS = contextvars.ContextVar("traduia_tr_status", default=None)
-
-
-def _tr_mark(status: str) -> None:
-    bucket = _TR_STATUS.get()
-    if bucket is not None:
-        bucket.append(status)
-
 
 def _tr_purge_locked(now: float) -> None:
     for key, (ts, _value) in list(_TR_CACHE.items()):
@@ -876,18 +863,15 @@ async def _translate_pair_async(text, model_name, cache_tok, cache_model):
     key = (model_name, text)
     future, cached, creator = _tr_begin(key)
     if cached is not None:
-        _tr_mark("hit")
         trace("tr:pair:hit", model=model_name, text=text, out=cached)
         return cached
     if not creator:
-        _tr_mark("wait")
         t0 = time.perf_counter()
         trace("tr:pair:wait:start", model=model_name, text=text)
         value = await asyncio.wrap_future(future)
         trace("tr:pair:wait:end", model=model_name,
               dur="%.3fs" % (time.perf_counter() - t0), out=value)
         return value
-    _tr_mark("miss")
     loop = asyncio.get_running_loop()
     t0 = time.perf_counter()
     trace("tr:pair:start", model=model_name, role="creator", text=text)
@@ -1234,7 +1218,7 @@ HTML_CLIENT = r"""<!doctype html>
   </div>
 
   <script>
-    const SERVER = window.location.origin;
+    const APP_VERSION = "{{APP_VERSION}}";
 
     const modeSel   = document.getElementById("mode");
     const targetSel = document.getElementById("target");
@@ -1250,11 +1234,15 @@ HTML_CLIENT = r"""<!doctype html>
     const labelLang = document.getElementById("label-language");
     const aliciaLogo= document.getElementById("alicia-logo");
 
-    let es = null;
-    let lineQueue = [];
-    let processing = false;
+    let ws = null;
+    let ready = false;
+    let shuttingDown = false;
     let INPUT_LANG = "es";
     let UI_LANG = "en";
+    let reconnectTimer = null;
+    let reconnectDelay = 500;
+    let clearTimer = null;
+    const CLEAR_GRACE_MS = 10000;
 
     const i18n = {{I18N_DATA}};
 
@@ -1288,39 +1276,13 @@ HTML_CLIENT = r"""<!doctype html>
       out.scrollTop = out.scrollHeight;
     }
 
-    async function translateLine(text, target) {
-      try {
-        const res = await fetch(SERVER + "/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: text, target_lang: target }),
-        });
-        if (!res.ok) {
-          return getI18n().errorTranslation + " " + (await res.text());
-        }
-        const data = await res.json();
-        return data.text || "";
-      } catch (e) {
-        return getI18n().errorTranslation + " " + e;
+    // Privacidad: al morir el servidor no debe quedar la transcripción en pantalla.
+    function clearChat() {
+      if (clearTimer) {
+        clearTimeout(clearTimer);
+        clearTimer = null;
       }
-    }
-
-    async function processQueue() {
-      if (processing) return;
-      processing = true;
-      try {
-        while (lineQueue.length) {
-          const item = lineQueue.shift();
-          if (item.mode === "original") {
-            appendLine(item.text);
-            continue;
-          }
-          const translated = await translateLine(item.text, item.target);
-          appendLine(translated);
-        }
-      } finally {
-        processing = false;
-      }
+      out.value = "";
     }
 
     function clearTargetOptions() {
@@ -1340,6 +1302,7 @@ HTML_CLIENT = r"""<!doctype html>
     function configureTargetSelect() {
       const mode = modeSel.value;
       const data = getI18n();
+      const previous = targetSel.value;
       clearTargetOptions();
 
       // Mostrar selector de idioma solo cuando el modo es "ver traducido"
@@ -1358,8 +1321,9 @@ HTML_CLIENT = r"""<!doctype html>
           return nameA.localeCompare(nameB, UI_LANG);
         });
 
+        const selected = languages.includes(previous) ? previous : "en";
         languages.forEach(t => {
-          addOption(t, data.langs[t] || t, t === "en");
+          addOption(t, data.langs[t] || t, t === selected);
         });
         targetSel.disabled = false;
       }
@@ -1381,72 +1345,145 @@ HTML_CLIENT = r"""<!doctype html>
       document.documentElement.lang = UI_LANG;
     }
 
-    function connect() {
-      if (es) {
-        es.close();
-        es = null;
-      }
-      lineQueue = [];
-      processing = false;
-      out.value = "";
-      setStatus("conectando");
+    function wsUrl() {
+      const proto = (location.protocol === "https:") ? "wss://" : "ws://";
+      return proto + location.host + "/ws";
+    }
 
-      try {
-        es = new EventSource(SERVER + "/stream");
-      } catch (e) {
-        appendLine(getI18n().errorConnection);
-        setStatus("error");
+    function scheduleReconnect() {
+      if (reconnectTimer) return;
+      const delay = reconnectDelay;
+      reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delay);
+    }
+
+    // Reconexión inmediata (pestaña enfocada o red recuperada).
+    function connectNow() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      connect();
+    }
+
+    function sendState() {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !ready) return;
+      ws.send(JSON.stringify({
+        type: "set",
+        mode: modeSel.value,
+        target: targetSel.value,
+      }));
+    }
+
+    function handleMessage(obj) {
+      if (!obj || !obj.type) return;
+
+      if (obj.type === "hello") {
+        // Recarga automática si el HTML cacheado no coincide con el servidor.
+        if (obj.version && obj.version !== APP_VERSION) {
+          let seen = null;
+          try { seen = sessionStorage.getItem("traduia-reload-version"); } catch (_) {}
+          if (seen !== obj.version) {
+            try { sessionStorage.setItem("traduia-reload-version", obj.version); } catch (_) {}
+            location.reload();
+            return;
+          }
+        }
+        if (obj.input_lang) INPUT_LANG = obj.input_lang;
+        configureTargetSelect();
+        ready = true;
+        shuttingDown = false;
+        reconnectDelay = 500;
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+        if (clearTimer) {
+          clearTimeout(clearTimer);
+          clearTimer = null;
+        }
+        setStatus("conectado");
+        sendState();
         return;
       }
 
-      es.onopen = () => setStatus("conectado");
-
-      es.onmessage = (e) => {
-        if (!e.data) return;
-        let obj;
-        try {
-          obj = JSON.parse(e.data);
-        } catch (_) {
-          return;
+      if (obj.type === "line") {
+        if (!ready) return;
+        if (modeSel.value === "translate") {
+          if (obj.target !== targetSel.value) return;
+          if (obj.error) {
+            appendLine(getI18n().errorTranslation);
+            return;
+          }
         }
-        if (obj.type !== "line") return;
+        appendLine(obj.text || "");
+        return;
+      }
 
-        lineQueue.push({
-          text: obj.text || "",
-          mode: modeSel.value,
-          target: targetSel.value,
-        });
-        processQueue();
+      if (obj.type === "shutdown") {
+        shuttingDown = true;
+        ready = false;
+        setStatus("desconectado");
+        clearChat();
+      }
+    }
+
+    function connect() {
+      if (ws) {
+        try { ws.close(); } catch (_) {}
+        ws = null;
+      }
+      ready = false;
+      setStatus("conectando");
+
+      let sock;
+      try {
+        sock = new WebSocket(wsUrl());
+      } catch (e) {
+        appendLine(getI18n().errorConnection);
+        setStatus("error");
+        scheduleReconnect();
+        return;
+      }
+      ws = sock;
+
+      sock.onmessage = (ev) => {
+        let obj;
+        try { obj = JSON.parse(ev.data); } catch (_) { return; }
+        handleMessage(obj);
       };
 
-      es.onerror = () => {
-        setStatus("error");
-        if (es) {
-          es.close();
-          es = null;
+      sock.onclose = () => {
+        if (ws === sock) ws = null;
+        ready = false;
+        setStatus(shuttingDown ? "desconectado" : "error");
+        if (shuttingDown) {
+          clearChat();
+        } else if (!clearTimer) {
+          clearTimer = setTimeout(clearChat, CLEAR_GRACE_MS);
         }
-        setTimeout(connect, 4000);
+        scheduleReconnect();
+      };
+
+      sock.onerror = () => {
+        try { sock.close(); } catch (_) {}
       };
     }
 
-    async function init() {
+    function init() {
       applyLocalization();
       setStatus("desconectado");
-      try {
-        const res = await fetch(SERVER + "/health");
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.input_lang) {
-            INPUT_LANG = data.input_lang;
-          }
-        }
-      } catch (e) {
-        INPUT_LANG = "es";
-      }
-
       configureTargetSelect();
-      modeSel.onchange = configureTargetSelect;
-
+      modeSel.onchange = () => { configureTargetSelect(); sendState(); };
+      targetSel.onchange = sendState;
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) connectNow();
+      });
+      window.addEventListener("online", connectNow);
       connect();
     }
 
@@ -1457,28 +1494,18 @@ HTML_CLIENT = r"""<!doctype html>
 """
 
 # =========================================================
-# FASTAPI + SSE
+# FASTAPI + WEBSOCKET
 # =========================================================
 
 
-# Ctrl+C fix (SSE): marcar _stop_event ANTES de que Uvicorn espere a cerrar conexiones.
-# Uvicorn instala sus propios handlers; encadenamos para no romper su shutdown.
+# Ctrl+C fix (WS): marcar _stop_event ANTES de que Uvicorn espere a cerrar
+# conexiones y agendar el cierre de los WebSocket. Uvicorn instala sus propios
+# handlers; encadenamos para no romper su shutdown.
 def _install_signal_hooks():
     def _chain(sig, frame, prev):
-        global _subscribers,_stop_event
         try:
             _stop_event.set()
-            # Forzar cierre de SSE: enviamos un último mensaje para que el cliente cierre y el generador salga.
-            try:
-                data = sse_pack({"type": "shutdown"})
-                with _sub_lock:
-                    for q in list(_subscribers):
-                        try:
-                            q.put_nowait(data)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
+            _schedule_ws_shutdown()
         finally:
             # Encadenar al handler previo (Uvicorn) si existe
             if callable(prev):
@@ -1499,7 +1526,7 @@ def _install_signal_hooks():
         signal.signal(sig, _alicia_sig_handler)
 
 def init_app():
-    global app,_stt_started,_stop_event,_sub_lock,_stt_started
+    global app, _stt_started, _stop_event
     app = FastAPI(title=_("LliureX STT/Real-time translation"),lifespan=lifespan)
 
     app.add_middleware(
@@ -1509,18 +1536,26 @@ def init_app():
         allow_headers=["*"],
     )
 
-    _subscribers: List["queue.Queue[bytes]"] = []
-    _sub_lock = threading.Lock()
     _stt_started = False
 
     # ==== Ctrl+C fix: parada limpia del hilo STT ====
     _stop_event = threading.Event()
-    _stt_thread: Optional[threading.Thread] = None
     _install_signal_hooks()
-    return app,_stt_thread,_subscribers
+    return app
 
-def sse_pack(obj: dict) -> bytes:
-    return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n".encode("utf-8")
+# =========================================================
+# WEBSOCKET HUB (protocolo nuevo)
+# ---------------------------------------------------------
+# El hilo STT no difunde bytes SSE: encola la línea en el event loop, que la
+# traduce una sola vez por idioma (caché single-flight compartida) y la reparte
+# por las conexiones WebSocket suscritas a ese idioma. Cada conexión tiene su
+# propia cola de salida y una única tarea sender (send_text nunca es concurrente).
+# =========================================================
+
+APP_VERSION = "0.9.6"
+
+TARGET_LANGS = ("en", "fr", "de", "ru", "ar", "uk", "ro", "it")
+WS_OUT_QUEUE_MAX = 64
 
 # Trace correlation: broadcast text -> line sequence (ALICIA_DEBUG only).
 _LINE_SEQ = {}
@@ -1528,22 +1563,87 @@ _LINE_SEQ_LOCK = threading.Lock()
 _LINE_SEQ_TTL = 30.0
 _line_seq_counter = 0
 
-
-def _line_seq(text):
-    now = time.monotonic()
-    with _LINE_SEQ_LOCK:
-        entry = _LINE_SEQ.get(text)
-        if entry is None:
-            return "-"
-        seq, ts = entry
-        if now - ts > _LINE_SEQ_TTL:
-            del _LINE_SEQ[text]
-            return "-"
-        return seq
+_loop: Optional[asyncio.AbstractEventLoop] = None
+_stt_thread: Optional[threading.Thread] = None
+_ws_clients: "dict[WebSocket, dict]" = {}
+_lang_queues: "dict[str, asyncio.Queue]" = {}
+_lang_tasks: "list[asyncio.Task]" = []
 
 
-def broadcast_line(text: str) -> None:
-    global _subscribers, _line_seq_counter
+def _normalize_set(mode, target):
+    """Normaliza el mensaje 'set' del cliente a (mode, target) válidos."""
+    if mode not in ("original", "translate"):
+        mode = "original"
+    if mode == "translate":
+        if target not in TARGET_LANGS:
+            target = "en"
+    else:
+        target = None
+    return mode, target
+
+
+def _enqueue(state: dict, payload: dict) -> None:
+    try:
+        state["out_q"].put_nowait(payload)
+    except asyncio.QueueFull:
+        trace("ws:slow:drop", mode=state["mode"], target=state["target"] or "-")
+        ws = state["ws"]
+        _ws_clients.pop(ws, None)
+        try:
+            asyncio.get_running_loop().create_task(ws.close())
+        except Exception:
+            pass
+
+
+def _fanout(target: str, payload: dict) -> None:
+    for state in list(_ws_clients.values()):
+        if state["mode"] == "translate" and state["target"] == target:
+            _enqueue(state, payload)
+
+
+async def _language_worker(target: str) -> None:
+    q = _lang_queues[target]
+    while True:
+        seq, text = await q.get()
+        t0 = time.perf_counter()
+        try:
+            translated = await translate_text_async(text, target)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            trace("ws:lang:end", target=target, seq=seq,
+                  dur="%.3fs" % (time.perf_counter() - t0),
+                  error=type(exc).__name__)
+            _fanout(target, {"type": "line", "text": "", "seq": seq,
+                             "target": target, "error": True})
+            continue
+        trace("ws:lang:end", target=target, seq=seq,
+              dur="%.3fs" % (time.perf_counter() - t0), out=translated)
+        _fanout(target, {"type": "line", "text": translated, "seq": seq,
+                         "target": target, "error": False})
+
+
+def _start_language_workers() -> None:
+    for target in TARGET_LANGS:
+        _lang_queues[target] = asyncio.Queue()
+        _lang_tasks.append(
+            asyncio.create_task(_language_worker(target),
+                                name="traduia-lang-%s" % target)
+        )
+
+
+async def _stop_language_workers() -> None:
+    for task in _lang_tasks:
+        task.cancel()
+    if _lang_tasks:
+        await asyncio.gather(*_lang_tasks, return_exceptions=True)
+    _lang_tasks.clear()
+    _lang_queues.clear()
+
+
+async def _dispatch_line(text: str) -> None:
+    """Reparte una línea transcrita: directa a original, cacheada por idioma al resto."""
+    global _line_seq_counter
     with _LINE_SEQ_LOCK:
         _line_seq_counter += 1
         seq = _line_seq_counter
@@ -1553,15 +1653,66 @@ def broadcast_line(text: str) -> None:
             for key, (_seq, ts) in list(_LINE_SEQ.items()):
                 if now - ts > _LINE_SEQ_TTL:
                     del _LINE_SEQ[key]
-    payload = {"type": "line", "text": text, "src_lang": INPUT_LANG, "seq": seq}
-    data = sse_pack(payload)
     trace("stt:broadcast", seq=seq, text=text)
-    with _sub_lock:
-        for q in list(_subscribers):
-            try:
-                q.put_nowait(data)
-            except Exception:
-                pass
+    original = {"type": "line", "text": text, "seq": seq,
+                "target": None, "error": False, "src_lang": INPUT_LANG}
+    targets = set()
+    for state in list(_ws_clients.values()):
+        if state["mode"] == "original":
+            _enqueue(state, original)
+        elif state["target"] in TARGET_LANGS:
+            targets.add(state["target"])
+    for target in targets:
+        q = _lang_queues.get(target)
+        if q is not None:
+            q.put_nowait((seq, text))
+
+
+async def _shutdown_ws() -> None:
+    states = list(_ws_clients.values())
+    for state in states:
+        try:
+            state["out_q"].put_nowait({"type": "shutdown"})
+        except asyncio.QueueFull:
+            pass
+    if states:
+        await asyncio.sleep(0.2)
+    for ws in list(_ws_clients.keys()):
+        try:
+            await ws.close()
+        except Exception:
+            pass
+
+
+def _schedule_ws_shutdown() -> None:
+    loop = _loop
+    if loop is None or loop.is_closed():
+        return
+    try:
+        asyncio.run_coroutine_threadsafe(_shutdown_ws(), loop)
+    except RuntimeError:
+        pass
+
+
+def broadcast_line(text: str) -> None:
+    """Llamado desde el hilo STT; agenda el reparto en el event loop."""
+    loop = _loop
+    if loop is None or loop.is_closed():
+        return
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_dispatch_line(text), loop)
+        fut.add_done_callback(_log_dispatch_error)
+    except RuntimeError:
+        pass
+
+
+def _log_dispatch_error(fut) -> None:
+    try:
+        exc = fut.exception()
+    except BaseException:
+        return
+    if exc is not None:
+        print("[WS][ERROR] dispatch:", exc)
 
 
 # =========================================================
@@ -1968,6 +2119,9 @@ def start_system_tray():
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
+    global _loop
+    _loop = asyncio.get_running_loop()
+    _start_language_workers()
     start_inactivity_monitor()
     start_stt_if_needed()
     # show-server.html: en modo local junto al server (clon); instalado si no.
@@ -1978,13 +2132,17 @@ async def lifespan(app:FastAPI):
     if not show_server.exists():
         show_server = Path("/usr/share/doc/traduia/show-server.html")
     open_web_with_ip(str(show_server), port=8000)
-    yield
-    _stop_event.set()
-    # Espera corta (no bloqueante) para salida limpia
-    if _stt_thread and _stt_thread.is_alive():
-        _stt_thread.join(timeout=2.0)
+    try:
+        yield
+    finally:
+        _stop_event.set()
+        await _shutdown_ws()
+        await _stop_language_workers()
+        # Espera corta (no bloqueante) para salida limpia
+        if _stt_thread and _stt_thread.is_alive():
+            _stt_thread.join(timeout=2.0)
 
-app,_stt_thread,_subscribers = init_app()
+app = init_app()
 
 # DEPRECATED
 # @app.on_event("startup")
@@ -2029,7 +2187,10 @@ def get_activity():
 @app.get("/", include_in_schema=False)
 def root():
     i18n_json = json.dumps(get_i18n_data(), ensure_ascii=False)
-    return HTMLResponse(HTML_CLIENT.replace("{{I18N_DATA}}", i18n_json))
+    html = (HTML_CLIENT
+            .replace("{{I18N_DATA}}", i18n_json)
+            .replace("{{APP_VERSION}}", APP_VERSION))
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/alicia.png", include_in_schema=False)
@@ -2046,87 +2207,65 @@ def alicia_png():
 
 
 # =========================================================
-# SSE STREAM
+# WEBSOCKET (canal único cliente-servidor)
 # =========================================================
 
-@app.get("/stream")
-def stream():
-    global _subscribers
-    client_q: "queue.Queue[bytes]" = queue.Queue()
-    with _sub_lock:
-        _subscribers.append(client_q)
-
-    def gen() -> Iterator[bytes]:
-        global _subscribers,_stop_event,_sub_lock
-        try:
-            while not _stop_event.is_set():
-                try:
-                    data = client_q.get(timeout=0.8)
-                    yield data
-                    if b'"type": "shutdown"' in data:
-                        break
-                except queue.Empty:
-                    if _stop_event.is_set():
-                        break
-                    yield b": keep-alive\n\n"
-        except GeneratorExit:
-            with _sub_lock:
-                if client_q in _subscribers:
-                    _subscribers.remove(client_q)
-
-    return StreamingResponse(gen(), media_type="text/event-stream")
-
-# =========================================================
-# /translate
-# =========================================================
-
-class TranslateRequest(BaseModel):
-    text: str
-    target_lang: str
-
-
-class TranslateResponse(BaseModel):
-    text: str
-
-
-@app.post("/translate", response_model=TranslateResponse)
-async def translate(req: TranslateRequest, request: Request):
-    target = req.target_lang.lower()
-    if target not in ("en", "fr", "de", "ru", "ar", "uk", "ro", "it"):
-        return JSONResponse(
-            status_code=400,
-            content={"error": _("Supported languages: en, fr, de, ru, ar, uk, ro, it")},
-        )
-    txt = req.text.strip()
-    if not txt:
-        return TranslateResponse(text="")
-    client = request.client
-    cli = "%s:%s" % (client.host, client.port) if client else "-"
-    seq = _line_seq(txt)
-    status_bucket = []
-    token = _TR_STATUS.set(status_bucket)
-    t0 = time.perf_counter()
-    trace("tr:req:start", seq=seq, cli=cli, target=target, text=txt)
+async def _ws_sender(ws: WebSocket, state: dict) -> None:
+    q = state["out_q"]
     try:
-        out = await translate_text_async(txt, target)
-    except BaseException as exc:
-        trace("tr:req:end", cli=cli, target=target, status="error",
-              dur="%.3fs" % (time.perf_counter() - t0),
-              error=type(exc).__name__)
+        while True:
+            payload = await q.get()
+            await ws.send_text(json.dumps(payload, ensure_ascii=False))
+    except asyncio.CancelledError:
         raise
+    except Exception:
+        pass
+
+
+@app.websocket("/ws")
+async def ws_endpoint(ws: WebSocket):
+    await ws.accept()
+    # hello antes de registrarse: garantiza que sea el primer mensaje del canal.
+    await ws.send_text(json.dumps(
+        {"type": "hello", "version": APP_VERSION, "input_lang": INPUT_LANG},
+        ensure_ascii=False,
+    ))
+    state = {
+        "ws": ws,
+        "mode": "original",
+        "target": None,
+        "out_q": asyncio.Queue(maxsize=WS_OUT_QUEUE_MAX),
+    }
+    _ws_clients[ws] = state
+    sender = asyncio.create_task(_ws_sender(ws, state))
+    try:
+        while True:
+            raw = await ws.receive_text()
+            try:
+                msg = json.loads(raw)
+            except ValueError:
+                continue
+            if not isinstance(msg, dict) or msg.get("type") != "set":
+                continue
+            mode, target = _normalize_set(msg.get("mode"), msg.get("target"))
+            state["mode"] = mode
+            state["target"] = target
+            trace("ws:set", mode=mode, target=target or "-")
+    except WebSocketDisconnect:
+        pass
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        pass
     finally:
-        _TR_STATUS.reset(token)
-    if "miss" in status_bucket:
-        status = "miss"
-    elif "wait" in status_bucket:
-        status = "wait"
-    elif status_bucket:
-        status = "hit"
-    else:
-        status = "-"
-    trace("tr:req:end", cli=cli, target=target, status=status,
-          dur="%.3fs" % (time.perf_counter() - t0), out=out)
-    return TranslateResponse(text=out)
+        _ws_clients.pop(ws, None)
+        sender.cancel()
+        try:
+            await sender
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
 
 # =========================================================
 # PUNTO DE ENTRADA
