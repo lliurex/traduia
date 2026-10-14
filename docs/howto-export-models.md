@@ -302,6 +302,17 @@ fichero cuando su versión es **superior o igual** a la disponible por apt
 deb de la distribución del equipo no existe en el repositorio o su versión
 es menor.
 
+> **Política de versiones (resumen)**: el deb del repositorio solo se usa si
+> su versión es **superior o igual** a la del candidato de apt; si apt ofrece
+> una versión más nueva (p. ej. repositorio 1.0 e Internet 1.3), se instala
+> la de apt y el deb del repositorio se ignora. Los modelos y los wheels sí
+> se toman siempre del origen USB/LAN elegido. El paquete
+> `zero-lliurex-traduia` no tiene esta lógica: queda en la versión del
+> fichero si se instaló explícitamente (sección 3.2) o pasa a la más nueva
+> si se instaló por nombre con apt/zero-center, por lo que puede darse una
+> **mezcla de versiones** (p. ej. `traduia` 1.3 + `zero-lliurex-traduia`
+> 1.0).
+
 ### 3.3 Instalación completa con `traduia-config` (recomendada)
 
 Para una instalación completa de forma sencilla desde la terminal, se puede
@@ -323,7 +334,9 @@ El comando `install` reproduce el flujo de zero-center:
    repositorio incluye un deb de `traduia` en `debs/<distro>/` con versión
    **superior o igual** a la disponible por apt (`apt-cache policy`), se
    instala ese fichero con apt (`apt-get install -y <deb>`); en caso
-   contrario se usa `apt-get install -y traduia`. En el flujo de zero-center
+   contrario se usa `apt-get install -y traduia` (si el deb del repositorio
+   no existe para la distro del equipo o su versión es menor que la de apt,
+   se instala la versión de apt/Internet). En el flujo de zero-center
    el apt del paquete lo realiza el propio zero-center entre `preInstall` y
    `postInstall`; `traduia-config postinstall` aplica entonces el mismo
    criterio como *override*: si el origen es USB/LAN y el repositorio trae
