@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 14:03+0200\n"
+"POT-Creation-Date: 2026-10-15 09:08+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -21,287 +21,283 @@ msgstr ""
 msgid "[INFO] Opening: {}"
 msgstr ""
 
-#: traduia_server.py:250
+#: traduia_server.py:247
 msgid ""
 "[ERROR] No translation models found on disk. Run install-models-traduia."
 msgstr ""
 
-#: traduia_server.py:251
+#: traduia_server.py:248
 msgid "No translation models found on disk. Run install-models-traduia."
 msgstr ""
 
-#: traduia_server.py:256
+#: traduia_server.py:253
 msgid "[WARN] CT2 marker present but CT2 models are not complete on disk."
 msgstr ""
 
-#: traduia_server.py:258
+#: traduia_server.py:255
 msgid "[WARN] Falling back to Marian models."
 msgstr ""
 
-#: traduia_server.py:259
+#: traduia_server.py:256
 msgid "[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"
 msgstr ""
 
-#: traduia_server.py:261 traduia_server.py:273 traduia_server.py:285
+#: traduia_server.py:258 traduia_server.py:270 traduia_server.py:282
 msgid "[ERROR] No complete model set found. Run install-models-traduia."
 msgstr ""
 
-#: traduia_server.py:262 traduia_server.py:274 traduia_server.py:286
+#: traduia_server.py:259 traduia_server.py:271 traduia_server.py:283
 msgid "No complete model set found on disk. Run install-models-traduia."
 msgstr ""
 
-#: traduia_server.py:263
+#: traduia_server.py:260
 msgid "[INFO] Translation mode: CT2 (override via .use_ct2 marker)"
 msgstr ""
 
-#: traduia_server.py:268
+#: traduia_server.py:265
 msgid ""
 "[WARN] Marian marker present but Marian models are not complete on disk."
 msgstr ""
 
-#: traduia_server.py:270
+#: traduia_server.py:267
 msgid "[WARN] Falling back to CT2 models."
 msgstr ""
 
-#: traduia_server.py:271
+#: traduia_server.py:268
 msgid "[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"
 msgstr ""
 
-#: traduia_server.py:275
+#: traduia_server.py:272
 msgid "[INFO] Translation mode: Marian (override via .use_marian marker)"
 msgstr ""
 
-#: traduia_server.py:282
+#: traduia_server.py:279
 msgid ""
 "[WARN] Both markers present but Marian models are not complete; falling back "
 "to CT2."
 msgstr ""
 
-#: traduia_server.py:283
+#: traduia_server.py:280
 msgid "[INFO] Translation mode: CT2 (fallback, Marian unavailable)"
 msgstr ""
 
-#: traduia_server.py:287
+#: traduia_server.py:284
 msgid "[INFO] Translation mode: Marian (both markers present, Marian priority)"
 msgstr ""
 
-#: traduia_server.py:293
+#: traduia_server.py:290
 msgid "[INFO] Translation mode: Marian (detected from disk, Marian priority)"
 msgstr ""
 
-#: traduia_server.py:295
+#: traduia_server.py:292
 msgid "[INFO] Translation mode: Marian (detected from disk)"
 msgstr ""
 
-#: traduia_server.py:298
+#: traduia_server.py:295
 msgid "[INFO] Translation mode: CT2 (detected from disk)"
 msgstr ""
 
-#: traduia_server.py:653
+#: traduia_server.py:650
 msgid "[WARN] Failed to load CT2 model {}: {}"
 msgstr ""
 
-#: traduia_server.py:671
+#: traduia_server.py:668
 msgid "[WARN] {}: tie_word_embeddings=false; forzando True"
 msgstr ""
 
-#: traduia_server.py:681
+#: traduia_server.py:678
 msgid "[WARN] Failed to load Marian model {}: {}"
 msgstr ""
 
-#: traduia_server.py:689
+#: traduia_server.py:686
 msgid "[WARN] {}: lm_head sin atar; reparando desde el embedding"
 msgstr ""
 
-#: traduia_server.py:984
+#: traduia_server.py:968
 msgid "LliureX - Real-time Transcription / Translation System"
 msgstr ""
 
-#: traduia_server.py:985
+#: traduia_server.py:969
 msgid "LliureX - TraduIA"
 msgstr ""
 
-#: traduia_server.py:986
+#: traduia_server.py:970
 msgid "AlicIA"
 msgstr ""
 
-#: traduia_server.py:987
+#: traduia_server.py:971
 msgid "Display Mode"
 msgstr ""
 
-#: traduia_server.py:988
+#: traduia_server.py:972
 msgid "Language"
 msgstr ""
 
-#: traduia_server.py:989
+#: traduia_server.py:973
 msgid "View original (teacher's language)"
 msgstr ""
 
-#: traduia_server.py:990
+#: traduia_server.py:974
 msgid "View translated"
 msgstr ""
 
-#: traduia_server.py:991
+#: traduia_server.py:975
 msgid "Here you will see the teacher's speech in your chosen language…"
 msgstr ""
 
-#: traduia_server.py:993 traduia_server.py:996
+#: traduia_server.py:977 traduia_server.py:980
 msgid "disconnected"
 msgstr ""
 
-#: traduia_server.py:994
+#: traduia_server.py:978
 msgid "connecting..."
 msgstr ""
 
-#: traduia_server.py:995
+#: traduia_server.py:979
 msgid "connected"
 msgstr ""
 
-#: traduia_server.py:998
+#: traduia_server.py:982
 msgid "[TRANSLATION ERROR]"
 msgstr ""
 
-#: traduia_server.py:999
+#: traduia_server.py:983
 msgid "[ERROR] Could not connect to the server."
 msgstr ""
 
-#: traduia_server.py:1001
+#: traduia_server.py:985
 msgid "English"
 msgstr ""
 
-#: traduia_server.py:1001
+#: traduia_server.py:985
 msgid "French"
 msgstr ""
 
-#: traduia_server.py:1001
+#: traduia_server.py:985
 msgid "German"
 msgstr ""
 
-#: traduia_server.py:1002
+#: traduia_server.py:986
 msgid "Russian"
 msgstr ""
 
-#: traduia_server.py:1002
+#: traduia_server.py:986
 msgid "Arabic"
 msgstr ""
 
-#: traduia_server.py:1002
+#: traduia_server.py:986
 msgid "Ukrainian"
 msgstr ""
 
-#: traduia_server.py:1003
+#: traduia_server.py:987
 msgid "Romanian"
 msgstr ""
 
-#: traduia_server.py:1003 traduia:242
+#: traduia_server.py:987 traduia:242
 msgid "Spanish"
 msgstr ""
 
-#: traduia_server.py:1003 traduia:242 traduia:249
+#: traduia_server.py:987 traduia:242 traduia:249
 msgid "Valencian"
 msgstr ""
 
-#: traduia_server.py:1004
+#: traduia_server.py:988
 msgid "Italian"
 msgstr ""
 
-#: traduia_server.py:1503
+#: traduia_server.py:1530
 msgid "LliureX STT/Real-time translation"
 msgstr ""
 
-#: traduia_server.py:1572
+#: traduia_server.py:1723
 msgid "[STT] Starting Whisper ({}) for input language: {}"
 msgstr ""
 
-#: traduia_server.py:1587
+#: traduia_server.py:1738
 msgid "[WARN] Failed to load Whisper model {}: {}"
 msgstr ""
 
-#: traduia_server.py:1880
+#: traduia_server.py:2031
 msgid "[STT] Audio source: {} -> {}"
 msgstr ""
 
-#: traduia_server.py:1882
+#: traduia_server.py:2033
 msgid "[STT] Capturing audio (Pulse). Ctrl+C to stop."
 msgstr ""
 
-#: traduia_server.py:1915
+#: traduia_server.py:2066
 msgid "[STT] Microphone open. Ctrl+C to stop."
 msgstr ""
 
-#: traduia_server.py:1943
+#: traduia_server.py:2094
 msgid "[INFO] Auto-shutdown due to inactivity."
 msgstr ""
 
-#: traduia_server.py:1954
+#: traduia_server.py:2105
 msgid "[INFO] Auto-shutdown disabled."
 msgstr ""
 
-#: traduia_server.py:2043
+#: traduia_server.py:2204
 msgid "alicia.png not found"
 msgstr ""
 
-#: traduia_server.py:2098
-msgid "Supported languages: en, fr, de, ru, ar, uk, ro, it"
-msgstr ""
-
-#: traduia_server.py:2185 traduia_server.py:2209 traduia_server.py:2271
+#: traduia_server.py:2324 traduia_server.py:2348 traduia_server.py:2416
 msgid "TraduIA Server"
 msgstr ""
 
-#: traduia_server.py:2192
+#: traduia_server.py:2331
 msgid "Extend 5 minutes"
 msgstr ""
 
-#: traduia_server.py:2193
-msgid "No"
-msgstr ""
-
-#: traduia_server.py:2210
-msgid "The server will shut down due to inactivity. Do you want to extend?"
-msgstr ""
-
-#: traduia_server.py:2220
-msgid "The server will shut down due to inactivity in {} seconds."
-msgstr ""
-
-#: traduia_server.py:2242
-msgid "Activity: auto-shutdown disabled"
-msgstr ""
-
-#: traduia_server.py:2246
-msgid "Activity: shutdown pending"
-msgstr ""
-
-#: traduia_server.py:2248 traduia_server.py:2276
-msgid "Activity: waiting"
-msgstr ""
-
-#: traduia_server.py:2252
-msgid "Activity: now"
-msgstr ""
-
-#: traduia_server.py:2254
-msgid "Activity: last minute"
-msgstr ""
-
-#: traduia_server.py:2256
-msgid "Activity: {} min ago"
-msgstr ""
-
-#: traduia_server.py:2280
-msgid "Exit"
-msgstr ""
-
-#: traduia_server.py:2344
-msgid "[INFO] Stopping previous instance (PID {})..."
+#: traduia_server.py:2332
+msgid "Close TraduIA now"
 msgstr ""
 
 #: traduia_server.py:2349
+msgid "TraduIA will shut down due to inactivity. Do you want to extend?"
+msgstr ""
+
+#: traduia_server.py:2359
+msgid "TraduIA will shut down due to inactivity in {} seconds."
+msgstr ""
+
+#: traduia_server.py:2387
+msgid "Activity: auto-shutdown disabled"
+msgstr ""
+
+#: traduia_server.py:2391
+msgid "Activity: shutdown pending"
+msgstr ""
+
+#: traduia_server.py:2393 traduia_server.py:2421
+msgid "Activity: waiting"
+msgstr ""
+
+#: traduia_server.py:2397
+msgid "Activity: now"
+msgstr ""
+
+#: traduia_server.py:2399
+msgid "Activity: last minute"
+msgstr ""
+
+#: traduia_server.py:2401
+msgid "Activity: {} min ago"
+msgstr ""
+
+#: traduia_server.py:2425
+msgid "Exit"
+msgstr ""
+
+#: traduia_server.py:2489
+msgid "[INFO] Stopping previous instance (PID {})..."
+msgstr ""
+
+#: traduia_server.py:2494
 msgid "[INFO] Forcing stop (KILL) of PID {}..."
 msgstr ""
 
-#: traduia_server.py:2398
+#: traduia_server.py:2543
 msgid "[INFO] Cleaning up..."
 msgstr ""
 
