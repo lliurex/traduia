@@ -2329,12 +2329,12 @@ class TrayIcon(QSystemTrayIcon):
         layout.addWidget(self._prompt_label)
         buttons = QHBoxLayout()
         extend_btn = QPushButton(_("Extend 5 minutes"))
-        no_btn = QPushButton(_("No"))
+        close_btn = QPushButton(_("Close TraduIA now"))
         buttons.addWidget(extend_btn)
-        buttons.addWidget(no_btn)
+        buttons.addWidget(close_btn)
         layout.addLayout(buttons)
         extend_btn.clicked.connect(self._on_inactivity_extend)
-        no_btn.clicked.connect(self._on_inactivity_dismiss)
+        close_btn.clicked.connect(self._on_inactivity_shutdown_now)
         dlg.finished.connect(self._on_inactivity_dismiss)
         self._prompt_dialog = dlg
         self._prompt_deadline = time.monotonic() + INACTIVITY_GRACE_SECS
@@ -2346,7 +2346,7 @@ class TrayIcon(QSystemTrayIcon):
         dlg.raise_()
         self.showMessage(
             _("TraduIA Server"),
-            _("The server will shut down due to inactivity. Do you want to extend?"),
+            _("TraduIA will shut down due to inactivity. Do you want to extend?"),
             QSystemTrayIcon.Warning,
             10000,
         )
@@ -2356,13 +2356,19 @@ class TrayIcon(QSystemTrayIcon):
             return
         remaining = max(0, int(self._prompt_deadline - time.monotonic() + 0.999))
         self._prompt_label.setText(
-            _("The server will shut down due to inactivity in {} seconds.").format(remaining)
+            _("TraduIA will shut down due to inactivity in {} seconds.").format(remaining)
         )
 
     def _on_inactivity_extend(self, *args):
         if _inactivity_monitor is not None:
             _inactivity_monitor.reset()
         self._on_inactivity_dismiss()
+
+    def _on_inactivity_shutdown_now(self, *args):
+        # Cierre inmediato pedido desde el diálogo (sin esperar la gracia).
+        self._on_inactivity_dismiss()
+        _stop_event.set()
+        os.kill(os.getpid(), signal.SIGINT)
 
     def _on_inactivity_dismiss(self, *args):
         dlg = self._prompt_dialog
