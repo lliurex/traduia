@@ -1,3 +1,9 @@
+traduia (0.9.6.1) noble; urgency=medium
+
+  * Fix minor msgstrings
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Thu, 15 Oct 2026 09:12:39 +0200
+ 
 traduia (0.9.6) noble; urgency=medium
 
   * Replace old SSE protocol with WS protocol
