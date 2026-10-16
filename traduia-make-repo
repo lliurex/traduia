@@ -338,7 +338,9 @@ PY
 # de modo que la instalación offline no necesita compiladores.
 # =========================================================
 WHEELS_PLATFORMS=(manylinux2014_x86_64 manylinux_2_17_x86_64 manylinux_2_28_x86_64 linux_x86_64)
-WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil sacremoses exceptiongroup)
+# faster-whisper/ctranslate2 con versión fijada: deben coincidir con
+# BASE_PYTHON_PKGS de install-models-traduia (instalaciones reproducibles).
+WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice "faster-whisper==1.2.1" "ctranslate2==4.8.2" transformers sentencepiece huggingface_hub psutil sacremoses exceptiongroup)
 
 make_wheels() {
     local out_dir="$1"

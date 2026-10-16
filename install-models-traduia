@@ -40,21 +40,21 @@ MARIAN_PAIRS=(
     "es-uk" "es-ro" "es-it" "ca-en" "ca-es"
 )
 
+# Versiones fijadas para instalaciones reproducibles: faster-whisper y
+# ctranslate2 (motor de Whisper, necesario también en modo Marian). Deben
+# coincidir con WHEELS_PKGS de traduia-make-repo (wheelhouse offline).
 BASE_PYTHON_PKGS=(
     fastapi
     "uvicorn[standard]"
     python-multipart
     numpy
     sounddevice
-    faster-whisper
+    "faster-whisper==1.2.1"
+    "ctranslate2==4.8.2"
     transformers
     sentencepiece
     huggingface_hub
     psutil
-)
-
-CT2_PYTHON_PKGS=(
-    ctranslate2
 )
 
 FINAL_PYTHON_PKGS=(
@@ -503,10 +503,6 @@ validate_offline_wheelhouse() {
     local test_log
     local requirements=("${BASE_PYTHON_PKGS[@]}")
 
-    if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
-        requirements+=("${CT2_PYTHON_PKGS[@]}")
-    fi
-
     requirements+=("${FINAL_PYTHON_PKGS[@]}")
 
     tmp_dir="$(mktemp -d)"
@@ -662,10 +658,6 @@ run_pip_fatal() {
 install_python_deps() {
     local offline_args=()
     local requirements=("${BASE_PYTHON_PKGS[@]}")
-
-    if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
-        requirements+=("${CT2_PYTHON_PKGS[@]}")
-    fi
 
     mkdir -p "$(dirname "$PIP_LOG")"
     touch "$PIP_LOG"

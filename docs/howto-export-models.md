@@ -504,7 +504,7 @@ venv dependen de si el repositorio lleva wheels (sección 4.4):
   2. **Completitud del repositorio de wheels (paquetes Python)**: en un
      **venv temporal** ejecuta
      `pip install --dry-run --no-index --find-links` con el árbol completo
-     de dependencias (incluido torch y, en modos con CT2, `ctranslate2`);
+     de dependencias (incluido torch y `ctranslate2`);
      si la resolución falla, el repositorio de wheels está incompleto y la
      instalación aborta con error, sin haber modificado nada.
   Superada esa comprobación, se instala con
@@ -717,6 +717,13 @@ traduia-make-repo wheels /srv/export/traduia
   las transitivas) como **wheels binarios** (`--only-binary=:all:`), para
   **jammy (cp310)** y **noble (cp312)**, amd64 (`manylinux*`). La máquina que
   exporta solo necesita pip ≥ 20.3 (jammy/noble lo cumplen).
+- **Versiones fijadas**: `faster-whisper==1.2.1` y `ctranslate2==4.8.2` se
+  descargan con versión exacta (las mismas que instala
+  `install-models-traduia`) para que la instalación sea reproducible. Un
+  repositorio de wheels generado antes de este cambio no contendrá esas
+  versiones exactas: la comprobación previa del instalador fallará
+  (`Offline Python repository is incomplete…`) y el repositorio debe
+  regenerarse con `traduia-make-repo wheels` (o `full`).
 - **torch CPU** se descarga de su índice oficial
   (`https://download.pytorch.org/whl/cpu`), que ya aloja todas sus
   dependencias (y evita el torch CUDA de PyPI, ~10× mayor).
