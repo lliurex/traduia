@@ -30,7 +30,90 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');")
 cd "$SCRIPT_DIR"
 
+# >>> SAFE RM (begin)
+# Borrados confinados a un basedir. safe_within resuelve symlinks con
+# realpath -m y exige que el destino quede estrictamente dentro del base.
+safe_within() {
+    local base="$1" path="$2" real_base real_path
+    [ -n "$base" ] && [ -n "$path" ] || return 1
+    real_base="$(realpath -m -- "$base" 2>/dev/null)" || return 1
+    real_path="$(realpath -m -- "$path" 2>/dev/null)" || return 1
+    [ -n "$real_base" ] && [ -n "$real_path" ] || return 1
+    [ "$real_base" != "/" ] || return 1
+    [ "$real_path" != "/" ] || return 1
+    [ "$real_path" != "$real_base" ] || return 1
+    case "$real_path" in
+        "$real_base"/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+safe_within_or_equal() {
+    local base="$1" path="$2" real_base real_path
+    [ -n "$base" ] && [ -n "$path" ] || return 1
+    real_base="$(realpath -m -- "$base" 2>/dev/null)" || return 1
+    real_path="$(realpath -m -- "$path" 2>/dev/null)" || return 1
+    [ -n "$real_base" ] && [ -n "$real_path" ] || return 1
+    [ "$real_base" != "/" ] || return 1
+    [ "$real_path" != "/" ] || return 1
+    case "$real_path" in
+        "$real_base"|"$real_base"/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+safe_rm_rf() {
+    [ $# -ge 1 ] || return 1
+    local base="$1"; shift
+    local p
+    [ $# -gt 0 ] || return 1
+    for p in "$@"; do
+        if safe_within "$base" "$p"; then
+            rm -rf -- "$p"
+        else
+            echo "[ERROR] Refusing to remove outside base: $p (base: $base)" >&2
+            return 1
+        fi
+    done
+}
+
+safe_rm_f() {
+    [ $# -ge 1 ] || return 1
+    local base="$1"; shift
+    local p
+    [ $# -gt 0 ] || return 1
+    for p in "$@"; do
+        if safe_within "$base" "$p"; then
+            rm -f -- "$p"
+        else
+            echo "[ERROR] Refusing to remove outside base: $p (base: $base)" >&2
+            return 1
+        fi
+    done
+}
+
+safe_find_cache() {
+    local base="$1" dir="$2"
+    if ! safe_within_or_equal "$base" "$dir"; then
+        echo "[ERROR] Refusing to clean outside base: $dir (base: $base)" >&2
+        return 1
+    fi
+    find -P "$dir" -depth -type d -name .cache -exec rm -rf -- {} +
+}
+# <<< SAFE RM (end)
+
 SHARED_HF="${TRADUIA_MODELS_DIR:-/opt/ai/traduia/models}"
+MODELS_BASE="$(realpath -m -- "$SHARED_HF" 2>/dev/null || true)"
+if [ -z "$MODELS_BASE" ] || [ "$MODELS_BASE" = "/" ]; then
+    echo "[ERROR] Invalid models directory: $SHARED_HF" >&2
+    exit 1
+fi
+TMP_BASE="${TMPDIR:-/tmp}"
+# TMP_BASE debe ser usable como basedir de borrado: canonicalizado y nunca "/".
+TMP_BASE="$(realpath -m -- "$TMP_BASE" 2>/dev/null || true)"
+if [ -z "$TMP_BASE" ] || [ "$TMP_BASE" = "/" ]; then
+    TMP_BASE="/tmp"
+fi
 TRADUIA_DIR="/usr/lib/traduia"
 TRADUIA_VENV="/opt/ai/traduia/venv"
 CONFIG_FILE="/etc/traduia/models-repo.conf"
@@ -40,21 +123,21 @@ MARIAN_PAIRS=(
     "es-uk" "es-ro" "es-it" "ca-en" "ca-es"
 )
 
+# Versiones fijadas para instalaciones reproducibles: faster-whisper y
+# ctranslate2 (motor de Whisper, necesario también en modo Marian). Deben
+# coincidir con WHEELS_PKGS de traduia-make-repo (wheelhouse offline).
 BASE_PYTHON_PKGS=(
     fastapi
     "uvicorn[standard]"
     python-multipart
     numpy
     sounddevice
-    faster-whisper
+    "faster-whisper==1.2.1"
+    "ctranslate2==4.8.2"
     transformers
     sentencepiece
     huggingface_hub
     psutil
-)
-
-CT2_PYTHON_PKGS=(
-    ctranslate2
 )
 
 FINAL_PYTHON_PKGS=(
@@ -223,7 +306,7 @@ validate_models_source() {
     elif [ -n "$MODELS_URL" ]; then
         tmp="$(mktemp)"
         if ! curl -fsSL --connect-timeout 15 -o "$tmp" "${MODELS_URL%/}/manifest.json"; then
-            rm -f "$tmp"
+            safe_rm_f "$TMP_BASE" "$tmp" || true
             echo "[ERROR] Could not fetch manifest.json from: ${MODELS_URL%/}/manifest.json" >&2
             return 1
         fi
@@ -233,33 +316,167 @@ validate_models_source() {
         return 0
     fi
 
-    if ! python3 - "$manifest" <<'PY'
+    if ! python3 - "$manifest" "${MODELS_DIR:-}" <<'PY'
 import json
+import os
+import re
 import sys
 
 path = sys.argv[1]
+repo_root = sys.argv[2] if len(sys.argv) > 2 else ""
+ALLOWED_TOP = ("whisper-small/", "ct2/", "marian/", "wheels/", "debs/")
+MAX_MANIFEST_BYTES = 64 * 1024 * 1024
+MAX_ENTRIES = 100000
+MAX_PATH = 4096
+MAX_ENTRIES = 100000
+
+
+def safe_rel(rel):
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        return False
+    if rel.startswith("/") or "\\" in rel:
+        return False
+    if len(rel) > MAX_PATH:
+        return False
+    norm = os.path.normpath(rel)
+    if norm != rel or norm in (".", "..") or norm.startswith("../"):
+        return False
+    return True
+
+
+def is_expected_path(rel):
+    if rel == "verify-models.py":
+        return True
+    return rel.startswith(ALLOWED_TOP)
+
+
+PROTECTED_TREES = ("/usr", "/etc", "/boot", "/var", "/run", "/root", "/home",
+                   "/proc", "/sys", "/dev", "/bin", "/sbin", "/lib", "/lib32", "/lib64")
+SYMLINK_POLICY = os.environ.get("TRADUIA_SYMLINK_POLICY", "allow-dirs")
+
+
+def is_protected_target(path):
+    if path == "/":
+        return True
+    for t in PROTECTED_TREES:
+        if path == t or path.startswith(t + "/"):
+            return True
+    return False
+
+
+def escapes_base(real_base, target):
+    try:
+        return os.path.commonpath([real_base, target]) != real_base
+    except ValueError:
+        return True
+
+
+def safe_join(base, rel):
+    # Defensa en profundidad: aunque los llamadores validan con safe_rel,
+    # la primitiva rechaza por sí misma rutas absolutas o con "..".
+    if not isinstance(rel, str) or not rel or rel.startswith("/") or ".." in rel.split("/"):
+        raise ValueError(rel)
+    real_base = os.path.realpath(base)
+    if real_base == "/":
+        raise ValueError(rel)
+    joined = os.path.join(real_base, rel)
+    target = os.path.realpath(joined)
+    if target == real_base:
+        raise ValueError(rel)
+    if not escapes_base(real_base, target):
+        return target
+    # Fuera del base: solo se permiten symlinks de DIRECTORIO hacia destinos
+    # de datos. Nunca hacia árboles de sistema (/etc, /usr, ...) ni symlinks
+    # de fichero. TRADUIA_SYMLINK_POLICY=strict restaura el rechazo total.
+    if SYMLINK_POLICY == "strict" or is_protected_target(target):
+        raise ValueError(rel)
+    acc = real_base
+    for part in rel.split("/"):
+        acc = os.path.join(acc, part)
+        if os.path.islink(acc) and not os.path.isdir(acc):
+            raise ValueError(rel)
+    return target
+
+
 try:
+    if os.path.getsize(path) > MAX_MANIFEST_BYTES:
+        print("[ERROR] manifest.json is too large.", file=sys.stderr)
+        sys.exit(1)
     with open(path, encoding="utf-8") as fh:
         manifest = json.load(fh)
-except (json.JSONDecodeError, OSError) as e:
+except (json.JSONDecodeError, OSError, ValueError) as e:
     print(f"[ERROR] Invalid manifest.json: {e}", file=sys.stderr)
+    sys.exit(1)
+
+if not isinstance(manifest, dict):
+    print("[ERROR] Invalid manifest.json: not an object.", file=sys.stderr)
+    sys.exit(1)
+version = manifest.get("version")
+if version is not None and (not isinstance(version, int) or isinstance(version, bool)):
+    print("[ERROR] manifest.json contains an invalid version.", file=sys.stderr)
+    sys.exit(1)
+mmode = manifest.get("mode")
+if mmode is not None and mmode not in ("ct2", "marian", "both", "none"):
+    print("[ERROR] manifest.json contains an invalid mode.", file=sys.stderr)
     sys.exit(1)
 
 files = manifest.get("files", [])
 if not isinstance(files, list) or not files:
     print("[ERROR] manifest.json contains no files.", file=sys.stderr)
     sys.exit(1)
+if len(files) > MAX_ENTRIES:
+    print("[ERROR] manifest.json contains too many files.", file=sys.stderr)
+    sys.exit(1)
 
-if not any(f.get("path", "").startswith(("ct2/", "marian/")) for f in files):
+unexpected = []
+seen = set()
+for entry in files:
+    if not isinstance(entry, dict) or not safe_rel(entry.get("path")):
+        print(f"[ERROR] manifest.json contains an unsafe path: {entry!r}", file=sys.stderr)
+        sys.exit(1)
+    rel = entry["path"]
+    if rel in seen:
+        print(f"[ERROR] manifest.json contains a duplicate path: {rel}", file=sys.stderr)
+        sys.exit(1)
+    seen.add(rel)
+    if not is_expected_path(rel):
+        unexpected.append(rel)
+    size = entry.get("size")
+    if size is not None and (not isinstance(size, int) or isinstance(size, bool) or size < 0):
+        print(f"[ERROR] manifest.json contains an invalid size: {rel}", file=sys.stderr)
+        sys.exit(1)
+    sha = entry.get("sha256")
+    if sha is not None and (not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", sha)):
+        print(f"[ERROR] manifest.json contains an invalid sha256: {rel}", file=sys.stderr)
+        sys.exit(1)
+
+# Las rutas fuera de los prefijos conocidos no son un fallo de seguridad:
+# se avisa y se ignoran aguas abajo (no se instalan).
+if unexpected:
+    print(f"[WARN] manifest.json contains {len(unexpected)} unexpected path(s) outside known prefixes; they will be ignored", file=sys.stderr)
+    for rel in unexpected[:5]:
+        print(f"  - {rel}", file=sys.stderr)
+
+if not any(entry["path"].startswith(("ct2/", "marian/")) for entry in files):
     print("[ERROR] manifest.json contains no model set (ct2/ or marian/).", file=sys.stderr)
     sys.exit(1)
+
+# Ningún path puede escapar del repositorio: los symlinks de directorio hacia
+# destinos de datos se permiten; los de fichero y los de sistema, no.
+if repo_root:
+    for entry in files:
+        try:
+            safe_join(repo_root, entry["path"])
+        except ValueError:
+            print(f"[ERROR] manifest.json contains an unsafe path: {entry['path']} (escapes the repository)", file=sys.stderr)
+            sys.exit(1)
 PY
     then
-        [ -n "$tmp" ] && rm -f "$tmp"
+        if [ -n "$tmp" ]; then safe_rm_f "$TMP_BASE" "$tmp" || true; fi
         return 1
     fi
 
-    [ -n "$tmp" ] && rm -f "$tmp"
+    if [ -n "$tmp" ]; then safe_rm_f "$TMP_BASE" "$tmp" || true; fi
     return 0
 }
 
@@ -329,6 +546,77 @@ if not entries:
     sys.exit(1)
 
 
+MAX_PATH = 4096
+MAX_ENTRIES = 100000
+
+
+def safe_rel(rel):
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        return False
+    if rel.startswith("/") or "\\" in rel:
+        return False
+    if len(rel) > MAX_PATH:
+        return False
+    norm = os.path.normpath(rel)
+    if norm != rel or norm in (".", "..") or norm.startswith("../"):
+        return False
+    return rel.startswith("wheels/")
+
+
+PROTECTED_TREES = ("/usr", "/etc", "/boot", "/var", "/run", "/root", "/home",
+                   "/proc", "/sys", "/dev", "/bin", "/sbin", "/lib", "/lib32", "/lib64")
+SYMLINK_POLICY = os.environ.get("TRADUIA_SYMLINK_POLICY", "allow-dirs")
+
+
+def is_protected_target(path):
+    if path == "/":
+        return True
+    for t in PROTECTED_TREES:
+        if path == t or path.startswith(t + "/"):
+            return True
+    return False
+
+
+def escapes_base(real_base, target):
+    try:
+        return os.path.commonpath([real_base, target]) != real_base
+    except ValueError:
+        return True
+
+
+def safe_join(base, rel):
+    # Defensa en profundidad: aunque los llamadores validan con safe_rel,
+    # la primitiva rechaza por sí misma rutas absolutas o con "..".
+    if not isinstance(rel, str) or not rel or rel.startswith("/") or ".." in rel.split("/"):
+        raise ValueError(rel)
+    real_base = os.path.realpath(base)
+    if real_base == "/":
+        raise ValueError(rel)
+    joined = os.path.join(real_base, rel)
+    target = os.path.realpath(joined)
+    if target == real_base:
+        raise ValueError(rel)
+    if not escapes_base(real_base, target):
+        return target
+    # Fuera del base: solo se permiten symlinks de DIRECTORIO hacia destinos
+    # de datos. Nunca hacia árboles de sistema (/etc, /usr, ...) ni symlinks
+    # de fichero. TRADUIA_SYMLINK_POLICY=strict restaura el rechazo total.
+    if SYMLINK_POLICY == "strict" or is_protected_target(target):
+        raise ValueError(rel)
+    acc = real_base
+    for part in rel.split("/"):
+        acc = os.path.join(acc, part)
+        if os.path.islink(acc) and not os.path.isdir(acc):
+            raise ValueError(rel)
+    return target
+
+
+for entry in entries:
+    if not isinstance(entry, dict) or not safe_rel(entry.get("path")):
+        print(f"[ERROR] manifest.json contains an unsafe path: {entry!r}", file=sys.stderr)
+        sys.exit(1)
+
+
 def sha256_file(path):
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -341,7 +629,11 @@ for entry in entries:
     rel = entry["path"]
     size = entry.get("size")
     sha = entry.get("sha256")
-    local = os.path.join(dest, rel)
+    try:
+        local = safe_join(dest, rel)
+    except ValueError:
+        print(f"[ERROR] manifest.json contains an unsafe path: {rel}", file=sys.stderr)
+        sys.exit(1)
     os.makedirs(os.path.dirname(local), exist_ok=True)
     if os.path.exists(local) and size is not None and os.path.getsize(local) == size:
         if not sha or sha256_file(local) == sha:
@@ -353,7 +645,10 @@ for entry in entries:
         ["curl", "-fSL", "--connect-timeout", "15", "-o", local, url]
     ).returncode
     if rc != 0:
-        subprocess.run(["rm", "-f", local])
+        try:
+            os.remove(local)
+        except OSError:
+            pass
         print(f"[ERROR] Failed to download {url}", file=sys.stderr)
         sys.exit(1)
     if size is not None and os.path.getsize(local) != size:
@@ -387,13 +682,13 @@ detect_repo_wheels() {
                 WHEELS_TMP_DIR="$tmp_dir"
                 echo "[setup] $(_ "Using repository wheels for Python dependencies (offline)")"
             else
-                rm -rf "$tmp_dir"
+                safe_rm_rf "$TMP_BASE" "$tmp_dir" || true
                 echo "[ERROR] $(_ "Repository declares Python wheels, but they could not be downloaded or verified.")" >&2
-                rm -f "$tmp_manifest"
+                safe_rm_f "$TMP_BASE" "$tmp_manifest" || true
                 return 1
             fi
         fi
-        rm -f "$tmp_manifest"
+        safe_rm_f "$TMP_BASE" "$tmp_manifest" || true
     fi
 }
 
@@ -424,11 +719,87 @@ except (OSError, json.JSONDecodeError) as exc:
     print(f"[ERROR] Invalid manifest.json: {exc}", file=sys.stderr)
     sys.exit(1)
 
-entries = {
-    e["path"]: e
-    for e in manifest.get("files", [])
-    if e.get("path", "").startswith("wheels/")
-}
+MAX_PATH = 4096
+MAX_ENTRIES = 100000
+
+
+def safe_rel(rel):
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        return False
+    if rel.startswith("/") or "\\" in rel:
+        return False
+    if len(rel) > MAX_PATH:
+        return False
+    norm = os.path.normpath(rel)
+    if norm != rel or norm in (".", "..") or norm.startswith("../"):
+        return False
+    return rel.startswith("wheels/")
+
+
+PROTECTED_TREES = ("/usr", "/etc", "/boot", "/var", "/run", "/root", "/home",
+                   "/proc", "/sys", "/dev", "/bin", "/sbin", "/lib", "/lib32", "/lib64")
+SYMLINK_POLICY = os.environ.get("TRADUIA_SYMLINK_POLICY", "allow-dirs")
+
+
+def is_protected_target(path):
+    if path == "/":
+        return True
+    for t in PROTECTED_TREES:
+        if path == t or path.startswith(t + "/"):
+            return True
+    return False
+
+
+def escapes_base(real_base, target):
+    try:
+        return os.path.commonpath([real_base, target]) != real_base
+    except ValueError:
+        return True
+
+
+def safe_join(base, rel):
+    # Defensa en profundidad: aunque los llamadores validan con safe_rel,
+    # la primitiva rechaza por sí misma rutas absolutas o con "..".
+    if not isinstance(rel, str) or not rel or rel.startswith("/") or ".." in rel.split("/"):
+        raise ValueError(rel)
+    real_base = os.path.realpath(base)
+    if real_base == "/":
+        raise ValueError(rel)
+    joined = os.path.join(real_base, rel)
+    target = os.path.realpath(joined)
+    if target == real_base:
+        raise ValueError(rel)
+    if not escapes_base(real_base, target):
+        return target
+    # Fuera del base: solo se permiten symlinks de DIRECTORIO hacia destinos
+    # de datos. Nunca hacia árboles de sistema (/etc, /usr, ...) ni symlinks
+    # de fichero. TRADUIA_SYMLINK_POLICY=strict restaura el rechazo total.
+    if SYMLINK_POLICY == "strict" or is_protected_target(target):
+        raise ValueError(rel)
+    acc = real_base
+    for part in rel.split("/"):
+        acc = os.path.join(acc, part)
+        if os.path.islink(acc) and not os.path.isdir(acc):
+            raise ValueError(rel)
+    return target
+
+
+for e in manifest.get("files", []):
+    rel = e.get("path", "") if isinstance(e, dict) else ""
+    if not isinstance(rel, str) or not rel:
+        print(f"[ERROR] manifest.json contains an invalid entry: {e!r}", file=sys.stderr)
+        sys.exit(1)
+    if rel.startswith("wheels/") and not safe_rel(rel):
+        print(f"[ERROR] manifest.json contains an unsafe path: {rel!r}", file=sys.stderr)
+        sys.exit(1)
+
+wheel_files = [e for e in manifest.get("files", [])
+               if isinstance(e, dict) and str(e.get("path", "")).startswith("wheels/")]
+if len(wheel_files) > MAX_ENTRIES or len({e["path"] for e in wheel_files}) != len(wheel_files):
+    print("[ERROR] manifest.json contains too many or duplicate wheel entries.", file=sys.stderr)
+    sys.exit(1)
+
+entries = {e["path"]: e for e in wheel_files}
 
 if not entries:
     print("[ERROR] manifest.json contains no wheel entries.", file=sys.stderr)
@@ -446,7 +817,12 @@ def sha256_file(path):
 errors = 0
 
 for rel, entry in sorted(entries.items()):
-    path = os.path.join(repo, rel)
+    try:
+        path = safe_join(repo, rel)
+    except ValueError:
+        print(f"[ERROR] manifest.json contains an unsafe path: {rel}", file=sys.stderr)
+        errors += 1
+        continue
 
     if not os.path.isfile(path):
         print(f"[ERROR] Wheel listed in manifest but missing: {rel}", file=sys.stderr)
@@ -503,10 +879,6 @@ validate_offline_wheelhouse() {
     local test_log
     local requirements=("${BASE_PYTHON_PKGS[@]}")
 
-    if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
-        requirements+=("${CT2_PYTHON_PKGS[@]}")
-    fi
-
     requirements+=("${FINAL_PYTHON_PKGS[@]}")
 
     tmp_dir="$(mktemp -d)"
@@ -518,7 +890,7 @@ validate_offline_wheelhouse() {
     if ! python3 -m venv "$test_venv" >"$test_log" 2>&1; then
         echo "[ERROR] $(_ "Could not create temporary validation venv.")" >&2
         cat "$test_log" >&2
-        rm -rf "$tmp_dir"
+        safe_rm_rf "$TMP_BASE" "$tmp_dir" || true
         return 1
     fi
 
@@ -534,7 +906,7 @@ validate_offline_wheelhouse() {
     then
         echo "[ERROR] $(_ "The offline wheels repository cannot install pip/setuptools/wheel.")" >&2
         tail -n 60 "$test_log" >&2
-        rm -rf "$tmp_dir"
+        safe_rm_rf "$TMP_BASE" "$tmp_dir" || true
         return 1
     fi
 
@@ -549,11 +921,11 @@ validate_offline_wheelhouse() {
         echo "[ERROR] $(_ "Offline Python repository is incomplete for Python") $PYTHON_VER." >&2
         echo "[ERROR] $(_ "pip dependency resolution output:")" >&2
         tail -n 60 "$test_log" >&2
-        rm -rf "$tmp_dir"
+        safe_rm_rf "$TMP_BASE" "$tmp_dir" || true
         return 1
     fi
 
-    rm -rf "$tmp_dir"
+    safe_rm_rf "$TMP_BASE" "$tmp_dir" || true
 
     echo "[ok] $(_ "Offline Python dependencies are complete for Python") $PYTHON_VER."
 }
@@ -563,7 +935,7 @@ validate_offline_wheelhouse() {
 # =========================================================
 MISSING_FILES=()
 DETECT_TMP="$(mktemp)"
-trap 'rm -f "$DETECT_TMP"; [ -n "${WHEELS_TMP_DIR:-}" ] && rm -rf "$WHEELS_TMP_DIR" || true' EXIT
+trap 'safe_rm_f "$TMP_BASE" "$DETECT_TMP" 2>/dev/null || true; [ -n "${WHEELS_TMP_DIR:-}" ] && safe_rm_rf "$TMP_BASE" "$WHEELS_TMP_DIR" 2>/dev/null || true' EXIT
 
 detect_local_models() {
     local whisper_ok=false
@@ -624,10 +996,10 @@ fi
 set_mode_marker() {
     if [ "$USE_CT2" = "true" ]; then
         touch "$SHARED_HF/.use_ct2"
-        rm -f "$SHARED_HF/.use_marian"
+        safe_rm_f "$MODELS_BASE" "$SHARED_HF/.use_marian" || true
     else
         touch "$SHARED_HF/.use_marian"
-        rm -f "$SHARED_HF/.use_ct2"
+        safe_rm_f "$MODELS_BASE" "$SHARED_HF/.use_ct2" || true
         if [ "$USE_ALL" = "true" ]; then
             echo "[WARN] $(_ "Both model sets installed. To use the optimized mode, rename the .use_marian marker to .use_ct2 manually in:") $SHARED_HF" >&2
         fi
@@ -662,10 +1034,6 @@ run_pip_fatal() {
 install_python_deps() {
     local offline_args=()
     local requirements=("${BASE_PYTHON_PKGS[@]}")
-
-    if [ "$USE_CT2" = "true" ] || [ "$USE_ALL" = "true" ]; then
-        requirements+=("${CT2_PYTHON_PKGS[@]}")
-    fi
 
     mkdir -p "$(dirname "$PIP_LOG")"
     touch "$PIP_LOG"
@@ -838,7 +1206,7 @@ function download_http_models(){
     local tmp_manifest
     tmp_manifest="$(mktemp)"
     if ! curl -fsSL --connect-timeout 15 -o "$tmp_manifest" "$base_url/manifest.json"; then
-        rm -f "$tmp_manifest"
+        safe_rm_f "$TMP_BASE" "$tmp_manifest" || true
         echo "[ERROR] $(_ "Could not fetch manifest.json from:") $base_url/manifest.json" >&2
         echo "[ERROR] $(_ "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf")" >&2
         exit 1
@@ -868,9 +1236,85 @@ except (json.JSONDecodeError, OSError) as e:
     print(f"[ERROR] Invalid manifest.json: {e}", file=sys.stderr)
     sys.exit(1)
 
+
+MAX_PATH = 4096
+MAX_ENTRIES = 100000
+
+
+def safe_rel(rel):
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        return False
+    if rel.startswith("/") or "\\" in rel:
+        return False
+    if len(rel) > MAX_PATH:
+        return False
+    norm = os.path.normpath(rel)
+    if norm != rel or norm in (".", "..") or norm.startswith("../"):
+        return False
+    if rel == "verify-models.py":
+        return True
+    return rel.startswith(("whisper-small/", "ct2/", "marian/", "wheels/", "debs/"))
+
+
+PROTECTED_TREES = ("/usr", "/etc", "/boot", "/var", "/run", "/root", "/home",
+                   "/proc", "/sys", "/dev", "/bin", "/sbin", "/lib", "/lib32", "/lib64")
+SYMLINK_POLICY = os.environ.get("TRADUIA_SYMLINK_POLICY", "allow-dirs")
+
+
+def is_protected_target(path):
+    if path == "/":
+        return True
+    for t in PROTECTED_TREES:
+        if path == t or path.startswith(t + "/"):
+            return True
+    return False
+
+
+def escapes_base(real_base, target):
+    try:
+        return os.path.commonpath([real_base, target]) != real_base
+    except ValueError:
+        return True
+
+
+def safe_join(base, rel):
+    # Defensa en profundidad: aunque los llamadores validan con safe_rel,
+    # la primitiva rechaza por sí misma rutas absolutas o con "..".
+    if not isinstance(rel, str) or not rel or rel.startswith("/") or ".." in rel.split("/"):
+        raise ValueError(rel)
+    real_base = os.path.realpath(base)
+    if real_base == "/":
+        raise ValueError(rel)
+    joined = os.path.join(real_base, rel)
+    target = os.path.realpath(joined)
+    if target == real_base:
+        raise ValueError(rel)
+    if not escapes_base(real_base, target):
+        return target
+    # Fuera del base: solo se permiten symlinks de DIRECTORIO hacia destinos
+    # de datos. Nunca hacia árboles de sistema (/etc, /usr, ...) ni symlinks
+    # de fichero. TRADUIA_SYMLINK_POLICY=strict restaura el rechazo total.
+    if SYMLINK_POLICY == "strict" or is_protected_target(target):
+        raise ValueError(rel)
+    acc = real_base
+    for part in rel.split("/"):
+        acc = os.path.join(acc, part)
+        if os.path.islink(acc) and not os.path.isdir(acc):
+            raise ValueError(rel)
+    return target
+
+
+for entry in manifest.get("files", []):
+    if not isinstance(entry, dict) or not safe_rel(entry.get("path")):
+        print(f"[ERROR] manifest.json contains an unsafe path: {entry!r}", file=sys.stderr)
+        sys.exit(1)
+
 files = manifest.get("files", [])
 if not files:
     print("[ERROR] manifest.json contains no files.", file=sys.stderr)
+    sys.exit(1)
+if len(files) > MAX_ENTRIES or len({e["path"] for e in files}) != len(files):
+    print("[ERROR] manifest.json contains too many or duplicate entries.", file=sys.stderr)
     sys.exit(1)
 
 print(f"[manifest] version={manifest.get('version')} mode={manifest.get('mode')} files={len(files)}")
@@ -924,7 +1368,11 @@ for entry in files:
         continue
     size = entry.get("size")
     sha = entry.get("sha256")
-    local = os.path.join(local_base, rel)
+    try:
+        local = safe_join(local_base, rel)
+    except ValueError:
+        print(f"[ERROR] manifest.json contains an unsafe path: {rel}", file=sys.stderr)
+        sys.exit(1)
     os.makedirs(os.path.dirname(local), exist_ok=True)
 
     # Si el fichero ya está completo y verificado, no se descarga.
@@ -944,7 +1392,10 @@ for entry in files:
         ["curl", "-fSL", "-C", "-", "--connect-timeout", "15", "-o", local, url]
     ).returncode
     if rc != 0:
-        subprocess.run(["rm", "-f", local])
+        try:
+            os.remove(local)
+        except OSError:
+            pass
         rc = subprocess.run(
             ["curl", "-fSL", "--connect-timeout", "15", "-o", local, url]
         ).returncode
@@ -1003,7 +1454,7 @@ with open(os.path.join(local_base, "manifest.json"), "w", encoding="utf-8") as f
 print(f"[ok] Persistent manifest written ({len(persisted)} files)")
 PY
 
-    rm -f "$tmp_manifest"
+    safe_rm_f "$TMP_BASE" "$tmp_manifest" || true
     echo "[setup] $(_ "HTTP download finished.")"
 }
 
@@ -1040,9 +1491,85 @@ except (json.JSONDecodeError, OSError) as e:
     print(f"[ERROR] Invalid manifest.json: {e}", file=sys.stderr)
     sys.exit(1)
 
+
+MAX_PATH = 4096
+MAX_ENTRIES = 100000
+
+
+def safe_rel(rel):
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        return False
+    if rel.startswith("/") or "\\" in rel:
+        return False
+    if len(rel) > MAX_PATH:
+        return False
+    norm = os.path.normpath(rel)
+    if norm != rel or norm in (".", "..") or norm.startswith("../"):
+        return False
+    if rel == "verify-models.py":
+        return True
+    return rel.startswith(("whisper-small/", "ct2/", "marian/", "wheels/", "debs/"))
+
+
+PROTECTED_TREES = ("/usr", "/etc", "/boot", "/var", "/run", "/root", "/home",
+                   "/proc", "/sys", "/dev", "/bin", "/sbin", "/lib", "/lib32", "/lib64")
+SYMLINK_POLICY = os.environ.get("TRADUIA_SYMLINK_POLICY", "allow-dirs")
+
+
+def is_protected_target(path):
+    if path == "/":
+        return True
+    for t in PROTECTED_TREES:
+        if path == t or path.startswith(t + "/"):
+            return True
+    return False
+
+
+def escapes_base(real_base, target):
+    try:
+        return os.path.commonpath([real_base, target]) != real_base
+    except ValueError:
+        return True
+
+
+def safe_join(base, rel):
+    # Defensa en profundidad: aunque los llamadores validan con safe_rel,
+    # la primitiva rechaza por sí misma rutas absolutas o con "..".
+    if not isinstance(rel, str) or not rel or rel.startswith("/") or ".." in rel.split("/"):
+        raise ValueError(rel)
+    real_base = os.path.realpath(base)
+    if real_base == "/":
+        raise ValueError(rel)
+    joined = os.path.join(real_base, rel)
+    target = os.path.realpath(joined)
+    if target == real_base:
+        raise ValueError(rel)
+    if not escapes_base(real_base, target):
+        return target
+    # Fuera del base: solo se permiten symlinks de DIRECTORIO hacia destinos
+    # de datos. Nunca hacia árboles de sistema (/etc, /usr, ...) ni symlinks
+    # de fichero. TRADUIA_SYMLINK_POLICY=strict restaura el rechazo total.
+    if SYMLINK_POLICY == "strict" or is_protected_target(target):
+        raise ValueError(rel)
+    acc = real_base
+    for part in rel.split("/"):
+        acc = os.path.join(acc, part)
+        if os.path.islink(acc) and not os.path.isdir(acc):
+            raise ValueError(rel)
+    return target
+
+
+for entry in manifest.get("files", []):
+    if not isinstance(entry, dict) or not safe_rel(entry.get("path")):
+        print(f"[ERROR] manifest.json contains an unsafe path: {entry!r}", file=sys.stderr)
+        sys.exit(1)
+
 files = manifest.get("files", [])
 if not files:
     print("[ERROR] manifest.json contains no files.", file=sys.stderr)
+    sys.exit(1)
+if len(files) > MAX_ENTRIES or len({e["path"] for e in files}) != len(files):
+    print("[ERROR] manifest.json contains too many or duplicate entries.", file=sys.stderr)
     sys.exit(1)
 
 # --- Validación de completitud del set pedido (igual que el cliente HTTP) ---
@@ -1092,8 +1619,12 @@ for entry in files:
         continue
     size = entry.get("size")
     sha = entry.get("sha256")
-    src = os.path.join(src_dir, rel)
-    dst = os.path.join(local_base, rel)
+    try:
+        src = safe_join(src_dir, rel)
+        dst = safe_join(local_base, rel)
+    except ValueError:
+        print(f"[ERROR] manifest.json contains an unsafe path: {rel}", file=sys.stderr)
+        sys.exit(1)
     if not os.path.exists(src):
         print(f"[ERROR] File listed in manifest but missing in source: {rel}", file=sys.stderr)
         sys.exit(1)
@@ -1122,7 +1653,12 @@ for entry in files:
         continue
     size = entry.get("size")
     sha = entry.get("sha256")
-    dst = os.path.join(local_base, rel)
+    try:
+        dst = safe_join(local_base, rel)
+    except ValueError:
+        print(f"[VERIFY] ERROR: {rel} (unsafe path)", file=sys.stderr)
+        verify_errors += 1
+        continue
     try:
         if not os.path.exists(dst) or os.path.getsize(dst) != size:
             print(f"[VERIFY] ERROR: {rel} (missing/size)")
@@ -1229,15 +1765,15 @@ for REQUESTED_SET in "${REQUESTED_SETS[@]}"; do
         if [ "$USE_ALL" = "true" ] && [ "$REQUESTED_SET" = "ct2" ]; then
             tmp_manifest_url="$(mktemp)"
             if ! curl -fsSL --connect-timeout 15 -o "$tmp_manifest_url" "${MODELS_URL%/}/manifest.json"; then
-                rm -f "$tmp_manifest_url"
+                safe_rm_f "$TMP_BASE" "$tmp_manifest_url" || true
                 echo "[WARN] $(_ "Could not fetch manifest.json from:") ${MODELS_URL%/}/manifest.json" >&2
                 continue
             elif ! repo_has_set "$tmp_manifest_url" "ct2"; then
-                rm -f "$tmp_manifest_url"
+                safe_rm_f "$TMP_BASE" "$tmp_manifest_url" || true
                 echo "[WARN] $(_ "ct2 set not available in repository; skipping.")" >&2
                 continue
             fi
-            rm -f "$tmp_manifest_url"
+            safe_rm_f "$TMP_BASE" "$tmp_manifest_url" || true
         fi
         download_http_models "$MODELS_URL" "$REQUESTED_SET"
     else
@@ -1270,6 +1806,14 @@ import os, json, subprocess, shutil, tempfile
 from huggingface_hub import snapshot_download, model_info
 from huggingface_hub.utils import disable_progress_bars, RepositoryNotFoundError
 disable_progress_bars()
+
+
+def _safe_rmtree_temp(path):
+    tmp_root = os.path.realpath(tempfile.gettempdir())
+    real = os.path.realpath(path)
+    if real == tmp_root or os.path.commonpath([tmp_root, real]) != tmp_root:
+        raise RuntimeError(f"refusing to remove outside temp dir: {path}")
+    shutil.rmtree(real, ignore_errors=True)
 
 HF_HOME = os.environ.get("HF_HOME", "/opt/ai/traduia/models")
 CT2_BASE = os.path.join(HF_HOME, "ct2")
@@ -1368,7 +1912,7 @@ for pair in MARIAN_PAIRS:
                 json.dump(merged, f_out, indent=2, ensure_ascii=False)
             print(f"[CT2]   Merged config.json")
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        _safe_rmtree_temp(temp_dir)
 
 print("[CT2] All Marian models ready.")
 PY
