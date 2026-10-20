@@ -47,11 +47,68 @@ function kdialog() {
     command kdialog "$@" 2>/dev/null
 }
 
+# >>> SAFE RM (begin)
+# Borrados confinados a un basedir. safe_within resuelve symlinks con
+# realpath -m y exige que el destino quede estrictamente dentro del base.
+safe_within() {
+    local base="$1" path="$2" real_base real_path
+    [ -n "$base" ] && [ -n "$path" ] || return 1
+    real_base="$(realpath -m -- "$base" 2>/dev/null)" || return 1
+    real_path="$(realpath -m -- "$path" 2>/dev/null)" || return 1
+    [ -n "$real_base" ] && [ -n "$real_path" ] || return 1
+    [ "$real_base" != "/" ] || return 1
+    [ "$real_path" != "/" ] || return 1
+    [ "$real_path" != "$real_base" ] || return 1
+    case "$real_path" in
+        "$real_base"/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+safe_rm_rf() {
+    [ $# -ge 1 ] || return 1
+    local base="$1"; shift
+    local p
+    [ $# -gt 0 ] || return 1
+    for p in "$@"; do
+        if safe_within "$base" "$p"; then
+            rm -rf -- "$p"
+        else
+            echo "[ERROR] Refusing to remove outside base: $p (base: $base)" >&2
+            return 1
+        fi
+    done
+}
+
+safe_rm_f() {
+    [ $# -ge 1 ] || return 1
+    local base="$1"; shift
+    local p
+    [ $# -gt 0 ] || return 1
+    for p in "$@"; do
+        if safe_within "$base" "$p"; then
+            rm -f -- "$p"
+        else
+            echo "[ERROR] Refusing to remove outside base: $p (base: $base)" >&2
+            return 1
+        fi
+    done
+}
+# <<< SAFE RM (end)
+
+TRADUIA_DATA_BASE="/opt/ai/traduia"
+TMP_BASE="${TMPDIR:-/tmp}"
+# TMP_BASE debe ser usable como basedir de borrado: canonicalizado y nunca "/".
+TMP_BASE="$(realpath -m -- "$TMP_BASE" 2>/dev/null || true)"
+if [ -z "$TMP_BASE" ] || [ "$TMP_BASE" = "/" ]; then
+    TMP_BASE="/tmp"
+fi
+
 # Aborta la operación por cancelación del usuario, limpiando los
 # marcadores temporales para que el reintento empiece limpio.
 function abort_install() {
     echo "[INFO] $(_ "Installation cancelled")"
-    rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE"
+    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" || true
     exit 1
 }
 
@@ -68,10 +125,11 @@ function require_root() {
 TRADUIA_SKIP_METAS_CHECK="${TRADUIA_SKIP_METAS_CHECK:-0}"
 # TRADUIA_SKIP_METAS_CHECK=1   # Descomenta esta línea para saltar la validación de metas
 
-# Marcadores temporales
-TRADUIA_MODE_FILE="/tmp/.traduia_install_mode"
-TRADUIA_SOURCE_FILE="/tmp/.traduia_models_source"
-TRADUIA_OPTIMIZE_FILE="/tmp/.traduia_optimize_model"
+# Marcadores temporales (derivados de TMP_BASE: si el entorno define TMPDIR,
+# los ficheros y el basedir de borrado deben coincidir o la limpieza se rechaza)
+TRADUIA_MODE_FILE="${TMP_BASE}/.traduia_install_mode"
+TRADUIA_SOURCE_FILE="${TMP_BASE}/.traduia_models_source"
+TRADUIA_OPTIMIZE_FILE="${TMP_BASE}/.traduia_optimize_model"
 
 # Marcador persistente del modo de instalación (Server/Client)
 TRADUIA_MODE_FLAG="/opt/ai/traduia/.mode"
@@ -79,21 +137,21 @@ TRADUIA_MODE_FLAG="/opt/ai/traduia/.mode"
 function remove_models(){
     models='/opt/ai/traduia/models'
     if [ -e "$models" ]; then
-        rm -rf "$models"
+        safe_rm_rf "$TRADUIA_DATA_BASE" "$models" || true
     fi
 }
 
 function remove_venv(){
     venv='/opt/ai/traduia/venv'
     if [ -e "$venv" ]; then
-        rm -rf "$venv"
+        safe_rm_rf "$TRADUIA_DATA_BASE" "$venv" || true
     fi
 }
 
 function remove_execcode(){
     d='/usr/lib/traduia'
-    if [ -d "$d" ]; then
-        rmdir "$d" || true
+    if [ -d "$d" ] && [ "$(realpath -m -- "$d")" = "/usr/lib/traduia" ]; then
+        rmdir -- "$d" || true
     fi
 }
 
@@ -106,7 +164,44 @@ function remove_execcode(){
 # Validación común del manifest: JSON válido, files no vacío y
 # al menos un set (ct2/ o marian/).
 function valid_repo_manifest() {
-    jq -e '.files | type == "array" and length > 0 and ([.[].path | test("^(ct2|marian)/")] | any)' "$1" >/dev/null 2>&1
+    # El manifest es entrada no confiable (USB/LAN). Se exige:
+    #  - files[] no vacío, acotado y con entradas objeto de path string normalizado
+    #  - rechazo de rutas absolutas, "..", ".", "//", backslash, NUL y barra final
+    #  - size numérico >= 0 y sha256 hex64 cuando están presentes
+    # Los prefijos conocidos NO son un requisito de seguridad: se avisa de las
+    # rutas desconocidas (ver warn_unknown_manifest_paths) y se ignoran aguas abajo.
+    jq -e '
+        (.files | type == "array" and length > 0 and length <= 100000)
+        and ([.files[] | type == "object"] | all)
+        and ([.files[] | .path | type == "string" and length > 0 and length <= 4096] | all)
+        and ([.files[].path
+              | select(startswith("/") or contains("//") or contains("\\")
+                       or test("(^|/)\\.(/|$)") or test("(^|/)\\.\\.(/|$)")
+                       or endswith("/") or contains("\u0000"))]
+             | length == 0)
+        and ([.files[] | select(has("size")) | .size
+              | type == "number" and . >= 0 and . == floor] | all)
+        and ([.files[] | select(has("sha256")) | .sha256
+              | type == "string" and test("^[0-9a-fA-F]{64}$")] | all)
+        and ([.files[].path | test("^(ct2|marian)/")] | any)
+    ' "$1" >/dev/null 2>&1 || return 1
+    warn_unknown_manifest_paths "$1"
+    return 0
+}
+
+# Avisa (sin abortar) de rutas fuera de los prefijos conocidos: se ignoran
+# aguas abajo. Los repos generados por traduia-make-repo no las incluyen.
+function warn_unknown_manifest_paths() {
+    command -v jq >/dev/null 2>&1 || return 0
+    local n
+    n="$(jq -r '[.files[].path
+                 | select((test("^(whisper-small|ct2|marian|wheels|debs)/") or . == "verify-models.py") | not)]
+                | length' "$1" 2>/dev/null)" || return 0
+    [ "${n:-0}" -gt 0 ] || return 0
+    echo "[WARN] $(_ "manifest.json contains unexpected paths outside known prefixes; they will be ignored"): $n" >&2
+    jq -r '[.files[].path
+            | select((test("^(whisper-small|ct2|marian|wheels|debs)/") or . == "verify-models.py") | not)][:5][]
+           | "  - " + .' "$1" >&2 2>/dev/null || true
 }
 
 # Comprueba si el manifest contiene entradas de un set ("ct2" | "marian").
@@ -126,10 +221,10 @@ function valid_repo_url() {
     tmp="$(mktemp)"
     if curl -fsSL --connect-timeout 5 --max-time 10 -o "$tmp" "$url/manifest.json" 2>/dev/null \
         && valid_repo_manifest "$tmp"; then
-        rm -f "$tmp"
+        safe_rm_f "$TMP_BASE" "$tmp" || true
         return 0
     fi
-    rm -f "$tmp"
+    safe_rm_f "$TMP_BASE" "$tmp" || true
     return 1
 }
 
@@ -180,11 +275,19 @@ function find_repo_traduia_deb() {
     if [[ "$src" == http://* || "$src" == https://* ]]; then
         manifest_tmp="$(mktemp)"
         if ! curl -fsSL --connect-timeout 5 --max-time 15 -o "$manifest_tmp" "$src/manifest.json" 2>/dev/null; then
-            rm -f "$manifest_tmp"
+            safe_rm_f "$TMP_BASE" "$manifest_tmp" || true
             return 1
         fi
         while IFS= read -r rel; do
             [ -n "$rel" ] || continue
+            # Manifest no confiable: solo debs/<codename>/<basename>.deb
+            case "$rel" in
+                debs/"$codename"/*.deb) ;;
+                *) continue ;;
+            esac
+            case "${rel#debs/$codename/}" in
+                */*) continue ;;
+            esac
             f="$(mktemp)"
             if curl -fsSL --connect-timeout 5 --max-time 30 -o "$f" "$src/$rel" 2>/dev/null \
                 && [ "$(dpkg-deb -f "$f" Package 2>/dev/null)" = "traduia" ]; then
@@ -193,13 +296,13 @@ function find_repo_traduia_deb() {
                     best="$f"
                     bestver="$ver"
                 else
-                    rm -f "$f"
+                    safe_rm_f "$TMP_BASE" "$f" || true
                 fi
             else
-                rm -f "$f"
+                safe_rm_f "$TMP_BASE" "$f" || true
             fi
         done < <(jq -r --arg d "debs/$codename/" '.files[] | select(.path | startswith($d)) | .path' "$manifest_tmp" 2>/dev/null | grep '\.deb$')
-        rm -f "$manifest_tmp"
+        safe_rm_f "$TMP_BASE" "$manifest_tmp" || true
     else
         for f in "$src"/debs/"$codename"/*.deb; do
             [ -f "$f" ] || continue
@@ -241,7 +344,7 @@ function cards_extract_json() {
 function cards_write_json() {
     { printf 'window.LLX_CARDS = %s;\n' "$(cat "$1")"; } > "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp" \
         && mv "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp" "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
-        || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; rm -f "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp"; }
+        || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; safe_rm_f "/usr/share/lliurex-firefox-settings" "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp" || true; }
 }
 
 function create_llxffoxsettings_conf() {
@@ -256,7 +359,7 @@ function create_llxffoxsettings_conf() {
         json="$(cards_extract_json "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
             | jq '.cards |= ( map(select(.title != "Traduia" and .url != "http://server:8000")) + [{"title":"Traduia","url":"http://server:8000","image":"images/traduia.svg"}] )')" \
             && cards_write_json <(printf '%s\n' "$json") \
-            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; rm -f "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp"; }
+            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; safe_rm_f "/usr/share/lliurex-firefox-settings" "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp" || true; }
     else
         echo "[WARN] $(_ "cards file not found:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2
     fi
@@ -294,12 +397,12 @@ function remove_llxffoxsettings_conf(){
         json="$(cards_extract_json "$TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" \
             | jq '.cards |= map( if (.title == "Traduia" or .url == "http://server:8000") then {"title":"Traduia","_url":"uninstalled","image":"images/traduia.svg"} else . end )')" \
             && cards_write_json <(printf '%s\n' "$json") \
-            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; rm -f "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp"; }
+            || { echo "[WARN] $(_ "cards file processing failed:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2; safe_rm_f "/usr/share/lliurex-firefox-settings" "${TRADUIA_LLXFFOXSETTINGS_CARDS_FILE}.tmp" || true; }
     else
         echo "[WARN] $(_ "cards file not found:") $TRADUIA_LLXFFOXSETTINGS_CARDS_FILE" >&2
     fi
     # El icono copiado al destino web también se limpia.
-    rm -f "$TRADUIA_LLXFFOXSETTINGS_ICON_DEST"
+    safe_rm_f "/usr/share/lliurex-firefox-settings" "$TRADUIA_LLXFFOXSETTINGS_ICON_DEST" || true
 }
 
 # =========================================================
@@ -342,9 +445,9 @@ EOF
 }
 
 function remove_www_entry() {
-    rm -f "$TRADUIA_WWW_ENTRY_FILE"
+    safe_rm_f "/var/lib/lliurex-www" "$TRADUIA_WWW_ENTRY_FILE" || true
     # El icono copiado al directorio de iconos de la web también se limpia.
-    rm -f "$TRADUIA_WWW_ICONS_DIR/$TRADUIA_WWW_ICON"
+    safe_rm_f "/usr/share/lliurex-www" "$TRADUIA_WWW_ICONS_DIR/$TRADUIA_WWW_ICON" || true
 }
 
 # =========================================================
@@ -476,7 +579,7 @@ ask_source() {
             ask_optimization
         fi
         if [[ "$MODELS_SOURCE" == http://* || "$MODELS_SOURCE" == https://* ]]; then
-            rm -f "$manifest_tmp"
+            safe_rm_f "$TMP_BASE" "$manifest_tmp" || true
         fi
     fi
 }
@@ -534,7 +637,7 @@ do_postinstall() {
                     echo "[WARN] $(_ "Failed to install repository deb:") $REPO_DEB_PATH" >&2
                 fi
             fi
-            [ "$REPO_DEB_TMP" = "1" ] && rm -f "$REPO_DEB_PATH"
+            if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$REPO_DEB_PATH" || true; fi
         fi
     fi
 
@@ -606,7 +709,7 @@ do_postinstall() {
         fi
     fi
     # Los marcadores se consumen siempre.
-    rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_SOURCE_FILE" || true
+    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_SOURCE_FILE" || true || true
 
     # Estado de zero-center: instalación completada. El retorno no es
     # crítico para el resultado de la instalación.
@@ -630,7 +733,7 @@ do_install() {
             if deb_is_newer_or_equal "$REPO_DEB_VER" "$ref"; then
                 repo_deb="$REPO_DEB_PATH"
             else
-                [ "$REPO_DEB_TMP" = "1" ] && rm -f "$REPO_DEB_PATH"
+                if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$REPO_DEB_PATH" || true; fi
             fi
         fi
     fi
@@ -639,15 +742,15 @@ do_install() {
         echo "[INFO] $(_ "Using repository deb:") $repo_deb"
         if ! apt-get install -y "$repo_deb"; then
             echo "[ERROR] $(_ "Failed to install traduia package")" >&2
-            rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE"
-            [ "$REPO_DEB_TMP" = "1" ] && rm -f "$repo_deb"
+            safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" || true
+            if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$repo_deb" || true; fi
             exit 1
         fi
         # El deb temporal descargado de LAN se limpia tras instalar.
-        [ "$REPO_DEB_TMP" = "1" ] && rm -f "$repo_deb"
+        if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$repo_deb" || true; fi
     elif ! apt-get install -y traduia; then
         echo "[ERROR] $(_ "Failed to install traduia package")" >&2
-        rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE"
+        safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" || true
         exit 1
     fi
     do_postinstall
@@ -655,8 +758,8 @@ do_install() {
 
 do_remove() {
     require_root
-    rm -f "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" || true
-    rm -f "$TRADUIA_MODE_FLAG"
+    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" || true || true
+    safe_rm_f "$TRADUIA_DATA_BASE" "$TRADUIA_MODE_FLAG" || true
 
     # Solo se pregunta sobre los modelos si existen en disco.
     REMOVE_MODELS=false

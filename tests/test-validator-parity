@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Test de paridad de validadores.
+#
+# Los scripts se distribuyen autocontenidos, así que safe_rel/safe_join están
+# duplicados en varias ubicaciones (5+1+1 en install-models-traduia,
+# traduia-verify-models y el verificador embebido de traduia-make-repo).
+# Este test falla si las copias divergen, y cruza la lista de directorios
+# protegidos entre el bash de traduia-make-repo, el Python y los tests.
+#
+# Sin root; no ejecuta ningún script del producto.
+
+TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$TESTS_DIR")"
+
+python3 - "$REPO_DIR" <<'PY'
+import re
+import sys
+
+root = sys.argv[1]
+
+
+def read(*parts):
+    with open("/".join((root,) + parts), encoding="utf-8") as fh:
+        return fh.read()
+
+
+FILES = {
+    "install-models-traduia": read("install-models-traduia"),
+    "traduia-verify-models": read("traduia-verify-models"),
+    "traduia-make-repo": read("traduia-make-repo"),
+}
+
+fail = 0
+
+
+def bad(msg):
+    global fail
+    print("FAIL: " + msg, file=sys.stderr)
+    fail = 1
+
+
+def extract_funcs(src, name, sig=r"\("):
+    """Devuelve TODAS las copias de la función (cuerpo indentado, sin líneas
+    vacías finales). El nombre puede llevar guion bajo opcional."""
+    lines = src.splitlines()
+    pat = re.compile(r"^def _?" + re.escape(name) + sig)
+    bodies = []
+    out = None
+    for line in lines:
+        if out is None:
+            if pat.match(line):
+                out = [line]
+            continue
+        if line.startswith((" ", "\t")) or line == "":
+            out.append(line)
+        else:
+            while out and out[-1] == "":
+                out.pop()
+            bodies.append("\n".join(out))
+            out = None
+            if pat.match(line):
+                out = [line]
+    if out is not None:
+        while out and out[-1] == "":
+            out.pop()
+        bodies.append("\n".join(out))
+    return bodies
+
+
+def invariant_core(func_src):
+    """Recorta la parte común de safe_rel: todo hasta el return de whitelist."""
+    keep = []
+    for line in func_src.splitlines():
+        if re.match(r'\s+(if rel == "verify-models\.py":|return rel\.startswith\(|return True$)', line):
+            break
+        keep.append(line)
+    return "\n".join(keep).rstrip()
+
+
+# 1) safe_join idéntico en todas las ubicaciones.
+joins = {}
+count = {}
+for name, src in FILES.items():
+    bodies = extract_funcs(src, "safe_join", r"\(base, rel\)")
+    if not bodies:
+        bad(f"safe_join no encontrada en {name}")
+        continue
+    count[name] = len(bodies)
+    for body in bodies:
+        joins.setdefault(body, []).append(f"{name}[{len(joins)}]")
+
+if len(joins) > 1:
+    bad(f"safe_join difiere entre ficheros: {[v for v in joins.values()]}")
+else:
+    total = sum(count.values())
+    print(f"ok: safe_join idéntica en {total} ubicaciones: "
+          + ", ".join(f"{k} x{v}" for k, v in sorted(count.items())))
+
+# Debe contener la política de symlinks (no una versión antigua).
+if joins:
+    body = next(iter(joins))
+    for needle in ("is_protected_target", "SYMLINK_POLICY", "os.path.islink"):
+        if needle not in body:
+            bad(f"safe_join no aplica la política de symlinks (falta {needle})")
+
+# 2) safe_rel: mismo núcleo (seguridad) en todas; el whitelist puede variar.
+cores = {}
+count_rel = {}
+for name, src in FILES.items():
+    bodies = extract_funcs(src, "safe_rel")
+    if not bodies:
+        bad(f"safe_rel no encontrada en {name}")
+        continue
+    count_rel[name] = len(bodies)
+    for body in bodies:
+        cores.setdefault(invariant_core(body), []).append(name)
+
+if len(cores) > 1:
+    bad(f"el núcleo de safe_rel difiere entre ficheros: {[v for v in cores.values()]}")
+else:
+    total = sum(count_rel.values())
+    print(f"ok: núcleo de safe_rel idéntico en {total} ubicaciones: "
+          + ", ".join(f"{k} x{v}" for k, v in sorted(count_rel.items())))
+
+if cores:
+    core = next(iter(cores))
+    for needle in ('"\\x00" in rel', 'rel.startswith("/")', '"\\\\" in rel',
+                   "os.path.normpath", "MAX_PATH"):
+        if needle not in core:
+            bad(f"el núcleo de safe_rel ha perdido una comprobación: falta {needle}")
+
+# 3) Helpers de política idénticos.
+for helper in ("is_protected_target", "escapes_base"):
+    bodies = {}
+    for name, src in FILES.items():
+        for body in extract_funcs(src, helper):
+            bodies.setdefault(body, []).append(name)
+    if len(bodies) > 1:
+        bad(f"{helper} difiere entre ficheros: {[v for v in bodies.values()]}")
+    elif not bodies:
+        bad(f"{helper} no encontrada en ningún fichero")
+
+trees = set(re.findall(r"PROTECTED_TREES = \(([^)]*)\)", FILES["install-models-traduia"], re.S))
+if not trees:
+    bad("PROTECTED_TREES no encontrada en install-models-traduia")
+else:
+    py_trees = set(re.findall(r'"([^"]+)"', trees.pop()))
+    for name, src in FILES.items():
+        found = re.findall(r"PROTECTED_TREES = \(([^)]*)\)", src, re.S)
+        if not found:
+            bad(f"PROTECTED_TREES no encontrada en {name}")
+            continue
+        if set(re.findall(r'"([^"]+)"', found[0])) != py_trees:
+            bad(f"PROTECTED_TREES difiere en {name}")
+    print(f"ok: PROTECTED_TREES coherente ({len(py_trees)} árboles)")
+
+    # 4) Cruce con el bash de traduia-make-repo.
+    make_repo = FILES["traduia-make-repo"]
+    m = re.search(r'SYSTEM_DIRS_TREES="([^"]*)"', make_repo)
+    if not m:
+        bad("SYSTEM_DIRS_TREES no encontrada en traduia-make-repo")
+    else:
+        bash_trees = set(m.group(1).split())
+        if bash_trees != py_trees:
+            bad(f"SYSTEM_DIRS_TREES != PROTECTED_TREES: solo-bash={sorted(bash_trees - py_trees)} solo-py={sorted(py_trees - bash_trees)}")
+        else:
+            print("ok: SYSTEM_DIRS_TREES (bash) == PROTECTED_TREES (Python)")
+
+    # 5) Cruce con el test de set_out_dir.
+    test_src = read("tests", "test-safe-rm")
+    m = re.search(r"DENIED_OUT_DIRS=\((.*?)\n\)", test_src, re.S)
+    if not m:
+        bad("DENIED_OUT_DIRS no encontrada en tests/test-safe-rm")
+    else:
+        denied = set(m.group(1).split())
+        m2 = re.search(r'SYSTEM_DIRS_EXACT="([^"]*)"', make_repo)
+        if not m2:
+            bad("SYSTEM_DIRS_EXACT no encontrada en traduia-make-repo")
+        else:
+            exact = set(m2.group(1).split())
+            if denied != exact:
+                bad(f"DENIED_OUT_DIRS != SYSTEM_DIRS_EXACT: solo-test={sorted(denied - exact)} solo-bash={sorted(exact - denied)}")
+            else:
+                print(f"ok: DENIED_OUT_DIRS == SYSTEM_DIRS_EXACT ({len(exact)} rutas)")
+            # El test debe cubrir también los árboles protegidos.
+            missing = sorted(py_trees - denied)
+            if missing:
+                bad(f"DENIED_OUT_DIRS no incluye árboles protegidos: {missing}")
+
+print("parity: OK" if fail == 0 else "parity: FALLOS")
+sys.exit(fail)
+PY

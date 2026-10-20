@@ -73,6 +73,16 @@ traduia-make-repo full /srv/export/traduia \
   librería estándar.
 - `--url-jammy`/`--url-noble` tienen el mismo significado que en `debs`
   (sección 4.5) y solo afectan al paso de descarga de los debs.
+- **Directorio de salida**: debe ser una ruta **absoluta** (se canonicaliza)
+  y no puede ser un directorio de sistema. Se rechazan exactamente:
+  `/`, `/usr`, `/etc`, `/var`, `/home`, `/root`, `/opt`, `/boot`, `/dev`,
+  `/proc`, `/sys`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, `/run`,
+  `/tmp`, `/srv`, `/media`, `/mnt`; y **cualquier ruta dentro de los árboles
+  protegidos** `/usr`, `/etc`, `/boot`, `/var`, `/run`, `/root`, `/home`,
+  `/proc`, `/sys`, `/dev`, `/bin`, `/sbin`, `/lib*` (por ejemplo `/usr/bin`
+  o `/etc/traduia`). Los destinos de datos sí se aceptan:
+  `/srv/export/traduia`, `/media/<usuario>/<usb>`, `/opt/<app>`, `/mnt/disco/…`.
+  Los borrados internos (`.cache`, debs) quedan confinados a ese directorio.
 - **Limpieza y permisos automáticos**: al terminar, el repositorio se
   prepara para su distribución: se eliminan los artefactos internos de
   HuggingFace (metadatos `.cache/` y ficheros `.gitattributes`) y se
@@ -137,6 +147,18 @@ python3 verify-models.py --mode ct2 <dir>   # solo whisper + un set
   `ERROR NO LEGIBLE:`), un resumen final y devuelve `exit 0` si todo es
   correcto o `1` si hay errores. Con `--mode` falla si el set pedido no está
   en el manifest.
+- El verificador trata el manifest como **entrada no confiable** (mismas
+  reglas que el instalador: rutas normalizadas, sin `..`, sin absolutas, con
+  límites de tamaño y sin duplicados). Las rutas que no están bajo
+  `whisper-small/`, `ct2/`, `marian/`, `wheels/`, `debs/` ni son
+  `verify-models.py` se avisan con `[WARN]` y se ignoran.
+- **Symlinks**: los de **directorio** hacia discos de datos se siguen y
+  verifican con normalidad (`ct2 -> /mnt/disco/ct2`); los de **fichero** y
+  los que apuntan a árboles de sistema (`/etc`, `/usr`, …) se reportan como
+  ruta no segura. La política se controla con `TRADUIA_SYMLINK_POLICY`
+  (ver el cuadro de la sección 3.3): `strict` rechaza cualquier symlink que
+  salga del repositorio y cualquier otro valor se aplica como
+  `allow-dirs`, el valor por defecto.
 - El verificador viaja con el repositorio (USB o repo HTTP), así que puede
   ejecutarse en cualquier máquina sin copiar nada de esta documentación.
 
@@ -358,6 +380,52 @@ El origen USB/LAN se valida como repositorio: debe contener un
 `manifest.json` con `files[]` y al menos un set (`ct2/` o `marian/`). En
 modo **Cliente** no se descargan modelos: solo se instala el paquete y se
 configura la entrada de Firefox cuando procede.
+
+> **Manifest no confiable**: el `manifest.json` del USB/LAN se trata como
+> entrada no confiable. Se exige que `files[]` sea una lista acotada de
+> objetos con `path` **relativo y normalizado**: las rutas absolutas, con
+> `..`, con `./`, con `//`, con barra final, con `\\`, con NUL o de más de
+> 4096 caracteres abortan la instalación, igual que los `size` que no sean
+> enteros ≥ 0, los `sha256` que no sean 64 hex, las rutas duplicadas y los
+> `manifest.json` de más de 64 MiB o con más de 100 000 entradas.
+>
+> **Rutas desconocidas**: las que no están bajo `whisper-small/`, `ct2/`,
+> `marian/`, `wheels/`, `debs/` ni son `verify-models.py` (por ejemplo un
+> `README.md` o un `.DS_Store` de un USB usado en macOS) **no abortan**: se
+> avisa con `[WARN]` y se ignoran (no se instalan).
+>
+> **Symlinks**: se permiten los symlinks de **directorio** que apuntan a
+> discos de datos (`/opt/ai/traduia/models/ct2 -> /mnt/disco/ct2`,
+> `/srv`, `/media`, `/tmp`), de modo que se puede mover el almacén de
+> modelos a otro disco sin cambiar la configuración. Se rechazan siempre:
+> los symlinks que apunten a árboles de sistema (`/etc`, `/usr`, `/var`,
+> `/root`, `/home`, …) y los symlinks de **fichero**. Los **borrados** siguen
+> siendo estrictos y no son configurables: nunca atraviesan un symlink que
+> escape del directorio base; si el árbol de salida contiene uno, la limpieza
+> se omite con un aviso en lugar de abortar.
+>
+> **Política de symlinks** — variable de entorno `TRADUIA_SYMLINK_POLICY`,
+> que afecta a `install-models-traduia`, `traduia-verify-models` y al
+> `verify-models.py` generado:
+>
+> | Valor | Comportamiento |
+> |---|---|
+> | `allow-dirs` (por defecto) | Se permiten los symlinks de **directorio** que salen del repositorio, con destino fuera de los árboles de sistema. Se rechazan los de fichero y los dirigidos a `/`, `/etc`, `/usr`, `/boot`, `/var`, `/run`, `/root`, `/home`, `/proc`, `/sys`, `/dev`, `/bin`, `/sbin`, `/lib*`. |
+> | `strict` | Se rechaza **cualquier** symlink que salga del repositorio (comportamiento anterior al endurecimiento). |
+>
+> **Cualquier otro valor** (un `STRICT` en mayúsculas, `allow`, `strict=1`,
+> una cadena vacía…) **no es un error**: se aplica silenciosamente como
+> `allow-dirs`. Por eso conviene escribir el valor en minúsculas y exacto:
+>
+> ```bash
+> export TRADUIA_SYMLINK_POLICY=strict   # rechazo total de symlinks salientes
+> sudo -E install-models-traduia --dir /media/usuario/USB/traduia install
+> python3 verify-models.py              # hereda la misma variable
+> ```
+>
+> La variable no se lee de `/etc/traduia/models-repo.conf`: se toma del
+> entorno del proceso, así que hay que exportarla en cada invocación
+> (`sudo -E` si se ejecuta con `sudo`).
 
 La comprobación de metas se puede omitir con la opción `--disable-meta-checks`
 (equivale a `TRADUIA_SKIP_METAS_CHECK=1`): la tarjeta de Firefox se configura
