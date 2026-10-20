@@ -5,17 +5,30 @@
 
 set -e
 
+# Borra solo si la ruta real coincide exactamente con la esperada: evita
+# que variables vacías o manipuladas escapen de las rutas fijadas.
+safe_rm_exact() {
+    _safe_expected="$1"
+    _safe_path="$2"
+    [ -n "$_safe_expected" ] && [ -n "$_safe_path" ] || return 1
+    _safe_real_expected="$(realpath -m -- "$_safe_expected" 2>/dev/null)" || return 1
+    _safe_real_path="$(realpath -m -- "$_safe_path" 2>/dev/null)" || return 1
+    [ -n "$_safe_real_expected" ] && [ -n "$_safe_real_path" ] || return 1
+    [ "$_safe_real_expected" = "$_safe_real_path" ] || return 1
+    rm -rf -- "$_safe_path"
+}
+
 case "$1" in
     install|upgrade)
         OLD_MODELS='/usr/lib/ai/traduia_models'
         if [ -d "$OLD_MODELS" ]; then
             echo "[migrate] Removing old models directory: $OLD_MODELS"
-            rm -rf "$OLD_MODELS"
+            safe_rm_exact '/usr/lib/ai/traduia_models' "$OLD_MODELS" || true
         fi
         OLD_VENV='/usr/lib/traduia/venv'
         if [ -d "$OLD_VENV" ]; then
             echo "[migrate] Removing old venv: $OLD_VENV"
-            rm -rf "$OLD_VENV"
+            safe_rm_exact '/usr/lib/traduia/venv' "$OLD_VENV" || true
         fi
     ;;
 
