@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Test de endurecimiento frente a manifest.json no confiable (USB/LAN).
+# Comprueba que traduia-config, install-models-traduia y
+# traduia-verify-models rechazan paths que escapan del repositorio.
+# Sin root; usa directorios temporales.
+#
+# Cada aserción negativa exige además el MENSAJE de rechazo: sin eso el
+# test pasaría aunque la guarda hubiera desaparecido (un fichero ausente
+# ya hace salir con != 0). Cada validador tiene su control POSITIVO.
+
+TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$TESTS_DIR")"
+
+CONFIG="$REPO_DIR/zero-lliurex-traduia.install-files/usr/sbin/traduia-config"
+IMT="$REPO_DIR/install-models-traduia"
+VERIFY="$REPO_DIR/traduia-verify-models"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf -- "$TMP"' EXIT
+
+# Hermeticidad: con /var/log escribible los scripts tee-nean ahí.
+export TRADUIA_CONFIG_LOG="$TMP/config.log"
+export TRADUIA_IMT_LOG="$TMP/imt.log"
+export TRADUIA_MODELS_DIR="$TMP/models"
+
+fail=0
+note_fail() { echo "FAIL: $*" >&2; fail=1; }
+
+# Escribe un manifest a partir de una lista JSON de entradas; las cadenas
+# se convierten en entradas completas y {"__raw__": x} inserta x tal cual.
+write_manifest() {
+    local dir="$1" spec="$2"
+    mkdir -p "$dir"
+    python3 - "$dir/manifest.json" "$spec" <<'PY'
+import json
+import sys
+
+out, spec = sys.argv[1], json.loads(sys.argv[2])
+files = []
+for item in spec:
+    if isinstance(item, str):
+        files.append({"path": item, "size": 1, "sha256": "0" * 64})
+    elif isinstance(item, dict) and "__raw__" in item:
+        files.append(item["__raw__"])
+    else:
+        files.append(item)
+json.dump({"version": 1, "mode": "both", "files": files}, open(out, "w"))
+PY
+}
+
+# Escribe un manifest.json literal (para JSON con backslashes, etc.).
+write_manifest_json() {
+    local dir="$1" body="$2"
+    mkdir -p "$dir"
+    printf '%s\n' "$body" > "$dir/manifest.json"
+}
+
+# Repo canónico con ficheros reales y size/sha256 correctos.
+make_valid_repo() {
+    local dir="$1"
+    rm -rf -- "$dir"
+    mkdir -p "$dir/ct2/opus-mt-es-en" "$dir/whisper-small"
+    printf 'model\n' > "$dir/ct2/opus-mt-es-en/model.bin"
+    printf '{}\n' > "$dir/whisper-small/config.json"
+    python3 - "$dir" <<'PY'
+import hashlib
+import json
+import os
+import sys
+
+repo = sys.argv[1]
+files = []
+for root, _dirs, fnames in os.walk(repo):
+    for fname in sorted(fnames):
+        p = os.path.join(root, fname)
+        rel = os.path.relpath(p, repo)
+        if rel == "manifest.json":
+            continue
+        h = hashlib.sha256(open(p, "rb").read()).hexdigest()
+        files.append({"path": rel, "size": os.path.getsize(p), "sha256": h})
+json.dump({"version": 1, "mode": "both", "files": files},
+          open(os.path.join(repo, "manifest.json"), "w"))
+PY
+}
+
+# --- Config: solo lectura del manifest --------------------------------
+expect_config_reject() {
+    local dir="$1" msg="${2:-}"
+    local out="$TMP/config.out"
+    if bash "$CONFIG" validate "$dir" >"$out" 2>&1; then
+        note_fail "traduia-config validate aceptó manifest inseguro: $dir"
+        return
+    fi
+    if [ -n "$msg" ] && ! grep -qiE -- "$msg" "$out"; then
+        note_fail "traduia-config rechazó sin el mensaje esperado ($msg): $dir"
+        sed -n '1,5p' "$out" >&2 || true
+    fi
+}
+expect_config_accept() {
+    local dir="$1"
+    if ! bash "$CONFIG" validate "$dir" >"$TMP/config.out" 2>&1; then
+        note_fail "traduia-config validate rechazó un manifest válido: $dir"
+        sed -n '1,5p' "$TMP/config.out" >&2 || true
+    fi
+}
+
+# --- Instalador: --detect valida sin instalar -------------------------
+expect_install_reject() {
+    local dir="$1" msg="${2:-unsafe path|invalid size|invalid sha256|escapes the repository}"
+    local out="$TMP/imt.out"
+    if TRADUIA_MODELS_DIR="$TMP/models" bash "$IMT" --dir "$dir" --detect >"$out" 2>&1; then
+        note_fail "install-models-traduia aceptó manifest inseguro: $dir"
+        return
+    fi
+    if ! grep -qiE -- "$msg" "$out"; then
+        note_fail "install-models-traduia falló sin el mensaje esperado: $dir"
+        sed -n '1,10p' "$out" >&2 || true
+    fi
+}
+expect_install_accept() {
+    local dir="$1"
+    if ! TRADUIA_MODELS_DIR="$TMP/models" bash "$IMT" --dir "$dir" --detect >"$TMP/imt.out" 2>&1; then
+        note_fail "install-models-traduia rechazó un manifest válido: $dir"
+        sed -n '1,10p' "$TMP/imt.out" >&2 || true
+    fi
+}
+
+# --- Verificador: mensaje distintivo obligatorio -----------------------
+expect_verify_reject() {
+    local dir="$1"
+    local out="$TMP/verify.out"
+    if python3 "$VERIFY" "$dir" >"$out" 2>&1; then
+        note_fail "traduia-verify-models aceptó manifest inseguro: $dir"
+        return
+    fi
+    if ! grep -qiE 'unsafe path|not a safe path|escapes' "$out"; then
+        note_fail "traduia-verify-models falló sin reportar ruta insegura: $dir"
+        sed -n '1,10p' "$out" >&2 || true
+    fi
+}
+expect_verify_accept() {
+    local dir="$1"
+    if ! python3 "$VERIFY" "$dir" >"$TMP/verify.out" 2>&1; then
+        note_fail "traduia-verify-models rechazó un manifest válido: $dir"
+        sed -n '1,10p' "$TMP/verify.out" >&2 || true
+    fi
+}
+
+valid_set='"ct2/opus-mt-es-en/model.bin"'
+
+mkdir -p "$TMP/outside"
+printf 'canary\n' > "$TMP/outside/canary"
+
+# 0) Control positivo: repo canónico aceptado por los TRES validadores.
+#    Sin esto, cualquier fallo genérico contaría como "rechazo correcto".
+r="$TMP/valid"; make_valid_repo "$r"
+expect_config_accept "$r"
+expect_install_accept "$r"
+expect_verify_accept "$r"
+
+# 1) Ruta absoluta
+r="$TMP/abs"; write_manifest "$r" "[$valid_set, \"/etc/passwd\"]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 2) Path traversal simple
+r="$TMP/parent"; write_manifest "$r" "[$valid_set, \"../escape\"]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 3) Traversal dentro de un prefijo permitido
+r="$TMP/nested"; write_manifest "$r" "[$valid_set, \"whisper-small/../../escape\"]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 4) Wheels con traversal
+r="$TMP/wheels"; write_manifest "$r" "[$valid_set, \"wheels/../../x.whl\"]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 5) Debs con traversal
+r="$TMP/debs"; write_manifest "$r" "[$valid_set, \"debs/jammy/../../x.deb\"]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 6) Path vacío / no-string
+r="$TMP/empty"; write_manifest "$r" "[$valid_set, \"\"]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 7a) size con tipo inválido (sha256 válido)
+r="$TMP/badsize"
+write_manifest "$r" '[{"path": "ct2/opus-mt-es-en/model.bin", "size": "9", "sha256": "'"$(printf '0%.0s' $(seq 64))"'"}]'
+expect_config_reject "$r"; expect_install_reject "$r"
+
+# 7b) sha256 inválido (size válido) — rama independiente de 7a
+r="$TMP/badsha"
+write_manifest "$r" '[{"path": "ct2/opus-mt-es-en/model.bin", "size": 9, "sha256": "zz"}]'
+expect_config_reject "$r"; expect_install_reject "$r"
+
+# 8) Entrada que no es un objeto
+r="$TMP/notdict"; write_manifest "$r" "[$valid_set, {\"__raw__\": \"just-a-string\"}]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 9) Doble barra (no normalizado)
+r="$TMP/dslash"; write_manifest "$r" "[$valid_set, \"ct2//opus-mt-es-en/model.bin\"]"
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 10) Backslash (en Linux es literal, pero debe rechazarse por consistencia)
+r="$TMP/backslash"
+write_manifest_json "$r" '{"version":1,"mode":"both","files":[{"path":"ct2/x\\..\\..\\y","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}]}'
+expect_config_reject "$r"; expect_install_reject "$r"; expect_verify_reject "$r"
+
+# 11) Symlink de DIRECTORIO apuntando a un árbol de sistema: se rechaza.
+#     OJO: traduia-config solo lee el manifest (no ve el filesystem), así que
+#     el symlink lo detectan el instalador y el verificador, no el prechequeo.
+r="$TMP/link-etc"; mkdir -p "$r"; ln -s /etc "$r/ct2"
+write_manifest "$r" "[$valid_set]"
+expect_config_accept "$r"
+expect_install_reject "$r" "unsafe path"; expect_verify_reject "$r"
+
+# 12) Symlink de FICHERO apuntando fuera: se rechaza siempre.
+r="$TMP/link-file"; mkdir -p "$r/ct2/opus-mt-es-en"
+ln -s "$TMP/outside/canary" "$r/ct2/opus-mt-es-en/model.bin"
+canary_sha="$(sha256sum "$TMP/outside/canary" | cut -d' ' -f1)"
+canary_size="$(stat -c %s "$TMP/outside/canary")"
+write_manifest "$r" "[{\"path\": \"ct2/opus-mt-es-en/model.bin\", \"size\": $canary_size, \"sha256\": \"$canary_sha\"}]"
+expect_config_accept "$r"          # config no resuelve symlinks, solo el path
+expect_install_reject "$r" "unsafe path"
+
+# 13) Symlink de DIRECTORIO hacia un destino de datos: PERMITIDO (política D1).
+r="$TMP/link-data"; mkdir -p "$r" "$TMP/outside/data-repo"
+ln -s "$TMP/outside/data-repo" "$r/ct2"
+write_manifest "$r" "[$valid_set, \"whisper-small/config.json\"]"
+expect_config_accept "$r"
+expect_install_accept "$r"
+# ...salvo que se pida la política estricta (válvula de escape).
+if TRADUIA_SYMLINK_POLICY=strict TRADUIA_MODELS_DIR="$TMP/models" \
+        bash "$IMT" --dir "$r" --detect >"$TMP/imt.out" 2>&1; then
+    note_fail "TRADUIA_SYMLINK_POLICY=strict no bloqueó el symlink de datos"
+fi
+if TRADUIA_SYMLINK_POLICY=strict python3 "$VERIFY" "$r" >"$TMP/verify.out" 2>&1; then
+    note_fail "TRADUIA_SYMLINK_POLICY=strict no bloqueó el symlink en el verificador"
+fi
+
+# 14) Rutas fuera de los prefijos conocidos: AVISO, no error (política D2).
+r="$TMP/extra"; make_valid_repo "$r"
+printf 'readme\n' > "$r/README.md"
+printf 'junk\n' > "$r/.DS_Store"
+python3 - "$r/manifest.json" <<'PY'
+import hashlib, json, os, sys
+p = sys.argv[1]
+repo = os.path.dirname(p)
+m = json.load(open(p))
+for name in ("README.md", ".DS_Store"):
+    f = os.path.join(repo, name)
+    m["files"].append({"path": name, "size": os.path.getsize(f),
+                       "sha256": hashlib.sha256(open(f, "rb").read()).hexdigest()})
+json.dump(m, open(p, "w"))
+PY
+expect_config_accept "$r"
+expect_install_accept "$r"
+expect_verify_accept "$r"
+if ! grep -qiE 'unexpected path|ignorad|ignored' "$TMP/imt.out" 2>/dev/null; then
+    note_fail "install-models-traduia no avisó de rutas desconocidas"
+fi
+
+# 15) Canario: nada debe haberse borrado ni escrito en el directorio externo.
+[ -f "$TMP/outside/canary" ] || note_fail "el canario externo desapareció"
+extra="$(find "$TMP/outside" -mindepth 1 -maxdepth 1 ! -name canary ! -name data-repo | head -n 1)"
+[ -z "$extra" ] || note_fail "aparecieron ficheros en el directorio externo: $extra"
+
+if [ "$fail" -ne 0 ]; then
+    echo "test-manifest-paths: FALLOS" >&2
+    exit 1
+fi
+echo "test-manifest-paths: OK"

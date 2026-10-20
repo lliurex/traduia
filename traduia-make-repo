@@ -12,6 +12,122 @@ _() {
     gettext "$1"
 }
 
+# >>> SAFE RM (begin)
+# Borrados confinados a un basedir. safe_within resuelve symlinks con
+# realpath -m y exige que el destino quede estrictamente dentro del base.
+safe_within() {
+    local base="$1" path="$2" real_base real_path
+    [ -n "$base" ] && [ -n "$path" ] || return 1
+    real_base="$(realpath -m -- "$base" 2>/dev/null)" || return 1
+    real_path="$(realpath -m -- "$path" 2>/dev/null)" || return 1
+    [ -n "$real_base" ] && [ -n "$real_path" ] || return 1
+    [ "$real_base" != "/" ] || return 1
+    [ "$real_path" != "/" ] || return 1
+    [ "$real_path" != "$real_base" ] || return 1
+    case "$real_path" in
+        "$real_base"/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+safe_within_or_equal() {
+    local base="$1" path="$2" real_base real_path
+    [ -n "$base" ] && [ -n "$path" ] || return 1
+    real_base="$(realpath -m -- "$base" 2>/dev/null)" || return 1
+    real_path="$(realpath -m -- "$path" 2>/dev/null)" || return 1
+    [ -n "$real_base" ] && [ -n "$real_path" ] || return 1
+    [ "$real_base" != "/" ] || return 1
+    [ "$real_path" != "/" ] || return 1
+    case "$real_path" in
+        "$real_base"|"$real_base"/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+safe_rm_rf() {
+    [ $# -ge 1 ] || return 1
+    local base="$1"; shift
+    local p
+    [ $# -gt 0 ] || return 1
+    for p in "$@"; do
+        if safe_within "$base" "$p"; then
+            rm -rf -- "$p"
+        else
+            echo "[ERROR] Refusing to remove outside base: $p (base: $base)" >&2
+            return 1
+        fi
+    done
+}
+
+safe_rm_f() {
+    [ $# -ge 1 ] || return 1
+    local base="$1"; shift
+    local p
+    [ $# -gt 0 ] || return 1
+    for p in "$@"; do
+        if safe_within "$base" "$p"; then
+            rm -f -- "$p"
+        else
+            echo "[ERROR] Refusing to remove outside base: $p (base: $base)" >&2
+            return 1
+        fi
+    done
+}
+
+safe_find_cache() {
+    local base="$1" dir="$2"
+    if ! safe_within_or_equal "$base" "$dir"; then
+        echo "[ERROR] Refusing to clean outside base: $dir (base: $base)" >&2
+        return 1
+    fi
+    find -P "$dir" -depth -type d -name .cache -exec rm -rf -- {} +
+}
+# <<< SAFE RM (end)
+
+# >>> SAFE OUT DIR (begin)
+# Directorios de sistema: se rechazan por coincidencia exacta.
+SYSTEM_DIRS_EXACT="/ /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin /lib /lib32 /lib64 /run /tmp /srv /media /mnt"
+# Árboles protegidos: se rechaza cualquier ruta DENTRO de ellos (p.ej. /usr/bin).
+# Los destinos de datos (/opt/*, /srv/*, /media/*, /mnt/*, /tmp/*) sí se permiten.
+SYSTEM_DIRS_TREES="/usr /etc /boot /var /run /root /home /proc /sys /dev /bin /sbin /lib /lib32 /lib64"
+
+is_denied_out_dir() {
+    local p="${1%/}" t
+    [ -n "$p" ] || p="/"
+    for t in $SYSTEM_DIRS_EXACT; do
+        [ "$p" = "$t" ] && return 0
+    done
+    for t in $SYSTEM_DIRS_TREES; do
+        case "$p" in
+            "$t"/*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+set_out_dir() {
+    local raw="$1" real
+    [ -n "$raw" ] || { echo "[ERROR] Empty output directory." >&2; exit 1; }
+    case "$raw" in
+        /*) ;;
+        *) echo "[ERROR] Output directory must be an absolute path: $raw" >&2; exit 1 ;;
+    esac
+    real="$(realpath -m -- "$raw" 2>/dev/null)" || { echo "[ERROR] Invalid output directory: $raw" >&2; exit 1; }
+    [ -n "$real" ] && [ "$real" != "/" ] || { echo "[ERROR] Refusing to use / as output directory." >&2; exit 1; }
+    if is_denied_out_dir "$real"; then
+        echo "[ERROR] Refusing to use system directory as output: $real" >&2
+        exit 1
+    fi
+    OUT_DIR="$real"
+}
+# <<< SAFE OUT DIR (end)
+
+TMP_BASE="${TMPDIR:-/tmp}"
+# TMP_BASE debe ser usable como basedir de borrado: canonicalizado y nunca "/".
+TMP_BASE="$(realpath -m -- "$TMP_BASE" 2>/dev/null || true)"
+if [ -z "$TMP_BASE" ] || [ "$TMP_BASE" = "/" ]; then
+    TMP_BASE="/tmp"
+fi
 MODELS_DIR="/opt/ai/traduia/models"
 
 WHISPER_PREFIX="whisper-small"
@@ -45,6 +161,13 @@ usage() {
     echo "  traduia-make-repo debs <output_dir> [jammy|noble|all] [--url-jammy <url>] [--url-noble <url>]"
     echo "$(_ "Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):")"
     echo "  traduia-make-repo full <output_dir> [--url-jammy <url>] [--url-noble <url>]"
+    echo ""
+    echo "$(_ "The output directory must be an ABSOLUTE path and cannot be a system directory")"
+    echo "  (/ /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin /lib"
+    echo "   /lib32 /lib64 /run /tmp /srv /media /mnt),"
+    echo "$(_ "nor anything inside the protected trees (/usr /etc /boot /var /run /root")"
+    echo "   /home /proc /sys /dev /bin /sbin /lib*). Data paths such as"
+    echo "  /srv/export/traduia, /media/<user>/<usb> or /opt/<app> are fine."
 }
 
 # =========================================================
@@ -59,9 +182,16 @@ usage() {
 finalize_out_dir() {
     local dir="$1"
     [ -d "$dir" ] || return 0
-    find "$dir" -depth -type d -name .cache -exec rm -rf {} +
-    find "$dir" -type f -name .gitattributes -delete
-    chmod -R a+rX "$dir"
+    # El borrado se mantiene estricto (nunca a través de un symlink que
+    # escape), pero un árbol con symlinks hacia otro disco no debe romper la
+    # creación del repositorio: se avisa y se omite la limpieza.
+    if ! safe_within_or_equal "$OUT_DIR" "$dir"; then
+        echo "[WARN] $(_ "Skipping cleanup outside the output directory:") $dir" >&2
+        return 0
+    fi
+    safe_find_cache "$OUT_DIR" "$dir" || true
+    find -P "$dir" -type f -name .gitattributes -delete 2>/dev/null || true
+    chmod -R a+rX "$dir" 2>/dev/null || true
 }
 
 # =========================================================
@@ -80,6 +210,13 @@ import sys
 from datetime import datetime, timezone
 
 out_dir = sys.argv[1]
+ALLOWED_TOP = ("whisper-small/", "ct2/", "marian/", "wheels/", "debs/")
+
+
+def is_expected_path(rel):
+    if rel == "verify-models.py":
+        return True
+    return rel.startswith(ALLOWED_TOP)
 
 
 def _has_set(sub):
@@ -101,6 +238,7 @@ else:
     mode = "none"
 
 files = []
+skipped = []
 for root, dirs, fnames in os.walk(out_dir):
     # Excluir .cache (artefactos de HuggingFace)
     dirs[:] = [d for d in dirs if d != ".cache"]
@@ -111,6 +249,12 @@ for root, dirs, fnames in os.walk(out_dir):
         abs_path = os.path.join(root, fname)
         rel_path = os.path.relpath(abs_path, out_dir)
         if rel_path == "manifest.json":
+            continue
+        # El manifest solo declara rutas que el instalador va a consumir:
+        # cualquier otra cosa (.DS_Store, README suelto, basura de USB) se
+        # avisa y se omite para que el repo generado sea canonico.
+        if not is_expected_path(rel_path):
+            skipped.append(rel_path)
             continue
         size = os.path.getsize(abs_path)
         sha = hashlib.sha256()
@@ -127,9 +271,20 @@ manifest = {
     "files": files,
 }
 
-with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
+# Escritura atómica: os.replace sustituye el enlace en vez de escribir a
+# través de él, así que un manifest.json preexistente que sea symlink no
+# puede redirigir la escritura fuera del repositorio.
+manifest_out = os.path.join(out_dir, "manifest.json")
+manifest_tmp = manifest_out + ".tmp"
+with open(manifest_tmp, "w", encoding="utf-8") as fh:
     json.dump(manifest, fh, indent=2, ensure_ascii=False)
     fh.write("\n")
+os.replace(manifest_tmp, manifest_out)
+
+if skipped:
+    print(f"[WARN] {len(skipped)} file(s) outside known prefixes were NOT added to the manifest:", file=sys.stderr)
+    for rel in skipped[:5]:
+        print(f"  - {rel}", file=sys.stderr)
 
 print(f"[ok] manifest.json written with {len(files)} files (mode={mode})")
 PY
@@ -144,7 +299,16 @@ PY
 # =========================================================
 write_verify_script() {
     local out_dir="$1"
-    cat > "$out_dir/verify-models.py" <<'PY'
+    local vtarget="$out_dir/verify-models.py"
+    if [ -L "$vtarget" ]; then
+        echo "[ERROR] $(_ "Refusing to overwrite a symlink:") $vtarget" >&2
+        return 1
+    fi
+    if ! safe_within_or_equal "$OUT_DIR" "$vtarget"; then
+        echo "[ERROR] $(_ "Refusing to write outside output directory:") $vtarget" >&2
+        return 1
+    fi
+    cat > "$vtarget" <<'PY'
 #!/usr/bin/env python3
 """Verifica la integridad del repositorio contra manifest.json.
 
@@ -156,6 +320,78 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+
+ALLOWED_TOP = ("whisper-small/", "ct2/", "marian/", "wheels/", "debs/")
+MAX_MANIFEST_BYTES = 64 * 1024 * 1024
+MAX_ENTRIES = 100000
+MAX_PATH = 4096
+
+
+def is_expected_path(rel):
+    if rel == "verify-models.py":
+        return True
+    return rel.startswith(ALLOWED_TOP)
+
+
+def safe_rel(rel):
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        return False
+    if rel.startswith("/") or "\\" in rel:
+        return False
+    if len(rel) > MAX_PATH:
+        return False
+    norm = os.path.normpath(rel)
+    if norm != rel or norm in (".", "..") or norm.startswith("../"):
+        return False
+    return True
+
+
+PROTECTED_TREES = ("/usr", "/etc", "/boot", "/var", "/run", "/root", "/home",
+                   "/proc", "/sys", "/dev", "/bin", "/sbin", "/lib", "/lib32", "/lib64")
+SYMLINK_POLICY = os.environ.get("TRADUIA_SYMLINK_POLICY", "allow-dirs")
+
+
+def is_protected_target(path):
+    if path == "/":
+        return True
+    for t in PROTECTED_TREES:
+        if path == t or path.startswith(t + "/"):
+            return True
+    return False
+
+
+def escapes_base(real_base, target):
+    try:
+        return os.path.commonpath([real_base, target]) != real_base
+    except ValueError:
+        return True
+
+
+def safe_join(base, rel):
+    # Defensa en profundidad: aunque los llamadores validan con safe_rel,
+    # la primitiva rechaza por sí misma rutas absolutas o con "..".
+    if not isinstance(rel, str) or not rel or rel.startswith("/") or ".." in rel.split("/"):
+        raise ValueError(rel)
+    real_base = os.path.realpath(base)
+    if real_base == "/":
+        raise ValueError(rel)
+    joined = os.path.join(real_base, rel)
+    target = os.path.realpath(joined)
+    if target == real_base:
+        raise ValueError(rel)
+    if not escapes_base(real_base, target):
+        return target
+    # Fuera del base: solo se permiten symlinks de DIRECTORIO hacia destinos
+    # de datos. Nunca hacia árboles de sistema (/etc, /usr, ...) ni symlinks
+    # de fichero. TRADUIA_SYMLINK_POLICY=strict restaura el rechazo total.
+    if SYMLINK_POLICY == "strict" or is_protected_target(target):
+        raise ValueError(rel)
+    acc = real_base
+    for part in rel.split("/"):
+        acc = os.path.join(acc, part)
+        if os.path.islink(acc) and not os.path.isdir(acc):
+            raise ValueError(rel)
+    return target
 
 
 def parse_args(argv):
@@ -242,7 +478,11 @@ def rebuild_manifest(repo):
         "mode": mode,
         "files": files,
     }
-    tmp_path = manifest_path + ".tmp"
+    try:
+        tmp_path = safe_join(repo, "manifest.json.tmp")
+    except ValueError:
+        print("ERROR: ruta de manifest no segura.", file=sys.stderr)
+        return 1
     try:
         with open(tmp_path, "w", encoding="utf-8") as fh:
             json.dump(manifest, fh, indent=2, ensure_ascii=False)
@@ -263,7 +503,7 @@ def rebuild_manifest(repo):
 
 def wanted(rel, mode):
     if mode is None:
-        return True
+        return is_expected_path(rel)
     return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
 
 
@@ -276,16 +516,54 @@ def main():
     manifest_path = os.path.join(repo, "manifest.json")
 
     try:
+        if os.path.getsize(manifest_path) > MAX_MANIFEST_BYTES:
+            print("ERROR: manifest.json es demasiado grande.", file=sys.stderr)
+            sys.exit(1)
         with open(manifest_path, encoding="utf-8") as fh:
             manifest = json.load(fh)
-    except (json.JSONDecodeError, OSError) as e:
+    except (json.JSONDecodeError, OSError, ValueError) as e:
         print(f"ERROR: no se pudo leer {manifest_path}: {e}", file=sys.stderr)
         sys.exit(1)
 
+    if not isinstance(manifest, dict):
+        print("ERROR: manifest.json no es un objeto.", file=sys.stderr)
+        sys.exit(1)
+    version = manifest.get("version")
+    if version is not None and (not isinstance(version, int) or isinstance(version, bool)):
+        print("ERROR: manifest.json contiene una version invalida.", file=sys.stderr)
+        sys.exit(1)
+    mmode = manifest.get("mode")
+    if mmode is not None and mmode not in ("ct2", "marian", "both", "none"):
+        print("ERROR: manifest.json contiene un mode invalido.", file=sys.stderr)
+        sys.exit(1)
+
     files = manifest.get("files", [])
-    if not files:
+    if not isinstance(files, list) or not files:
         print("ERROR: manifest.json no contiene ficheros.", file=sys.stderr)
         sys.exit(1)
+    if len(files) > MAX_ENTRIES:
+        print("ERROR: manifest.json contiene demasiados ficheros.", file=sys.stderr)
+        sys.exit(1)
+
+    unexpected = []
+    seen = set()
+    for entry in files:
+        if not isinstance(entry, dict) or not safe_rel(entry.get("path")):
+            print(f"ERROR: manifest.json contiene una ruta no segura: {entry!r}", file=sys.stderr)
+            sys.exit(1)
+        rel = entry["path"]
+        if rel in seen:
+            print(f"ERROR: manifest.json contiene una ruta duplicada: {rel}", file=sys.stderr)
+            sys.exit(1)
+        seen.add(rel)
+        if not is_expected_path(rel):
+            unexpected.append(rel)
+
+    # Rutas fuera de los prefijos conocidos: aviso e ignoradas (no instaladas).
+    if unexpected:
+        print(f"[WARN] manifest.json contiene {len(unexpected)} ruta(s) inesperada(s) fuera de los prefijos conocidos; se ignoraran", file=sys.stderr)
+        for rel in unexpected[:5]:
+            print("  - " + rel, file=sys.stderr)
 
     if mode is not None and not any(e["path"].startswith(f"{mode}/") for e in files):
         print(f"ERROR: no hay entradas del modo '{mode}' en el manifest.", file=sys.stderr)
@@ -296,7 +574,12 @@ def main():
         rel = entry["path"]
         if not wanted(rel, mode):
             continue
-        p = os.path.join(repo, rel)
+        try:
+            p = safe_join(repo, rel)
+        except ValueError:
+            print("RUTA NO SEGURA:", rel)
+            errors += 1
+            continue
         try:
             if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
                 print("FALTA/TAMAÑO:", rel)
@@ -338,7 +621,9 @@ PY
 # de modo que la instalación offline no necesita compiladores.
 # =========================================================
 WHEELS_PLATFORMS=(manylinux2014_x86_64 manylinux_2_17_x86_64 manylinux_2_28_x86_64 linux_x86_64)
-WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice faster-whisper transformers sentencepiece huggingface_hub ctranslate2 psutil sacremoses exceptiongroup)
+# faster-whisper/ctranslate2 con versión fijada: deben coincidir con
+# BASE_PYTHON_PKGS de install-models-traduia (instalaciones reproducibles).
+WHEELS_PKGS=(pip setuptools wheel fastapi "uvicorn[standard]" python-multipart numpy sounddevice "faster-whisper==1.2.1" "ctranslate2==4.8.2" transformers sentencepiece huggingface_hub psutil sacremoses exceptiongroup)
 
 make_wheels() {
     local out_dir="$1"
@@ -349,12 +634,17 @@ make_wheels() {
     local p
     local pflags=()
 
+    # Misma guarda que debs/: no se escribe fuera del directorio de salida.
+    if ! safe_within_or_equal "$OUT_DIR" "$wheels_dir"; then
+        echo "[ERROR] $(_ "Refusing to write outside output directory:") $wheels_dir" >&2
+        return 1
+    fi
     mkdir -p "$wheels_dir"
 
     log_file="$(mktemp)"
 
     cleanup_wheels_log() {
-        rm -f "$log_file"
+        safe_rm_f "$TMP_BASE" "$log_file" || true
     }
     trap cleanup_wheels_log RETURN
 
@@ -468,7 +758,7 @@ if [ "${POSITIONAL[0]:-}" = "wheels" ]; then
         usage
         exit 1
     fi
-    OUT_DIR="${POSITIONAL[1]}"
+    set_out_dir "${POSITIONAL[1]}"
     mkdir -p "$OUT_DIR"
     make_wheels "$OUT_DIR"
     write_verify_script "$OUT_DIR"
@@ -506,7 +796,7 @@ make_debs() {
     mkdir -p "$debs_dir"
     echo "[debs] $(_ "Downloading system packages for:") $distro ($base_url)"
     local rc=0
-    python3 - "$distro" "$base_url" "$debs_dir" "${DEBS_PKGS[@]}" <<'PY' || rc=$?
+    python3 - "$distro" "$base_url" "$out_dir" "$debs_dir" "${DEBS_PKGS[@]}" <<'PY' || rc=$?
 import gzip
 import hashlib
 import os
@@ -516,8 +806,25 @@ import urllib.request
 
 distro = sys.argv[1]
 base_url = sys.argv[2].rstrip("/")
-debs_dir = sys.argv[3]
-packages = sys.argv[4:]
+out_dir = sys.argv[3]
+debs_dir = sys.argv[4]
+packages = sys.argv[5:]
+
+real_out = os.path.realpath(out_dir)
+real_debs = os.path.realpath(debs_dir)
+if real_debs == real_out or os.path.commonpath([real_out, real_debs]) != real_out:
+    print(f"[ERROR] Refusing to write outside output directory: {debs_dir}", file=sys.stderr)
+    sys.exit(1)
+
+
+def safe_join(base, name):
+    if base == "/":
+        raise ValueError(name)
+    name = os.path.basename(name)
+    target = os.path.realpath(os.path.join(base, name))
+    if target == base or os.path.commonpath([base, target]) != base:
+        raise ValueError(name)
+    return target
 
 
 def fetch(url):
@@ -602,7 +909,10 @@ if not best:
 # Refresco aditivo: solo se vacía el subdirectorio de esta distro
 for name in os.listdir(debs_dir):
     if name.endswith(".deb"):
-        os.remove(os.path.join(debs_dir, name))
+        try:
+            os.remove(safe_join(real_debs, name))
+        except (OSError, ValueError):
+            pass
 
 failed = False
 for pkg in packages:
@@ -612,7 +922,17 @@ for pkg in packages:
         continue
     info = best[pkg]
     deb_url = f"{base_url}/{info['filename']}"
-    dest = os.path.join(debs_dir, os.path.basename(info["filename"]))
+    fname = os.path.basename(info["filename"])
+    if not fname.endswith(".deb"):
+        print(f"[ERROR] Invalid package filename in index: {fname}", file=sys.stderr)
+        failed = True
+        continue
+    try:
+        dest = safe_join(real_debs, fname)
+    except ValueError:
+        print(f"[ERROR] Refusing to write outside debs dir: {fname}", file=sys.stderr)
+        failed = True
+        continue
     print(f"[debs] Downloading {pkg} {info['version']} -> {dest}")
     try:
         data = fetch(deb_url)
@@ -747,7 +1067,8 @@ if [ "${POSITIONAL[0]:-}" = "fetch" ]; then
         echo "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" >&2
         exit 1
     fi
-    OUT_DIR="${POSITIONAL[2]}"
+    set_out_dir "${POSITIONAL[2]}"
+
     if ! python3 -c "import huggingface_hub" >/dev/null 2>&1; then
         echo "[ERROR] $(_ "This command requires the 'huggingface_hub' Python package (pip install huggingface_hub).")" >&2
         exit 1
@@ -828,7 +1149,7 @@ if [ "${POSITIONAL[0]:-}" = "debs" ]; then
         usage
         exit 1
     fi
-    OUT_DIR="${DEBS_REST[0]}"
+    set_out_dir "${DEBS_REST[0]}"
     DEBS_DISTRO="${DEBS_REST[1]:-all}"
     case "$DEBS_DISTRO" in
         jammy|noble|all) ;;
@@ -872,7 +1193,7 @@ if [ "${POSITIONAL[0]:-}" = "full" ]; then
         usage
         exit 1
     fi
-    OUT_DIR="${DEBS_REST[0]}"
+    set_out_dir "${DEBS_REST[0]}"
     mkdir -p "$OUT_DIR"
     echo "[full] $(_ "Building a fully offline repository:") $OUT_DIR"
     rc=0
@@ -898,7 +1219,7 @@ fi
 
 SRC_DIR="$(cd "$(dirname "${POSITIONAL[0]}")" && pwd)/$(basename "${POSITIONAL[0]}")"
 MODE="${POSITIONAL[1]}"
-OUT_DIR="${POSITIONAL[2]}"
+set_out_dir "${POSITIONAL[2]}"
 
 if [ "$MODE" != "ct2" ] && [ "$MODE" != "marian" ] && [ "$MODE" != "all" ]; then
     echo "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" >&2

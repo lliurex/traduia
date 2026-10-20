@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Test de las guardas safe_rm_* / safe_within / set_out_dir.
+# Extrae los bloques "SAFE RM" de los scripts y verifica que los borrados
+# no pueden escapar del basedir. Sin root; usa directorios temporales.
+#
+# El escenario se ejecuta UNA VEZ POR SCRIPT, cada bloque en su propio
+# subshell, para que una divergencia en cualquiera de ellos se detecte
+# (sourcear los tres en el mismo shell dejaría ganar al último).
+
+TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$TESTS_DIR")"
+
+SCRIPTS=(
+    "$REPO_DIR/install-models-traduia"
+    "$REPO_DIR/zero-lliurex-traduia.install-files/usr/sbin/traduia-config"
+    "$REPO_DIR/traduia-make-repo"
+)
+
+# Funciones que cada bloque debe definir.
+expected_funcs() {
+    case "$1" in
+        traduia-config) printf '%s\n' safe_within safe_rm_rf safe_rm_f ;;
+        *) printf '%s\n' safe_within safe_within_or_equal safe_rm_rf safe_rm_f safe_find_cache ;;
+    esac
+}
+
+# Directorios de sistema que set_out_dir debe rechazar (deben coincidir con
+# is_denied_out_dir de traduia-make-repo; tests/test-validator-parity lo cruza).
+DENIED_OUT_DIRS=(
+    / /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin
+    /lib /lib32 /lib64 /run /tmp /srv /media /mnt
+)
+
+TMP="$(mktemp -d)"
+trap 'rm -rf -- "$TMP"' EXIT
+
+fail=0
+note_fail() { echo "FAIL: $*" >&2; fail=1; }
+
+# Extrae un bloque delimitado por marcadores. Fail-closed: si falta el
+# marcador de cierre NO se devuelve texto, porque sed imprimiría hasta EOF
+# y acabaríamos ejecutando el resto del script al hacer source.
+extract_block() {
+    local file="$1" begin="$2" end="$3"
+    [ -f "$file" ] || return 1
+    grep -qxF -- "# >>> ${begin}" "$file" || return 1
+    grep -qxF -- "# <<< ${end}" "$file" || return 1
+    sed -n "/^# >>> ${begin}$/,/^# <<< ${end}$/p" "$file"
+}
+
+# --- Escenario de borrado ------------------------------------------------
+# Se ejecuta dentro de un subshell con el bloque ya cargado.
+run_checks() {
+    local script="$1" rc=0
+    local base="$TMP/base-$script" outside="$TMP/outside-$script" sibling
+    bad() { echo "FAIL [$script]: $*" >&2; rc=1; }
+    expect_fail() {
+        local out status=0
+        out="$("$@" 2>&1)" || status=$?
+        if [ "$status" -eq 0 ]; then
+            bad "debía fallar: $*"
+        elif [ "$status" -eq 127 ]; then
+            bad "función no definida (rc=127): $* (¿bloque no cargado?)"
+        fi
+        # El stderr no debe ser un aborto por 'unbound variable'.
+        case "$out" in
+            *"unbound variable"*) bad "aborta por set -u en vez de devolver 1: $*" ;;
+        esac
+    }
+
+    mkdir -p "$base/a/b" "$outside/sub"
+    printf 'x\n' > "$base/a/b/file"
+    printf 'canary\n' > "$outside/canary"
+    ln -s "$outside" "$base/link"
+
+    # Dentro del base: se borra.
+    safe_rm_f "$base" "$base/a/b/file" || bad "safe_rm_f dentro del base"
+    [ ! -e "$base/a/b/file" ] || bad "el fichero no se borró"
+    safe_rm_rf "$base" "$base/a" || bad "safe_rm_rf dentro del base"
+    [ ! -e "$base/a" ] || bad "el directorio no se borró"
+
+    # Fuera del base o casos peligrosos: se rechazan.
+    expect_fail safe_rm_rf "$base" "/"
+    expect_fail safe_rm_rf "$base" "$base"
+    expect_fail safe_rm_rf "$base" "$outside"
+    expect_fail safe_rm_rf "$base" "$base/link"          # symlink como destino
+    expect_fail safe_rm_rf "$base" "$base/link/sub"      # escape A TRAVÉS del symlink
+    expect_fail safe_rm_rf "$base" "$TMP"                # padre del base
+    expect_fail safe_rm_rf "$base" "$base/../$(basename "$outside")"
+    expect_fail safe_rm_f "$base" ""
+    expect_fail safe_rm_f "$base" "$base/../evil"
+    expect_fail safe_within "/" "/etc/passwd"
+    expect_fail safe_within "$base" "/etc/passwd"
+
+    # Aridad: sin argumentos debe devolver != 0 sin abortar por set -u.
+    expect_fail safe_rm_rf
+    expect_fail safe_rm_f
+    expect_fail safe_rm_rf "$base"
+
+    # Sibling con prefijo textual común: falla si se compara por prefijo.
+    sibling="${base}-evil"
+    mkdir -p "$sibling"
+    expect_fail safe_rm_rf "$base" "$sibling"
+    rm -rf -- "$sibling"
+
+    # Multi-argumento: un destino inválido aborta el lote y no borra nada.
+    printf 'keep\n' > "$base/keep1"
+    printf 'keep\n' > "$base/keep2"
+    expect_fail safe_rm_f "$base" "$outside/canary" "$base/keep1"
+    [ -f "$outside/canary" ] || bad "el canario externo desapareció"
+    [ -f "$base/keep1" ] || bad "borró un argumento posterior a uno inválido"
+    expect_fail safe_rm_f "$base" "$base/keep1" "$outside/canary"
+    [ -f "$outside/canary" ] || bad "el canario externo desapareció (2)"
+
+    # find de .cache: solo dentro (traduia-config no define safe_find_cache).
+    if declare -F safe_find_cache >/dev/null; then
+        mkdir -p "$base/repo/x/.cache"
+        printf 'cache\n' > "$base/repo/x/.cache/f"
+        safe_find_cache "$base/repo" "$base/repo" || bad "safe_find_cache dentro"
+        [ ! -d "$base/repo/x/.cache" ] || bad ".cache no se borró"
+        expect_fail safe_find_cache "$base/repo" "$outside"
+    fi
+
+    # Canario intacto.
+    [ -f "$outside/canary" ] || bad "el canario externo desapareció (final)"
+
+    return "$rc"
+}
+
+# --- Bloques SAFE RM: uno por script, aislado ----------------------------
+for script in "${SCRIPTS[@]}"; do
+    name="$(basename "$script")"
+    if ! block="$(extract_block "$script" "SAFE RM (begin)" "SAFE RM (end)")"; then
+        note_fail "$name: bloque SAFE RM no encontrado o sin marcador de cierre"
+        continue
+    fi
+    [ -n "$block" ] || { note_fail "$name: bloque SAFE RM vacío"; continue; }
+    if ! ( source <(printf '%s\n' "$block")
+           for fn in $(expected_funcs "$name"); do
+               declare -F "$fn" >/dev/null || { echo "FAIL [$name]: falta $fn" >&2; exit 1; }
+           done
+           run_checks "$name" ); then
+        fail=1
+    fi
+done
+
+# --- set_out_dir (traduia-make-repo) ------------------------------------
+if ! out_block="$(extract_block "$REPO_DIR/traduia-make-repo" "SAFE OUT DIR (begin)" "SAFE OUT DIR (end)")"; then
+    note_fail "bloque SAFE OUT DIR no encontrado o sin marcador de cierre"
+else
+    [ -n "$out_block" ] || note_fail "bloque SAFE OUT DIR vacío"
+    # shellcheck disable=SC1090
+    source <(printf '%s\n' "$out_block")
+fi
+
+out_fail() {
+    if ( set_out_dir "$1" ) >/dev/null 2>&1; then
+        note_fail "set_out_dir debía rechazar: $1"
+    fi
+}
+out_ok() {
+    if ! ( set_out_dir "$1"; [ "$OUT_DIR" = "$(realpath -m -- "$1")" ] ) >/dev/null 2>&1; then
+        note_fail "set_out_dir debía aceptar: $1"
+    fi
+}
+
+if declare -F is_denied_out_dir >/dev/null; then
+    for d in "${DENIED_OUT_DIRS[@]}"; do
+        is_denied_out_dir "$d" || note_fail "is_denied_out_dir no cubre: $d"
+        out_fail "$d"
+    done
+    for d in /srv/export/traduia /media/usuario/USB /opt/ai/traduia/models "$TMP/r"; do
+        if is_denied_out_dir "$d"; then
+            note_fail "is_denied_out_dir rechaza una ruta legítima: $d"
+        fi
+    done
+else
+    note_fail "is_denied_out_dir no definida en el bloque SAFE OUT DIR"
+fi
+
+out_fail ""
+out_fail "relative/path"
+out_fail "/tmp/../.."
+
+out_ok "$TMP/repo"
+out_ok "$TMP/repo/../repo2"
+
+if [ "$fail" -ne 0 ]; then
+    echo "test-safe-rm: FALLOS" >&2
+    exit 1
+fi
+echo "test-safe-rm: OK"

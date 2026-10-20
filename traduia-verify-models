@@ -17,6 +17,16 @@ gettext.textdomain('traduia')
 _ = gettext.gettext
 
 DEFAULT_REPO = "/opt/ai/traduia/models"
+ALLOWED_TOP = ("whisper-small/", "ct2/", "marian/", "wheels/", "debs/")
+MAX_MANIFEST_BYTES = 64 * 1024 * 1024
+MAX_ENTRIES = 100000
+MAX_PATH = 4096
+
+
+def is_expected_path(rel):
+    if rel == "verify-models.py":
+        return True
+    return rel.startswith(ALLOWED_TOP)
 
 
 def parse_args(argv):
@@ -44,8 +54,69 @@ def parse_args(argv):
 
 def wanted(rel, mode):
     if mode is None:
-        return True
+        return is_expected_path(rel)
     return rel.startswith("whisper-small/") or rel.startswith(f"{mode}/")
+
+
+def safe_rel(rel):
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        return False
+    if rel.startswith("/") or "\\" in rel:
+        return False
+    if len(rel) > MAX_PATH:
+        return False
+    norm = os.path.normpath(rel)
+    if norm != rel or norm in (".", "..") or norm.startswith("../"):
+        return False
+    return True
+
+
+PROTECTED_TREES = ("/usr", "/etc", "/boot", "/var", "/run", "/root", "/home",
+                   "/proc", "/sys", "/dev", "/bin", "/sbin", "/lib", "/lib32", "/lib64")
+SYMLINK_POLICY = os.environ.get("TRADUIA_SYMLINK_POLICY", "allow-dirs")
+
+
+def is_protected_target(path):
+    if path == "/":
+        return True
+    for t in PROTECTED_TREES:
+        if path == t or path.startswith(t + "/"):
+            return True
+    return False
+
+
+def escapes_base(real_base, target):
+    try:
+        return os.path.commonpath([real_base, target]) != real_base
+    except ValueError:
+        return True
+
+
+def safe_join(base, rel):
+    # Defensa en profundidad: aunque los llamadores validan con safe_rel,
+    # la primitiva rechaza por sí misma rutas absolutas o con "..".
+    if not isinstance(rel, str) or not rel or rel.startswith("/") or ".." in rel.split("/"):
+        raise ValueError(rel)
+    real_base = os.path.realpath(base)
+    if real_base == "/":
+        raise ValueError(rel)
+    joined = os.path.join(real_base, rel)
+    target = os.path.realpath(joined)
+    if target == real_base:
+        raise ValueError(rel)
+    if not escapes_base(real_base, target):
+        return target
+    # Fuera del base: solo se permiten symlinks de DIRECTORIO hacia destinos
+    # de datos. Nunca hacia árboles de sistema (/etc, /usr, ...) ni symlinks
+    # de fichero. TRADUIA_SYMLINK_POLICY=strict restaura el rechazo total.
+    if SYMLINK_POLICY == "strict" or is_protected_target(target):
+        raise ValueError(rel)
+    acc = real_base
+    for part in rel.split("/"):
+        acc = os.path.join(acc, part)
+        if os.path.islink(acc) and not os.path.isdir(acc):
+            raise ValueError(rel)
+    return target
 
 
 def main():
@@ -53,16 +124,55 @@ def main():
     manifest_path = os.path.join(repo, "manifest.json")
 
     try:
+        if os.path.getsize(manifest_path) > MAX_MANIFEST_BYTES:
+            print(_("ERROR: manifest.json is too large."), file=sys.stderr)
+            sys.exit(1)
         with open(manifest_path, encoding="utf-8") as fh:
             manifest = json.load(fh)
-    except (json.JSONDecodeError, OSError) as e:
+    except (json.JSONDecodeError, OSError, ValueError) as e:
         print(_("ERROR: could not read {}: {}").format(manifest_path, e), file=sys.stderr)
         sys.exit(1)
 
+    if not isinstance(manifest, dict):
+        print(_("ERROR: manifest.json is not an object."), file=sys.stderr)
+        sys.exit(1)
+    version = manifest.get("version")
+    if version is not None and (not isinstance(version, int) or isinstance(version, bool)):
+        print(_("ERROR: manifest.json contains an invalid version."), file=sys.stderr)
+        sys.exit(1)
+    mmode = manifest.get("mode")
+    if mmode is not None and mmode not in ("ct2", "marian", "both", "none"):
+        print(_("ERROR: manifest.json contains an invalid mode."), file=sys.stderr)
+        sys.exit(1)
+
     files = manifest.get("files", [])
-    if not files:
+    if not isinstance(files, list) or not files:
         print(_("ERROR: manifest.json contains no files."), file=sys.stderr)
         sys.exit(1)
+    if len(files) > MAX_ENTRIES:
+        print(_("ERROR: manifest.json contains too many files."), file=sys.stderr)
+        sys.exit(1)
+
+    unexpected = []
+    seen = set()
+    for entry in files:
+        if not isinstance(entry, dict) or not safe_rel(entry.get("path")):
+            print(_("ERROR: manifest.json contains an unsafe path: {}").format(entry), file=sys.stderr)
+            sys.exit(1)
+        rel = entry["path"]
+        if rel in seen:
+            print(_("ERROR: manifest.json contains a duplicate path: {}").format(rel), file=sys.stderr)
+            sys.exit(1)
+        seen.add(rel)
+        if not is_expected_path(rel):
+            unexpected.append(rel)
+
+    # Las rutas fuera de los prefijos conocidos no son un fallo: se avisa y
+    # se ignoran, igual que hace install-models-traduia.
+    if unexpected:
+        print(_("[WARN] {} unexpected path(s) outside known prefixes; they will be ignored").format(len(unexpected)), file=sys.stderr)
+        for rel in unexpected[:5]:
+            print("  - " + rel, file=sys.stderr)
 
     if mode is not None and not any(e["path"].startswith(f"{mode}/") for e in files):
         print(_("ERROR: no entries for mode '{}' in manifest.").format(mode), file=sys.stderr)
@@ -73,7 +183,12 @@ def main():
         rel = entry["path"]
         if not wanted(rel, mode):
             continue
-        p = os.path.join(repo, rel)
+        try:
+            p = safe_join(repo, rel)
+        except ValueError:
+            print(_("UNSAFE PATH: {}").format(rel))
+            errors += 1
+            continue
         try:
             if not os.path.exists(p) or os.path.getsize(p) != entry.get("size"):
                 print(_("MISSING/SIZE: {}").format(rel))
