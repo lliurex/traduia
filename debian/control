@@ -28,6 +28,7 @@ Depends:
  kdialog,
  libglib2.0-bin,
  xdg-utils
+Suggests: piper-tts-server
 Description: Realtime transcription system
  Transcription system intended to be used in multilingual classrooms or special education schools.
 
