@@ -53,6 +53,7 @@ import asyncio
 import subprocess
 import signal
 import fcntl
+import ipaddress
 import psutil
 import re
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -981,6 +982,20 @@ def get_i18n_data():
             },
             'errorTranslation': _t("[TRANSLATION ERROR]"),
             'errorConnection': _t("[ERROR] Could not connect to the server."),
+            'labelTts': _t("Reading"),
+            'ttsRead': _t("Read aloud"),
+            'ttsStop': _t("Stop reading"),
+            'ttsReasonUnsupported': _t("This browser does not support speech synthesis."),
+            'ttsReasonMobileDisabled': _t("Speech synthesis is disabled on mobile devices."),
+            'ttsReasonSameMachineMonitor': _t("Reading is disabled on this device because the server captures the system audio and would transcribe its own output."),
+            'ttsReasonCloudOnly': _t("Only non-local (cloud) voices are available. Reading is disabled to protect privacy."),
+            'ttsReasonNoVoices': _t("No speech voices are available on this device."),
+            'ttsReasonNoVoiceLang': _t("No voice is available for the selected language ({}). Install voices in your system or choose another language."),
+            'ttsReasonLoading': _t("Loading voices…"),
+            'ttsReasonNeedsGesture': _t("Press “Read aloud” again to allow speech."),
+            'ttsReasonNetwork': _t("The voice engine needs a network connection."),
+            'ttsReasonLangUnavailable': _t("The voice engine cannot speak the selected language ({})."),
+            'ttsReasonSynthesisError': _t("Speech synthesis failed."),
             'langs': {
                 'en': _t("English"), 'fr': _t("French"), 'de': _t("German"),
                 'ru': _t("Russian"), 'ar': _t("Arabic"), 'uk': _t("Ukrainian"),
@@ -1097,6 +1112,60 @@ HTML_CLIENT = r"""<!doctype html>
       letter-spacing: 0.08em;
       color: #9ca3af;
     }
+    .tts-field {
+      min-width: auto;
+    }
+    .tts-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      font-family: "Noto Sans", "Ubuntu", "Arial", sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+    .tts-btn:hover:not([aria-disabled="true"]) {
+      border-color: #38bdf8;
+    }
+    .tts-btn:focus-visible {
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45);
+    }
+    .tts-btn[aria-pressed="true"] {
+      background: #0ea5e9;
+      border-color: #0ea5e9;
+      color: #020617;
+    }
+    .tts-btn[aria-disabled="true"] {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .tts-btn svg {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+    }
+    .tts-note {
+      display: none;
+      margin: 0 0 8px 0;
+      padding: 7px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      background: rgba(8, 47, 73, 0.85);
+      color: #e0f2fe;
+      font-size: 13px;
+      line-height: 1.35;
+      font-family: "Noto Sans", "Ubuntu", "Arial", sans-serif;
+    }
+    .tts-note.is-warn {
+      border-color: rgba(250, 204, 21, 0.6);
+      background: rgba(69, 26, 3, 0.85);
+      color: #fef3c7;
+    }
     select {
       padding: 6px 9px;
       border-radius: 999px;
@@ -1205,7 +1274,25 @@ HTML_CLIENT = r"""<!doctype html>
           <select id="target"></select>
         </div>
 
+        <div class="field tts-field" id="tts-field" style="display: none;">
+          <span class="field-label" id="label-tts">...</span>
+          <button type="button" class="tts-btn" id="tts-btn"
+                  aria-pressed="false" aria-disabled="true"
+                  aria-describedby="tts-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+              <path d="M18.5 5.5a9 9 0 0 1 0 13"></path>
+            </svg>
+            <span id="tts-btn-text">...</span>
+          </button>
+        </div>
+
       </div>
+
+      <div id="tts-note" class="tts-note" role="status" aria-live="polite"></div>
 
       <div class="text-area-row">
         <textarea
@@ -1233,6 +1320,11 @@ HTML_CLIENT = r"""<!doctype html>
     const labelMode = document.getElementById("label-mode");
     const labelLang = document.getElementById("label-language");
     const aliciaLogo= document.getElementById("alicia-logo");
+    const ttsField  = document.getElementById("tts-field");
+    const ttsBtn    = document.getElementById("tts-btn");
+    const ttsBtnText= document.getElementById("tts-btn-text");
+    const ttsNote   = document.getElementById("tts-note");
+    const labelTts  = document.getElementById("label-tts");
 
     let ws = null;
     let ready = false;
@@ -1283,6 +1375,409 @@ HTML_CLIENT = r"""<!doctype html>
         clearTimer = null;
       }
       out.value = "";
+    }
+
+    // =========================================================
+    // TTS (lectura en voz alta de las traducciones)
+    // =========================================================
+    const synth = window.speechSynthesis || null;
+    const ttsSupported = !!synth && typeof window.SpeechSynthesisUtterance === "function";
+    const TTS_MAX_PENDING = 3;
+    const TTS_POLICY_DEFAULT = {
+      allow_cloud: false,
+      mobile_enabled: true,
+      local_client: false,
+      capture: "unknown",
+      debug: false,
+    };
+    const LANG_ALIASES = {
+      eng: "en", spa: "es", cat: "ca", fra: "fr", fre: "fr",
+      deu: "de", ger: "de", rus: "ru", ara: "ar", ukr: "uk",
+      ron: "ro", rum: "ro", ita: "it",
+    };
+    const TTS = {
+      cfg: Object.assign({}, TTS_POLICY_DEFAULT),
+      voices: [],
+      pool: [],
+      loading: true,
+      enabled: false,
+      hidden: true,
+      reason: null,
+      queue: [],
+      current: null,
+      gen: 0,
+      voicesBound: false,
+      voicesTimer: null,
+      noteTimer: null,
+      debug: {
+        allowCloud: null,
+        mobileEnabled: null,
+        localClient: null,
+        capture: null,
+        forceMobile: null,
+        maxPending: null,
+        mockVoices: null,
+      },
+    };
+
+    function normLang(tag) {
+      let value = String(tag || "").toLowerCase().replace(/_/g, "-");
+      const base = value.split("-")[0];
+      if (LANG_ALIASES[base]) value = LANG_ALIASES[base] + value.slice(base.length);
+      return value;
+    }
+
+    function baseLang(tag) {
+      return normLang(tag).split("-")[0];
+    }
+
+    function langName(lang) {
+      const data = getI18n();
+      return (data.langs && data.langs[lang]) || lang;
+    }
+
+    function isMobileDevice() {
+      if (TTS.debug.forceMobile !== null) return !!TTS.debug.forceMobile;
+      return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function ttsCfg() {
+      return {
+        allowCloud: TTS.debug.allowCloud !== null ? !!TTS.debug.allowCloud : !!TTS.cfg.allow_cloud,
+        mobileEnabled: TTS.debug.mobileEnabled !== null ? !!TTS.debug.mobileEnabled : !!TTS.cfg.mobile_enabled,
+        localClient: TTS.debug.localClient !== null ? !!TTS.debug.localClient : !!TTS.cfg.local_client,
+        capture: TTS.debug.capture !== null ? String(TTS.debug.capture) : String(TTS.cfg.capture || "unknown"),
+        maxPending: TTS.debug.maxPending !== null ? Math.max(0, Number(TTS.debug.maxPending) || 0) : TTS_MAX_PENDING,
+      };
+    }
+
+    function getBrowserVoices() {
+      if (TTS.debug.mockVoices !== null) return TTS.debug.mockVoices.slice();
+      if (!synth) return [];
+      try { return Array.from(synth.getVoices()); } catch (_) { return []; }
+    }
+
+    function voiceIsLocal(voice) {
+      const uri = String((voice && voice.voiceURI) || "").toLowerCase();
+      if (uri.indexOf("urn:moz-tts:") === 0) return true;
+      return !!(voice && voice.localService === true);
+    }
+
+    function buildPool() {
+      const allowCloud = ttsCfg().allowCloud;
+      TTS.pool = TTS.voices.filter(function (voice) {
+        return voiceIsLocal(voice) || allowCloud;
+      });
+    }
+
+    function pickVoice(lang) {
+      const target = baseLang(lang);
+      if (!target) return null;
+      const prefs = {
+        en: ["en-us", "en-gb"],
+        fr: ["fr-fr"],
+        de: ["de-de"],
+        ru: ["ru-ru"],
+        ar: ["ar-ma", "ar-sa", "ar-eg"],
+        uk: ["uk-ua"],
+        ro: ["ro-ro"],
+        it: ["it-it"],
+      }[target] || [];
+      for (let i = 0; i < prefs.length; i++) {
+        const found = TTS.pool.find(function (voice) {
+          return normLang(voice.lang) === prefs[i];
+        });
+        if (found) return found;
+      }
+      return TTS.pool.find(function (voice) {
+        return baseLang(voice.lang) === target;
+      }) || null;
+    }
+
+    function targetLang() {
+      return targetSel.value || "en";
+    }
+
+    function currentReason() {
+      const cfg = ttsCfg();
+      if (!ttsSupported) return "ttsReasonUnsupported";
+      if (isMobileDevice() && !cfg.mobileEnabled) return "ttsReasonMobileDisabled";
+      if (cfg.localClient && cfg.capture === "monitor") return "ttsReasonSameMachineMonitor";
+      if (TTS.loading && TTS.voices.length === 0) return "ttsReasonLoading";
+      if (TTS.voices.length === 0) return "ttsReasonNoVoices";
+      if (TTS.pool.length === 0) return "ttsReasonCloudOnly";
+      if (!pickVoice(targetLang())) return "ttsReasonNoVoiceLang";
+      return null;
+    }
+
+    function showTtsNote(message, isWarn) {
+      if (!ttsNote) return;
+      ttsNote.textContent = message || "";
+      ttsNote.classList.toggle("is-warn", !!isWarn);
+      ttsNote.style.display = "block";
+      if (TTS.noteTimer) clearTimeout(TTS.noteTimer);
+      TTS.noteTimer = setTimeout(function () {
+        ttsNote.style.display = "none";
+        TTS.noteTimer = null;
+      }, 5000);
+    }
+
+    function cancelSpeech() {
+      TTS.gen += 1;
+      TTS.queue.length = 0;
+      TTS.current = null;
+      if (synth) {
+        try { synth.cancel(); } catch (_) {}
+      }
+    }
+
+    function stopTts() {
+      cancelSpeech();
+      TTS.enabled = false;
+      updateTts();
+    }
+
+    function updateTts() {
+      if (!ttsBtn || !ttsField) return;
+      const translate = modeSel.value === "translate";
+      TTS.hidden = !translate;
+      ttsField.style.display = translate ? "" : "none";
+      if (!translate) {
+        if (TTS.current || TTS.queue.length) cancelSpeech();
+        return;
+      }
+      const reason = currentReason();
+      TTS.reason = reason;
+      if (reason && TTS.enabled) {
+        TTS.enabled = false;
+        cancelSpeech();
+        showTtsNote(getI18n()[reason], true);
+      }
+      const disabled = !!reason;
+      const on = TTS.enabled && !disabled;
+      ttsBtn.setAttribute("aria-disabled", disabled ? "true" : "false");
+      ttsBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      ttsBtnText.textContent = on ? getI18n().ttsStop : getI18n().ttsRead;
+      ttsBtn.title = disabled ? getI18n()[reason] : "";
+    }
+
+    function onTtsClick() {
+      if (TTS.hidden) return;
+      updateTts();
+      if (TTS.reason) {
+        showTtsNote(getI18n()[TTS.reason], true);
+        return;
+      }
+      TTS.enabled = !TTS.enabled;
+      if (!TTS.enabled) cancelSpeech();
+      updateTts();
+    }
+
+    function speakNext() {
+      if (TTS.current) return;
+      if (!TTS.enabled) {
+        TTS.queue.length = 0;
+        return;
+      }
+      const next = TTS.queue.shift();
+      if (next) speakNow(next);
+    }
+
+    function handleTtsError(err) {
+      if (err === "interrupted" || err === "canceled") return;
+      const data = getI18n();
+      if (err === "not-allowed") {
+        TTS.enabled = false;
+        cancelSpeech();
+        showTtsNote(data.ttsReasonNeedsGesture, true);
+      } else if (err === "network") {
+        showTtsNote(data.ttsReasonNetwork, true);
+      } else if (err === "language-unavailable" || err === "voice-unavailable") {
+        TTS.enabled = false;
+        cancelSpeech();
+        showTtsNote(String(data.ttsReasonLangUnavailable).replace("{}", langName(targetLang())), true);
+      } else {
+        showTtsNote(data.ttsReasonSynthesisError, true);
+      }
+      updateTts();
+    }
+
+    function speakNow(item) {
+      const gen = TTS.gen;
+      TTS.current = item;
+      let utter;
+      try {
+        utter = new SpeechSynthesisUtterance(item.text);
+      } catch (_) {
+        TTS.current = null;
+        return;
+      }
+      if (item.voice && TTS.debug.mockVoices === null) {
+        try { utter.voice = item.voice; } catch (_) {}
+      }
+      if (item.voice && item.voice.lang) {
+        utter.lang = normLang(item.voice.lang);
+      } else if (item.lang) {
+        utter.lang = item.lang;
+      }
+      utter.rate = 1;
+      utter.pitch = 1;
+      utter.volume = 1;
+      let finished = false;
+      function finish(err) {
+        if (finished) return;
+        finished = true;
+        if (gen !== TTS.gen) return;
+        TTS.current = null;
+        if (err) handleTtsError(err);
+        speakNext();
+      }
+      utter.onend = function () { finish(null); };
+      utter.onerror = function (event) {
+        finish(event && event.error ? event.error : "synthesis-failed");
+      };
+      try {
+        synth.speak(utter);
+      } catch (_) {
+        finish("synthesis-failed");
+      }
+    }
+
+    function speakLine(text, lang) {
+      if (!TTS.enabled || !text) return;
+      if (isMobileDevice() && document.hidden) return;
+      const reason = currentReason();
+      if (reason) {
+        TTS.reason = reason;
+        TTS.enabled = false;
+        cancelSpeech();
+        showTtsNote(String(getI18n()[reason]).replace("{}", langName(lang)), true);
+        updateTts();
+        return;
+      }
+      const voice = pickVoice(lang);
+      if (!voice) {
+        TTS.enabled = false;
+        cancelSpeech();
+        showTtsNote(String(getI18n().ttsReasonNoVoiceLang).replace("{}", langName(lang)), true);
+        updateTts();
+        return;
+      }
+      const item = { text: String(text), lang: lang, voice: voice };
+      if (!TTS.current) {
+        speakNow(item);
+        return;
+      }
+      const max = ttsCfg().maxPending;
+      if (max <= 0) return;
+      while (TTS.queue.length >= max) TTS.queue.shift();
+      TTS.queue.push(item);
+    }
+
+    function refreshVoices() {
+      TTS.voices = getBrowserVoices();
+      if (TTS.debug.mockVoices !== null || TTS.voices.length > 0) {
+        TTS.loading = false;
+      }
+      buildPool();
+      updateTts();
+    }
+
+    function loadVoices() {
+      if (!ttsSupported) {
+        TTS.loading = false;
+        updateTts();
+        return;
+      }
+      TTS.voices = getBrowserVoices();
+      if (TTS.debug.mockVoices !== null || TTS.voices.length > 0) {
+        TTS.loading = false;
+        buildPool();
+        updateTts();
+        return;
+      }
+      TTS.loading = true;
+      updateTts();
+      if (!TTS.voicesBound && synth && synth.onvoiceschanged !== undefined) {
+        TTS.voicesBound = true;
+        synth.onvoiceschanged = function () {
+          TTS.voices = getBrowserVoices();
+          if (TTS.voices.length > 0) {
+            TTS.loading = false;
+            buildPool();
+            updateTts();
+          }
+        };
+      }
+      if (TTS.voicesTimer) clearTimeout(TTS.voicesTimer);
+      TTS.voicesTimer = setTimeout(function () {
+        TTS.voicesTimer = null;
+        if (!TTS.loading) return;
+        TTS.loading = false;
+        TTS.voices = getBrowserVoices();
+        buildPool();
+        updateTts();
+      }, 4000);
+    }
+
+    function applyTtsConfig(tts) {
+      TTS.cfg = Object.assign({}, TTS_POLICY_DEFAULT, tts || {});
+      if (TTS.cfg.debug) installDebugApi(); else uninstallDebugApi();
+      loadVoices();
+      updateTts();
+    }
+
+    // API de depuración: solo se instala si el servidor envía debug=true
+    // (TTS_DEBUG_API en traduia_server.py, desactivado por defecto).
+    function installDebugApi() {
+      if (window.TraduiaTTS) return;
+      window.TraduiaTTS = {
+        state: function () {
+          return {
+            enabled: TTS.enabled,
+            hidden: TTS.hidden,
+            reason: TTS.reason,
+            loading: TTS.loading,
+            queue: TTS.queue.length,
+            speaking: !!TTS.current,
+            voices: { total: TTS.voices.length, allowed: TTS.pool.length },
+            target: targetLang(),
+            cfg: ttsCfg(),
+            debug: Object.assign({}, TTS.debug),
+          };
+        },
+        setDebug: function (partial) {
+          if (!TTS.cfg.debug) {
+            console.warn("[TraduIA] TTS debug API is disabled");
+            return false;
+          }
+          if (!partial || typeof partial !== "object") return false;
+          Object.keys(TTS.debug).forEach(function (key) {
+            if (Object.prototype.hasOwnProperty.call(partial, key)) {
+              TTS.debug[key] = partial[key];
+            }
+          });
+          refreshVoices();
+          return true;
+        },
+        speak: function (text, lang) {
+          if (!TTS.cfg.debug || !text) return false;
+          const code = lang || targetLang();
+          cancelSpeech();
+          speakNow({ text: String(text), lang: code, voice: pickVoice(code) });
+          return true;
+        },
+        stop: function () { stopTts(); },
+        refresh: function () { refreshVoices(); },
+      };
+      console.info("[TraduIA] TTS debug API enabled (development)");
+    }
+
+    function uninstallDebugApi() {
+      if (!window.TraduiaTTS) return;
+      try { delete window.TraduiaTTS; } catch (_) { window.TraduiaTTS = undefined; }
+      console.info("[TraduIA] TTS debug API disabled");
     }
 
     function clearTargetOptions() {
@@ -1339,6 +1834,7 @@ HTML_CLIENT = r"""<!doctype html>
       aliciaLogo.alt = d.aliciaName;
       labelMode.textContent = d.labelMode;
       labelLang.textContent = d.labelLang;
+      if (labelTts) labelTts.textContent = d.labelTts;
       out.placeholder = d.placeholder;
       modeSel.options[0].textContent = d.optOriginal;
       modeSel.options[1].textContent = d.optTranslate;
@@ -1395,6 +1891,7 @@ HTML_CLIENT = r"""<!doctype html>
         }
         if (obj.input_lang) INPUT_LANG = obj.input_lang;
         configureTargetSelect();
+        applyTtsConfig(obj.tts);
         ready = true;
         shuttingDown = false;
         reconnectDelay = 500;
@@ -1421,6 +1918,9 @@ HTML_CLIENT = r"""<!doctype html>
           }
         }
         appendLine(obj.text || "");
+        if (modeSel.value === "translate" && obj.text) {
+          speakLine(obj.text, targetSel.value);
+        }
         return;
       }
 
@@ -1429,6 +1929,7 @@ HTML_CLIENT = r"""<!doctype html>
         ready = false;
         setStatus("desconectado");
         clearChat();
+        stopTts();
       }
     }
 
@@ -1460,7 +1961,9 @@ HTML_CLIENT = r"""<!doctype html>
       sock.onclose = () => {
         if (ws === sock) ws = null;
         ready = false;
+        cancelSpeech();
         setStatus(shuttingDown ? "desconectado" : "error");
+        updateTts();
         if (shuttingDown) {
           clearChat();
         } else if (!clearTimer) {
@@ -1478,10 +1981,18 @@ HTML_CLIENT = r"""<!doctype html>
       applyLocalization();
       setStatus("desconectado");
       configureTargetSelect();
-      modeSel.onchange = () => { configureTargetSelect(); sendState(); };
-      targetSel.onchange = sendState;
+      loadVoices();
+      updateTts();
+      modeSel.onchange = () => { configureTargetSelect(); sendState(); updateTts(); };
+      targetSel.onchange = () => { sendState(); cancelSpeech(); updateTts(); };
+      if (ttsBtn) ttsBtn.onclick = onTtsClick;
       document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) connectNow();
+        if (document.hidden) {
+          if (isMobileDevice()) cancelSpeech();
+        } else {
+          connectNow();
+          updateTts();
+        }
       });
       window.addEventListener("online", connectNow);
       connect();
@@ -1552,10 +2063,77 @@ def init_app():
 # propia cola de salida y una única tarea sender (send_text nunca es concurrente).
 # =========================================================
 
-APP_VERSION = "0.9.6"
+APP_VERSION = "0.9.7"
 
 TARGET_LANGS = ("en", "fr", "de", "ru", "ar", "uk", "ro", "it")
 WS_OUT_QUEUE_MAX = 64
+
+# =========================================================
+# TTS (lectura en voz alta en el cliente)
+# ---------------------------------------------------------
+# El audio se genera en el navegador del alumno con speechSynthesis; estas
+# constantes solo configuran la política que aplica el cliente.
+# =========================================================
+
+TTS_ALLOW_CLOUD = False       # permitir voces no locales (nube)
+TTS_MOBILE_ENABLED = True     # permitir TTS en Android/iOS
+# API window.TraduiaTTS para depuración con DevTools. Debe permanecer False en
+# los commits: se activa manualmente (edición + reinicio) en una instalación
+# concreta para poder depurarla.
+TTS_DEBUG_API = False
+
+_CAPTURE_KIND_CACHE = None
+
+
+def _capture_kind():
+    """Clasifica la fuente de audio del servidor como 'monitor', 'mic' o 'unknown'."""
+    global _CAPTURE_KIND_CACHE
+    if _CAPTURE_KIND_CACHE is not None:
+        return _CAPTURE_KIND_CACHE
+    kind = "unknown"
+    if ENV_PULSE_MONITOR:
+        kind = "monitor"
+    elif ENV_PULSE_SOURCE:
+        name = ENV_PULSE_SOURCE.lower()
+        kind = "monitor" if ("monitor" in name or "loopback" in name) else "mic"
+    else:
+        try:
+            info = sd.query_devices(kind="input")
+            name = str(info.get("name", "")).lower()
+            kind = "monitor" if ("monitor" in name or "loopback" in name) else "mic"
+        except Exception:
+            kind = "unknown"
+    _CAPTURE_KIND_CACHE = kind
+    return kind
+
+
+def _normalize_ip(value):
+    try:
+        ip = ipaddress.ip_address(str(value).split("%")[0])
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        return str(ip)
+    except ValueError:
+        return str(value)
+
+
+def _is_local_client(ws) -> bool:
+    """True si el WebSocket viene del propio equipo del servidor."""
+    try:
+        host = ws.client.host if ws.client else None
+    except Exception:
+        host = None
+    if not host:
+        return False
+    local = {"127.0.0.1", "::1"}
+    try:
+        for addrs in psutil.net_if_addrs().values():
+            for addr in addrs:
+                if addr.family in (socket.AF_INET, socket.AF_INET6):
+                    local.add(_normalize_ip(addr.address))
+    except Exception:
+        pass
+    return _normalize_ip(host) in local
 
 # Trace correlation: broadcast text -> line sequence (ALICIA_DEBUG only).
 _LINE_SEQ = {}
@@ -2121,6 +2699,8 @@ def start_system_tray():
 async def lifespan(app:FastAPI):
     global _loop
     _loop = asyncio.get_running_loop()
+    if TTS_DEBUG_API:
+        print("[WARN] TTS debug API enabled (development only)")
     _start_language_workers()
     start_inactivity_monitor()
     start_stt_if_needed()
@@ -2227,7 +2807,18 @@ async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     # hello antes de registrarse: garantiza que sea el primer mensaje del canal.
     await ws.send_text(json.dumps(
-        {"type": "hello", "version": APP_VERSION, "input_lang": INPUT_LANG},
+        {
+            "type": "hello",
+            "version": APP_VERSION,
+            "input_lang": INPUT_LANG,
+            "tts": {
+                "allow_cloud": TTS_ALLOW_CLOUD,
+                "mobile_enabled": TTS_MOBILE_ENABLED,
+                "local_client": _is_local_client(ws),
+                "capture": _capture_kind(),
+                "debug": TTS_DEBUG_API,
+            },
+        },
         ensure_ascii=False,
     ))
     state = {

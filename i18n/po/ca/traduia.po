@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 01:45+0200\n"
+"POT-Creation-Date: 2026-10-23 14:21+0200\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -22,72 +22,72 @@ msgstr ""
 msgid "[INFO] Opening: {}"
 msgstr "[INFO] Obrint: {}"
 
-#: traduia_server.py:247
+#: traduia_server.py:248
 msgid ""
 "[ERROR] No translation models found on disk. Run install-models-traduia."
 msgstr ""
 "[ERROR] No es van trobar models de traducció al disc. Executeu install-"
 "models-traduia."
 
-#: traduia_server.py:248
+#: traduia_server.py:249
 msgid "No translation models found on disk. Run install-models-traduia."
 msgstr ""
 
-#: traduia_server.py:253
+#: traduia_server.py:254
 msgid "[WARN] CT2 marker present but CT2 models are not complete on disk."
 msgstr ""
 "[WARN] El marcador CT2 és present però els models CT2 no estan complets al "
 "disc."
 
-#: traduia_server.py:255
+#: traduia_server.py:256
 msgid "[WARN] Falling back to Marian models."
 msgstr "[WARN] S'usaran els models Marian."
 
-#: traduia_server.py:256
+#: traduia_server.py:257
 msgid "[INFO] Translation mode: Marian (fallback from stale .use_ct2 marker)"
 msgstr ""
 "[INFO] Mode de traducció: Marian (fallback des del marcador .use_ct2 obsolet)"
 
-#: traduia_server.py:258 traduia_server.py:270 traduia_server.py:282
+#: traduia_server.py:259 traduia_server.py:271 traduia_server.py:283
 msgid "[ERROR] No complete model set found. Run install-models-traduia."
 msgstr ""
 "[ERROR] No es va trobar cap conjunt de models complet. Executeu install-"
 "models-traduia."
 
-#: traduia_server.py:259 traduia_server.py:271 traduia_server.py:283
+#: traduia_server.py:260 traduia_server.py:272 traduia_server.py:284
 msgid "No complete model set found on disk. Run install-models-traduia."
 msgstr ""
 "No es va trobar cap conjunt de models complet al disc. Executeu install-"
 "models-traduia."
 
-#: traduia_server.py:260
+#: traduia_server.py:261
 msgid "[INFO] Translation mode: CT2 (override via .use_ct2 marker)"
 msgstr ""
 "[INFO] Mode de traducció: CT2 (override mitjançant el marcador .use_ct2)"
 
-#: traduia_server.py:265
+#: traduia_server.py:266
 msgid ""
 "[WARN] Marian marker present but Marian models are not complete on disk."
 msgstr ""
 "[WARN] El marcador Marian és present però els models Marian no estan "
 "complets al disc."
 
-#: traduia_server.py:267
+#: traduia_server.py:268
 msgid "[WARN] Falling back to CT2 models."
 msgstr "[WARN] S'usaran els models CT2."
 
-#: traduia_server.py:268
+#: traduia_server.py:269
 msgid "[INFO] Translation mode: CT2 (fallback from stale .use_marian marker)"
 msgstr ""
 "[INFO] Mode de traducció: CT2 (fallback des del marcador .use_marian obsolet)"
 
-#: traduia_server.py:272
+#: traduia_server.py:273
 msgid "[INFO] Translation mode: Marian (override via .use_marian marker)"
 msgstr ""
 "[INFO] Mode de traducció: Marian (override mitjançant el marcador ."
 "use_marian)"
 
-#: traduia_server.py:279
+#: traduia_server.py:280
 msgid ""
 "[WARN] Both markers present but Marian models are not complete; falling back "
 "to CT2."
@@ -95,230 +95,292 @@ msgstr ""
 "[WARN] Tots dos marcadors presents però els models Marian no estan complets; "
 "s'usarà CT2."
 
-#: traduia_server.py:280
+#: traduia_server.py:281
 msgid "[INFO] Translation mode: CT2 (fallback, Marian unavailable)"
 msgstr "[INFO] Mode de traducció: CT2 (fallback, Marian no disponible)"
 
-#: traduia_server.py:284
+#: traduia_server.py:285
 msgid "[INFO] Translation mode: Marian (both markers present, Marian priority)"
 msgstr ""
 "[INFO] Mode de traducció: Marian (tots dos marcadors presents, prioritat "
 "Marian)"
 
-#: traduia_server.py:290
+#: traduia_server.py:291
 msgid "[INFO] Translation mode: Marian (detected from disk, Marian priority)"
 msgstr ""
 "[INFO] Mode de traducció: Marian (detectat des del disc, prioritat Marian)"
 
-#: traduia_server.py:292
+#: traduia_server.py:293
 msgid "[INFO] Translation mode: Marian (detected from disk)"
 msgstr "[INFO] Mode de traducció: Marian (detectat des del disc)"
 
-#: traduia_server.py:295
+#: traduia_server.py:296
 msgid "[INFO] Translation mode: CT2 (detected from disk)"
 msgstr "[INFO] Mode de traducció: CT2 (detectat des del disc)"
 
-#: traduia_server.py:650
+#: traduia_server.py:651
 msgid "[WARN] Failed to load CT2 model {}: {}"
 msgstr "[WARN] Error en carregar el model CT2 {}: {}"
 
-#: traduia_server.py:668
+#: traduia_server.py:669
 msgid "[WARN] {}: tie_word_embeddings=false; forzando True"
 msgstr ""
 
-#: traduia_server.py:678
+#: traduia_server.py:679
 msgid "[WARN] Failed to load Marian model {}: {}"
 msgstr "[WARN] Error en carregar el model Marian {}: {}"
 
-#: traduia_server.py:686
+#: traduia_server.py:687
 msgid "[WARN] {}: lm_head sin atar; reparando desde el embedding"
 msgstr ""
 
-#: traduia_server.py:968
+#: traduia_server.py:969
 msgid "LliureX - Real-time Transcription / Translation System"
 msgstr "Sistema de transcripció / traducció en temps real de LliureX"
 
-#: traduia_server.py:969
+#: traduia_server.py:970
 msgid "LliureX - TraduIA"
 msgstr "LliureX - TraduIA"
 
-#: traduia_server.py:970
+#: traduia_server.py:971
 msgid "AlicIA"
 msgstr "AlicIA"
 
-#: traduia_server.py:971
+#: traduia_server.py:972
 msgid "Display Mode"
 msgstr "Mode de visualització"
 
-#: traduia_server.py:972
+#: traduia_server.py:973
 msgid "Language"
 msgstr "Idioma"
 
-#: traduia_server.py:973
+#: traduia_server.py:974
 msgid "View original (teacher's language)"
 msgstr "Veure original (idioma del docent)"
 
-#: traduia_server.py:974
+#: traduia_server.py:975
 msgid "View translated"
 msgstr "Veure traduït"
 
-#: traduia_server.py:975
+#: traduia_server.py:976
 msgid "Here you will see the teacher's speech in your chosen language…"
 msgstr "Ací veuràs el discurs del professor en l'idioma triat…"
 
-#: traduia_server.py:977 traduia_server.py:980
+#: traduia_server.py:978 traduia_server.py:981
 msgid "disconnected"
 msgstr "desconnectat"
 
-#: traduia_server.py:978
+#: traduia_server.py:979
 msgid "connecting..."
 msgstr "connectant..."
 
-#: traduia_server.py:979
+#: traduia_server.py:980
 msgid "connected"
 msgstr "connectat"
 
-#: traduia_server.py:982
+#: traduia_server.py:983
 msgid "[TRANSLATION ERROR]"
 msgstr "[ERROR DE TRADUCCIÓ]"
 
-#: traduia_server.py:983
+#: traduia_server.py:984
 msgid "[ERROR] Could not connect to the server."
 msgstr "[ERROR] No s'ha pogut connectar amb el servidor."
 
 #: traduia_server.py:985
+msgid "Reading"
+msgstr "Lectura"
+
+#: traduia_server.py:986
+msgid "Read aloud"
+msgstr "Llig en veu alta"
+
+#: traduia_server.py:987
+msgid "Stop reading"
+msgstr "Detín la lectura"
+
+#: traduia_server.py:988
+msgid "This browser does not support speech synthesis."
+msgstr "Este navegador no suporta la síntesi de veu."
+
+#: traduia_server.py:989
+msgid "Speech synthesis is disabled on mobile devices."
+msgstr "La síntesi de veu està desactivada en dispositius mòbils."
+
+#: traduia_server.py:990
+msgid ""
+"Reading is disabled on this device because the server captures the system "
+"audio and would transcribe its own output."
+msgstr "La lectura està desactivada en este equip perquè el servidor captura l'àudio del sistema i transcriuria la seua pròpia eixida."
+
+#: traduia_server.py:991
+msgid ""
+"Only non-local (cloud) voices are available. Reading is disabled to protect "
+"privacy."
+msgstr "Només hi ha veus no locals (al núvol). La lectura està desactivada per a protegir la privacitat."
+
+#: traduia_server.py:992
+msgid "No speech voices are available on this device."
+msgstr "No hi ha veus de síntesi disponibles en este equip."
+
+#: traduia_server.py:993
+msgid ""
+"No voice is available for the selected language ({}). Install voices in your "
+"system or choose another language."
+msgstr "No hi ha cap veu per a l'idioma seleccionat ({}). Instal·la veus en el sistema o tria un altre idioma."
+
+#: traduia_server.py:994
+msgid "Loading voices…"
+msgstr "Carregant veus…"
+
+#: traduia_server.py:995
+msgid "Press “Read aloud” again to allow speech."
+msgstr "Prem «Llig en veu alta» de nou per a permetre la lectura."
+
+#: traduia_server.py:996
+msgid "The voice engine needs a network connection."
+msgstr "El motor de veu necessita connexió de xarxa."
+
+#: traduia_server.py:997
+msgid "The voice engine cannot speak the selected language ({})."
+msgstr "El motor de veu no pot reproduir l'idioma seleccionat ({})."
+
+#: traduia_server.py:998
+msgid "Speech synthesis failed."
+msgstr "La síntesi de veu ha fallat."
+
+#: traduia_server.py:1000
 msgid "English"
 msgstr "Anglés"
 
-#: traduia_server.py:985
+#: traduia_server.py:1000
 msgid "French"
 msgstr "Francés"
 
-#: traduia_server.py:985
+#: traduia_server.py:1000
 msgid "German"
 msgstr "Alemany"
 
-#: traduia_server.py:986
+#: traduia_server.py:1001
 msgid "Russian"
 msgstr "Rus"
 
-#: traduia_server.py:986
+#: traduia_server.py:1001
 msgid "Arabic"
 msgstr "Àrab"
 
-#: traduia_server.py:986
+#: traduia_server.py:1001
 msgid "Ukrainian"
 msgstr "Ucraïnés"
 
-#: traduia_server.py:987
+#: traduia_server.py:1002
 msgid "Romanian"
 msgstr "Romanés"
 
-#: traduia_server.py:987 traduia:242
+#: traduia_server.py:1002 traduia:242
 msgid "Spanish"
 msgstr "Castellà"
 
-#: traduia_server.py:987 traduia:242 traduia:249
+#: traduia_server.py:1002 traduia:242 traduia:249
 msgid "Valencian"
 msgstr "Valencià"
 
-#: traduia_server.py:988
+#: traduia_server.py:1003
 msgid "Italian"
 msgstr "Italià"
 
-#: traduia_server.py:1530
+#: traduia_server.py:2041
 msgid "LliureX STT/Real-time translation"
 msgstr "LliureX STT/Traducció en temps real"
 
-#: traduia_server.py:1723
+#: traduia_server.py:2301
 msgid "[STT] Starting Whisper ({}) for input language: {}"
 msgstr "[STT] Iniciant Whisper ({}) per a l'idioma d'entrada: {}"
 
-#: traduia_server.py:1738
+#: traduia_server.py:2316
 msgid "[WARN] Failed to load Whisper model {}: {}"
 msgstr "[WARN] Error en carregar el model Whisper {}: {}"
 
-#: traduia_server.py:2031
+#: traduia_server.py:2609
 msgid "[STT] Audio source: {} -> {}"
 msgstr "[STT] Font d'àudio: {} -> {}"
 
-#: traduia_server.py:2033
+#: traduia_server.py:2611
 msgid "[STT] Capturing audio (Pulse). Ctrl+C to stop."
 msgstr "[STT] Capturant àudio (Pulse). Ctrl+C per a detindre."
 
-#: traduia_server.py:2066
+#: traduia_server.py:2644
 msgid "[STT] Microphone open. Ctrl+C to stop."
 msgstr "[STT] Micròfon obert. Ctrl+C per a detindre."
 
-#: traduia_server.py:2094
+#: traduia_server.py:2672
 msgid "[INFO] Auto-shutdown due to inactivity."
 msgstr "[INFO] Auto-apagat per inactivitat."
 
-#: traduia_server.py:2105
+#: traduia_server.py:2683
 msgid "[INFO] Auto-shutdown disabled."
 msgstr "[INFO] Auto-apagat desactivat."
 
-#: traduia_server.py:2204
+#: traduia_server.py:2784
 msgid "alicia.png not found"
 msgstr "alicia.png no trobada"
 
-#: traduia_server.py:2324 traduia_server.py:2348 traduia_server.py:2416
+#: traduia_server.py:2915 traduia_server.py:2939 traduia_server.py:3007
 msgid "TraduIA Server"
 msgstr "Servidor TraduIA"
 
-#: traduia_server.py:2331
+#: traduia_server.py:2922
 msgid "Extend 5 minutes"
 msgstr "Estendre 5 minuts"
 
-#: traduia_server.py:2332
+#: traduia_server.py:2923
 msgid "Close TraduIA now"
 msgstr "Tanca TraduIA ara"
 
-#: traduia_server.py:2349
+#: traduia_server.py:2940
 msgid "TraduIA will shut down due to inactivity. Do you want to extend?"
 msgstr "TraduIA s'apagarà per inactivitat. Voleu estendre'l?"
 
-#: traduia_server.py:2359
+#: traduia_server.py:2950
 msgid "TraduIA will shut down due to inactivity in {} seconds."
 msgstr "TraduIA s'apagarà per inactivitat en {} segons."
 
-#: traduia_server.py:2387
+#: traduia_server.py:2978
 msgid "Activity: auto-shutdown disabled"
 msgstr "Activitat: auto-apagat desactivat"
 
-#: traduia_server.py:2391
+#: traduia_server.py:2982
 msgid "Activity: shutdown pending"
 msgstr "Activitat: apagat pendent"
 
-#: traduia_server.py:2393 traduia_server.py:2421
+#: traduia_server.py:2984 traduia_server.py:3012
 msgid "Activity: waiting"
 msgstr "Activitat: esperant"
 
-#: traduia_server.py:2397
+#: traduia_server.py:2988
 msgid "Activity: now"
 msgstr "Activitat: ara"
 
-#: traduia_server.py:2399
+#: traduia_server.py:2990
 msgid "Activity: last minute"
 msgstr "Activitat: últim minut"
 
-#: traduia_server.py:2401
+#: traduia_server.py:2992
 msgid "Activity: {} min ago"
 msgstr "Activitat: fa {} min"
 
-#: traduia_server.py:2425
+#: traduia_server.py:3016
 msgid "Exit"
 msgstr "Eixir"
 
-#: traduia_server.py:2489
+#: traduia_server.py:3080
 msgid "[INFO] Stopping previous instance (PID {})..."
 msgstr "[INFO] Parant instància prèvia (PID {})..."
 
-#: traduia_server.py:2494
+#: traduia_server.py:3085
 msgid "[INFO] Forcing stop (KILL) of PID {}..."
 msgstr "[INFO] Forçant parada (KILL) del PID {}..."
 
-#: traduia_server.py:2543
+#: traduia_server.py:3134
 msgid "[INFO] Cleaning up..."
 msgstr "[INFO] Netejant..."
 
@@ -330,76 +392,76 @@ msgstr "ERROR: --mode requerix 'ct2' o 'marian'."
 msgid "ERROR: unknown mode: {}"
 msgstr "ERROR: mode desconegut: {}"
 
-#: traduia-verify-models:124
+#: traduia-verify-models:128
 msgid "ERROR: manifest.json is too large."
 msgstr "ERROR: manifest.json és massa gran."
 
-#: traduia-verify-models:129
+#: traduia-verify-models:133
 msgid "ERROR: could not read {}: {}"
 msgstr "ERROR: no s'ha pogut llegir {}: {}"
 
-#: traduia-verify-models:133
+#: traduia-verify-models:137
 msgid "ERROR: manifest.json is not an object."
 msgstr "ERROR: manifest.json no és un objecte."
 
-#: traduia-verify-models:137
+#: traduia-verify-models:141
 msgid "ERROR: manifest.json contains an invalid version."
 msgstr "ERROR: manifest.json conté una versió no vàlida."
 
-#: traduia-verify-models:141
+#: traduia-verify-models:145
 msgid "ERROR: manifest.json contains an invalid mode."
 msgstr "ERROR: manifest.json conté un mode no vàlid."
 
-#: traduia-verify-models:146
+#: traduia-verify-models:150
 msgid "ERROR: manifest.json contains no files."
 msgstr "ERROR: manifest.json no conté fitxers."
 
-#: traduia-verify-models:149
+#: traduia-verify-models:153
 msgid "ERROR: manifest.json contains too many files."
 msgstr "ERROR: manifest.json conté massa fitxers."
 
-#: traduia-verify-models:156
+#: traduia-verify-models:160
 msgid "ERROR: manifest.json contains an unsafe path: {}"
 msgstr "ERROR: manifest.json conté una ruta no segura: {}"
 
-#: traduia-verify-models:160
+#: traduia-verify-models:164
 msgid "ERROR: manifest.json contains a duplicate path: {}"
 msgstr "ERROR: manifest.json conté una ruta duplicada: {}"
 
-#: traduia-verify-models:169
+#: traduia-verify-models:173
 msgid ""
 "[WARN] {} unexpected path(s) outside known prefixes; they will be ignored"
 msgstr ""
 
-#: traduia-verify-models:174
+#: traduia-verify-models:178
 msgid "ERROR: no entries for mode '{}' in manifest."
 msgstr "ERROR: no hi ha entrades del mode '{}' en el manifest."
 
-#: traduia-verify-models:185
+#: traduia-verify-models:189
 msgid "UNSAFE PATH: {}"
 msgstr "RUTA NO SEGURA: {}"
 
-#: traduia-verify-models:190
+#: traduia-verify-models:194
 msgid "MISSING/SIZE: {}"
 msgstr "FALTA/TAMANY: {}"
 
-#: traduia-verify-models:195 traduia-verify-models:205
+#: traduia-verify-models:199 traduia-verify-models:209
 msgid "OK: {}"
 msgstr "OK: {}"
 
-#: traduia-verify-models:202
+#: traduia-verify-models:206
 msgid "SHA256 MISMATCH: {}"
 msgstr "SHA256 INCORRECTE: {}"
 
-#: traduia-verify-models:207
+#: traduia-verify-models:211
 msgid "UNREADABLE: {} ({})"
 msgstr "NO LLEGIBLE: {} ({})"
 
-#: traduia-verify-models:211
+#: traduia-verify-models:215
 msgid "{} errors"
 msgstr "{} errors"
 
-#: traduia-verify-models:213
+#: traduia-verify-models:217
 msgid "OK"
 msgstr "OK"
 
@@ -641,12 +703,12 @@ msgstr "Les opcions --url, --dir i --from són mútuament excloents."
 msgid "Source directory does not exist:"
 msgstr "El directori d'origen no existix:"
 
-#: install-models-traduia:661 install-models-traduia:675
+#: install-models-traduia:669 install-models-traduia:683
 msgid "Using repository wheels for Python dependencies (offline)"
 msgstr ""
 "Usant els wheels del repositori per a les dependències Python (offline)"
 
-#: install-models-traduia:678
+#: install-models-traduia:686
 msgid ""
 "Repository declares Python wheels, but they could not be downloaded or "
 "verified."
@@ -654,36 +716,36 @@ msgstr ""
 "El repositori declara wheels Python, però no s'han pogut descarregar ni "
 "verificar."
 
-#: install-models-traduia:695
+#: install-models-traduia:703
 msgid "Validating repository wheels against manifest.json"
 msgstr "Validant les wheels del repositori contra manifest.json"
 
-#: install-models-traduia:876
+#: install-models-traduia:888
 msgid "Validating offline Python dependencies for Python"
 msgstr "Validant les dependències Python offline per a Python"
 
-#: install-models-traduia:879
+#: install-models-traduia:891
 msgid "Could not create temporary validation venv."
 msgstr "No s'ha pogut crear el venv temporal de validació."
 
-#: install-models-traduia:895
+#: install-models-traduia:907
 msgid "The offline wheels repository cannot install pip/setuptools/wheel."
 msgstr ""
 "El repositori de wheels offline no pot instal·lar pip/setuptools/wheel."
 
-#: install-models-traduia:909
+#: install-models-traduia:921
 msgid "Offline Python repository is incomplete for Python"
 msgstr "El repositori Python offline està incomplet per a Python"
 
-#: install-models-traduia:910
+#: install-models-traduia:922
 msgid "pip dependency resolution output:"
 msgstr "Sortida de la resolució de dependències de pip:"
 
-#: install-models-traduia:918
+#: install-models-traduia:930
 msgid "Offline Python dependencies are complete for Python"
 msgstr "Les dependències Python offline estan completes per a Python"
 
-#: install-models-traduia:992
+#: install-models-traduia:1004
 msgid ""
 "Both model sets installed. To use the optimized mode, rename the .use_marian "
 "marker to .use_ct2 manually in:"
@@ -691,15 +753,15 @@ msgstr ""
 "Tots dos sets de models instal·lats. Per a usar el mode optimitzat, "
 "reanomena a mà el marcador .use_marian per .use_ct2 en:"
 
-#: install-models-traduia:1005
+#: install-models-traduia:1017
 msgid "Python dependency installation failed."
 msgstr "Ha fallat la instal·lació de dependències Python."
 
-#: install-models-traduia:1006
+#: install-models-traduia:1018
 msgid "Last lines of:"
 msgstr "Últimes línies de:"
 
-#: install-models-traduia:1035
+#: install-models-traduia:1047
 msgid ""
 "No wheels in repository; Python dependencies will be downloaded from the "
 "internet."
@@ -707,115 +769,115 @@ msgstr ""
 "El repositori no porta wheels; les dependències Python es descarregaran "
 "d'internet."
 
-#: install-models-traduia:1038
+#: install-models-traduia:1050
 msgid "Updating pip/setuptools/wheel"
 msgstr "Actualitzant pip/setuptools/wheel"
 
-#: install-models-traduia:1047
+#: install-models-traduia:1059
 msgid "Installing Python dependencies"
 msgstr "Instal·lant dependències de Python"
 
-#: install-models-traduia:1055
+#: install-models-traduia:1067
 msgid "Installing torch"
 msgstr "Instal·lant torch"
 
-#: install-models-traduia:1071
+#: install-models-traduia:1083
 msgid "Installing sacremoses"
 msgstr "Instal·lant sacremoses"
 
-#: install-models-traduia:1079
+#: install-models-traduia:1091
 msgid "Checking Python dependency consistency"
 msgstr "Comprovant la consistència de les dependències Python"
 
-#: install-models-traduia:1082
+#: install-models-traduia:1094
 msgid "pip check failed: installed dependencies are inconsistent."
 msgstr "pip check ha fallat: les dependències instal·lades són inconsistents."
 
-#: install-models-traduia:1087
+#: install-models-traduia:1099
 msgid "Python dependencies installed and verified."
 msgstr "Dependències Python instal·lades i verificades."
 
-#: install-models-traduia:1102
+#: install-models-traduia:1114
 msgid "Creating clean venv"
 msgstr "Creant venv net"
 
-#: install-models-traduia:1105
+#: install-models-traduia:1117
 msgid "Could not create TraduIA virtual environment."
 msgstr "No s'ha pogut crear l'entorn virtual de TraduIA."
 
-#: install-models-traduia:1109
+#: install-models-traduia:1121
 msgid "Activating venv"
 msgstr "Activant venv"
 
-#: install-models-traduia:1117
+#: install-models-traduia:1129
 msgid "TraduIA Python environment could not be prepared."
 msgstr "No s'ha pogut preparar l'entorn Python de TraduIA."
 
-#: install-models-traduia:1121
+#: install-models-traduia:1133
 msgid "Exporting shared cache variables (for this process)"
 msgstr "Exportant variables de caché compartida (per a este procés)"
 
-#: install-models-traduia:1133
+#: install-models-traduia:1145
 msgid "Preloading models into shared cache..."
 msgstr "Precarregant models en la caché compartida..."
 
-#: install-models-traduia:1191
+#: install-models-traduia:1203
 msgid "Downloading models from HTTP repository:"
 msgstr "Descarregant models des del repositori HTTP:"
 
-#: install-models-traduia:1192
+#: install-models-traduia:1204
 msgid "Fetching manifest:"
 msgstr "Obtenint manifest:"
 
-#: install-models-traduia:1198 install-models-traduia:1749
+#: install-models-traduia:1210 install-models-traduia:1769
 msgid "Could not fetch manifest.json from:"
 msgstr "No s'ha pogut obtindre manifest.json de:"
 
-#: install-models-traduia:1199
+#: install-models-traduia:1211
 msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
 msgstr "Comproveu TRADUIA_MODELS_URL o /etc/traduia/models-repo.conf"
 
-#: install-models-traduia:1442
+#: install-models-traduia:1458
 msgid "HTTP download finished."
 msgstr "Descàrrega HTTP finalitzada."
 
-#: install-models-traduia:1448
+#: install-models-traduia:1464
 msgid "Copying models from local directory:"
 msgstr "Copiant models des del directori local:"
 
-#: install-models-traduia:1703
+#: install-models-traduia:1723
 msgid "Local copy finished."
 msgstr "Còpia local finalitzada."
 
-#: install-models-traduia:1710
+#: install-models-traduia:1730
 msgid "Downloading models"
 msgstr "Descarregant models"
 
-#: install-models-traduia:1731
+#: install-models-traduia:1751
 msgid "{} models already present on disk. Skipping downloads."
 msgstr "Models {} ja presents al disc. S'ometen les descàrregues."
 
-#: install-models-traduia:1735
+#: install-models-traduia:1755
 msgid "{} models incomplete on disk; completing download."
 msgstr "Models {} incomplets al disc; completant la descàrrega."
 
-#: install-models-traduia:1740 install-models-traduia:1753
+#: install-models-traduia:1760 install-models-traduia:1773
 msgid "ct2 set not available in repository; skipping."
 msgstr "El set ct2 no està disponible al repositori; s'omet."
 
-#: install-models-traduia:1773
+#: install-models-traduia:1793
 msgid "Models downloaded!"
 msgstr "Models descarregats!"
 
-#: install-models-traduia:1781
+#: install-models-traduia:1801
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr "Descarregant/convertint models Marian a CTranslate2..."
 
-#: install-models-traduia:1905
+#: install-models-traduia:1925
 msgid "Ready."
 msgstr "Enllestit."
 
-#: install-models-traduia:1907
+#: install-models-traduia:1927
 msgid "Offline execution (the launcher already exports it):"
 msgstr "Execució fora de línia (el llançador ja ho exporta):"
 
@@ -931,23 +993,23 @@ msgstr "Calculant hash dels fitxers (sha256)..."
 msgid "Refusing to overwrite a symlink:"
 msgstr "Es rebutja sobreescriure un enllaç simbòlic:"
 
-#: traduia-make-repo:308 traduia-make-repo:635
+#: traduia-make-repo:308 traduia-make-repo:639
 msgid "Refusing to write outside output directory:"
 msgstr "Es rebutja escriure fora del directori d'eixida:"
 
-#: traduia-make-repo:656
+#: traduia-make-repo:660
 msgid "Downloading wheels for:"
 msgstr "Descarregant wheels per a:"
 
-#: traduia-make-repo:672 traduia-make-repo:694
+#: traduia-make-repo:676 traduia-make-repo:698
 msgid "Error downloading wheels for target:"
 msgstr "Error descarregant wheels per a l'objectiu:"
 
-#: traduia-make-repo:673 traduia-make-repo:695
+#: traduia-make-repo:677 traduia-make-repo:699
 msgid "pip output:"
 msgstr "Sortida de pip:"
 
-#: traduia-make-repo:703
+#: traduia-make-repo:707
 msgid ""
 "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
 "missing."
@@ -955,36 +1017,36 @@ msgstr ""
 "El repositori de wheels de Python 3.10 està incomplet: manca la wheel "
 "exceptiongroup."
 
-#: traduia-make-repo:730
+#: traduia-make-repo:734
 msgid "Wheels ready in:"
 msgstr "Wheels llests a:"
 
-#: traduia-make-repo:763 traduia-make-repo:1082 traduia-make-repo:1174
-#: traduia-make-repo:1207 traduia-make-repo:1387
+#: traduia-make-repo:767 traduia-make-repo:1086 traduia-make-repo:1178
+#: traduia-make-repo:1211 traduia-make-repo:1391
 msgid "Repository ready:"
 msgstr "Repositori a punt:"
 
-#: traduia-make-repo:793
+#: traduia-make-repo:797
 msgid "Downloading system packages for:"
 msgstr "Descarregant els paquets del sistema per a:"
 
-#: traduia-make-repo:957
+#: traduia-make-repo:961
 msgid "Packages ready in:"
 msgstr "Paquets llests a:"
 
-#: traduia-make-repo:972
+#: traduia-make-repo:976
 msgid "Downloading models from HuggingFace..."
 msgstr "Descarregant models des de HuggingFace..."
 
-#: traduia-make-repo:1047
+#: traduia-make-repo:1051
 msgid "Fetch finished."
 msgstr "Descàrrega finalitzada."
 
-#: traduia-make-repo:1063 traduia-make-repo:1221
+#: traduia-make-repo:1067 traduia-make-repo:1225
 msgid "Error: mode must be 'ct2', 'marian' or 'all'."
 msgstr "Error: el mode ha de ser 'ct2', 'marian' o 'all'."
 
-#: traduia-make-repo:1069
+#: traduia-make-repo:1073
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
@@ -992,7 +1054,7 @@ msgstr ""
 "Aquesta ordre requereix el paquet Python 'huggingface_hub' (pip install "
 "huggingface_hub)."
 
-#: traduia-make-repo:1079
+#: traduia-make-repo:1083
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
@@ -1000,29 +1062,29 @@ msgstr ""
 "La descàrrega ha acabat amb errors: pot ser que falten alguns models. Torneu "
 "a executar la mateixa ordre fetch per a reintentar-los."
 
-#: traduia-make-repo:1110
+#: traduia-make-repo:1114
 msgid "--url-jammy requires a value: --url-jammy <url>"
 msgstr "--url-jammy requereix un valor: --url-jammy <url>"
 
-#: traduia-make-repo:1122
+#: traduia-make-repo:1126
 msgid "--url-noble requires a value: --url-noble <url>"
 msgstr "--url-noble requereix un valor: --url-noble <url>"
 
-#: traduia-make-repo:1153
+#: traduia-make-repo:1157
 msgid "Error: distribution must be 'jammy', 'noble' or 'all'."
 msgstr "Error: la distribució ha de ser 'jammy', 'noble' o 'all'."
 
-#: traduia-make-repo:1171
+#: traduia-make-repo:1175
 msgid "Could not download the system packages (see the errors above)."
 msgstr ""
 "No s'han pogut descarregar els paquets del sistema (vegeu els errors "
 "anteriors)."
 
-#: traduia-make-repo:1194
+#: traduia-make-repo:1198
 msgid "Building a fully offline repository:"
 msgstr "Generant un repositori totalment offline:"
 
-#: traduia-make-repo:1204
+#: traduia-make-repo:1208
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
@@ -1030,53 +1092,53 @@ msgstr ""
 "Repositori offline generat amb errors; torneu a executar el mateix "
 "comandament per a reintentar el que falta."
 
-#: traduia-make-repo:1226
+#: traduia-make-repo:1230
 msgid "Error: models directory does not exist:"
 msgstr "Error: el directori de models no existix:"
 
-#: traduia-make-repo:1296
+#: traduia-make-repo:1300
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: falten els fitxers requerits següents o estan buits:"
 
-#: traduia-make-repo:1300
+#: traduia-make-repo:1304
 msgid "Refusing to generate an incomplete repository."
 msgstr "Es rebutja generar un repositori incomplet."
 
-#: traduia-make-repo:1305
+#: traduia-make-repo:1309
 msgid "Assembling repository in:"
 msgstr "Muntant el repositori a:"
 
-#: traduia-make-repo:1313
+#: traduia-make-repo:1317
 msgid "Copying files (forced by --copy)..."
 msgstr "Copiant fitxers (forçat amb --copy)..."
 
-#: traduia-make-repo:1316
+#: traduia-make-repo:1320
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 "Origen i destinació estan en el mateix sistema de fitxers: s'usen hardlinks."
 
-#: traduia-make-repo:1319
+#: traduia-make-repo:1323
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 "Origen i destinació estan en sistemes de fitxers diferents: es copien els "
 "fitxers."
 
-#: traduia-make-repo:1333
+#: traduia-make-repo:1337
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ja present, s'omet la còpia."
 
-#: traduia-make-repo:1373
+#: traduia-make-repo:1377
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El conjunt {} del directori d'eixida sembla incomplet (falten alguns "
 "parells)."
 
-#: traduia-make-repo:1388
+#: traduia-make-repo:1392
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publiqueu-lo estàticament per HTTP o copieu-lo a un disc USB."
 
-#: traduia-make-repo:1390
+#: traduia-make-repo:1394
 msgid "Example rsync to a server:"
 msgstr "Exemple d'rsync a un servidor:"
 
@@ -1117,7 +1179,9 @@ msgstr "Este comandament s'ha d'executar com a root"
 msgid ""
 "manifest.json contains unexpected paths outside known prefixes; they will be "
 "ignored"
-msgstr "manifest.json conté rutes inesperades fora dels prefixos coneguts; s'ignoraran"
+msgstr ""
+"manifest.json conté rutes inesperades fora dels prefixos coneguts; "
+"s'ignoraran"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:347
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:362
