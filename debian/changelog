@@ -1,3 +1,15 @@
+traduia (0.9.7) jammy; urgency=medium
+
+  * Add TTS button for translated lines
+  * Use local voices by default; TTS_ALLOW_CLOUD, TTS_MOBILE_ENABLED and
+    TTS_DEBUG_API modify behavior
+  * Add piper-tts-server as a soft dependency (Suggests)
+  * Pin faster-whisper 1.2.1 and ctranslate2 4.8.2
+  * Harden code and scripts (deletions and manifest validation)
+  * Update documentation
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 23 Oct 2026 14:40:00 +0200
+
 traduia (0.9.6.1) jammy; urgency=medium
 
   * Fix minor msgstrings
