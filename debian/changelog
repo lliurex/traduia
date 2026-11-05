@@ -1,3 +1,11 @@
+traduia (0.9.8) jammy; urgency=medium
+
+  * Add optional Piper TTS server to the zero-center installer.
+  * Ask whether to remove the Piper voices when removing the server.
+  * Depend on zero-lliurex-piper-tts-server and kdialog.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Thu, 05 Nov 2026 18:35:00 +0100
+
 traduia (0.9.7) jammy; urgency=medium
 
   * Add TTS button for translated lines
