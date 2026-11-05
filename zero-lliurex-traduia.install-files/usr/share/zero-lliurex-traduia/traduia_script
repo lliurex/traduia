@@ -1,13 +1,84 @@
 #!/bin/bash
 
-# Zero-script de TraduIA: dispatcher hacia traduia-config.
-# El ciclo de vida del paquete (apt) entre preInstall y postInstall lo
-# realiza el script superior de zero-center; en remove lo hace
-# traduia-config remove.
+ACTION="$1"
+shift
+PACKAGE_LIST="$*"
 
-case "$1" in
-    preInstall)  /usr/sbin/traduia-config preinstall ;;
-    postInstall) /usr/sbin/traduia-config postinstall ;;
-    remove)      /usr/sbin/traduia-config remove ;;
-    *)           exit 1 ;;
+has_pkg() {
+    [[ " $PACKAGE_LIST " == *" $1 "* ]]
+}
+
+pkg_installed() {
+    dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q "install ok installed"
+}
+
+case "$ACTION" in
+    getStatus)
+        for pkg in "$@"; do
+            if pkg_installed "$pkg"; then echo 0; else echo 1; fi
+        done
+        exit 0
+        ;;
+    download)
+        exit 0
+        ;;
+    preInstall)
+        if has_pkg traduia; then
+            /usr/sbin/traduia-config preinstall
+            exit $?
+        fi
+        exit 0
+        ;;
+    installPackage)
+        rc=0
+        for pkg in "$@"; do
+            case "$pkg" in
+                traduia)
+                    LANG=C LANGUAGE=en DEBIAN_FRONTEND=noninteractive \
+                        apt-get install --reinstall --allow-downgrades --yes traduia || rc=1
+                    ;;
+                piper-tts-server)
+                    if ! pkg_installed piper-tts-server; then
+                        DEBIAN_FRONTEND=noninteractive \
+                            apt-get install -y piper-tts-server || rc=1
+                    fi
+                    ;;
+            esac
+        done
+        if pkg_installed piper-tts-server; then
+            zero-center set-configured zero-lliurex-piper-tts-server >/dev/null 2>&1 || true
+        fi
+        exit $rc
+        ;;
+    postInstall)
+        rc=0
+        if has_pkg traduia; then
+            /usr/sbin/traduia-config postinstall
+            rc=$?
+        fi
+        if pkg_installed piper-tts-server; then
+            zero-center set-configured zero-lliurex-piper-tts-server >/dev/null 2>&1 || true
+        fi
+        exit $rc
+        ;;
+    remove)
+        rc=0
+        for pkg in "$@"; do
+            case "$pkg" in
+                traduia)
+                    /usr/sbin/traduia-config remove || rc=1
+                    ;;
+                piper-tts-server)
+                    # Delegar en el script de Piper: elimina el servidor y
+                    # pregunta con kdialog si se eliminan también las voces.
+                    /usr/share/zero-lliurex-piper-tts-server/piper-tts-server_script \
+                        remove piper-tts-server || rc=1
+                    ;;
+            esac
+        done
+        exit $rc
+        ;;
+    *)
+        exit 1
+        ;;
 esac

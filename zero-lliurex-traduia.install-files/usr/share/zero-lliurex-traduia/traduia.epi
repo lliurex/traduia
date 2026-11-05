@@ -1,21 +1,38 @@
 {
-  "type": "apt",
+  "type": "file",
   "pkg_list": [
     {
       "name": "traduia",
-      "key_store": "zero-lliurex-traduia",
       "custom_icon": "traduia.png",
       "custom_name": {
         "en": "TraduIA: Realtime transcription system",
         "es": "TraduIA: Sistema de traducción en tiempo real",
         "ca@valencia": "TraduIA: Sistema de traducció en temps real"
+      },
+      "default_pkg": true
+    },
+    {
+      "name": "piper-tts-server",
+      "custom_icon": "piper-tts-server.png",
+      "custom_name": {
+        "en": "Piper TTS server",
+        "es": "Servidor Piper TTS",
+        "ca@valencia": "Servidor Piper TTS"
       }
     }
   ],
+  "selection_enabled": {
+    "active": true,
+    "all_selected": false
+  },
   "script": {
     "name": "/usr/share/zero-lliurex-traduia/traduia_script",
+    "download": true,
+    "getStatus": true,
     "remove": true
   },
   "custom_icon_path": "/usr/share/zero-lliurex-traduia/",
-  "zomando": "zero-lliurex-traduia"
+  "zomando": "",
+  "check_zomando_state": false,
+  "required_root": true
 }
