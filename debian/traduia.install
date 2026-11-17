@@ -1,5 +1,9 @@
 install-models-traduia /usr/sbin/
 traduia-make-repo /usr/sbin/
+install-offline.sh /usr/share/traduia/
+debs-jammy.txt /usr/share/traduia/
+debs-noble.txt /usr/share/traduia/
+debs-sources.conf /usr/share/traduia/
 traduia /usr/bin
 traduia-open-url /usr/bin/
 traduia-verify-models /usr/bin/

@@ -1,3 +1,13 @@
+traduia (0.9.9) jammy; urgency=medium
+
+  * Decouple Piper state from the TraduIA installer; Piper uses Service=False.
+  * Relax zero-lliurex-piper-tts-server to Recommends and make the installer
+    tolerate missing Piper/traduia-config/zero-center.
+  * Add a complete offline repository: fixed package lists, apt Packages
+    index, install-offline.sh and --debs-dir support.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 17 Nov 2026 19:30:00 +0100
+
 traduia (0.9.8) jammy; urgency=medium
 
   * Add optional Piper TTS server to the zero-center installer.
