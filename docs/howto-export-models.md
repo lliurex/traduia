@@ -109,8 +109,8 @@ el contenido (`whisper-small/` + los sets presentes + wheels + debs), con
 ├── ct2/opus-mt-{par}/…    # set optimizado (CTranslate2)
 ├── marian/opus-mt-{par}/… # set original (Marian)
 ├── wheels/…               # dependencias Python (offline total)
-├── debs/jammy/…           # traduia y zero-lliurex-traduia de jammy
-└── debs/noble/…           # traduia y zero-lliurex-traduia de noble
+├── debs/jammy/…           # paquetes de debs-jammy.txt + Packages
+└── debs/noble/…           # paquetes de debs-noble.txt + Packages
 ```
 
 Ejemplo de `manifest.json`:
