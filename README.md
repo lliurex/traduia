@@ -50,8 +50,11 @@ Política configurable en `traduia_server.py`:
   depurar una instalación se edita manualmente y se reinicia el servidor.
 
 Dependencias: `piper-tts-server` figura en `Suggests` (no se instala
-obligatoriamente). En escritorio Linux, Firefox necesita `speech-dispatcher`
-y un motor de voz local; en Android/iOS se usa el motor del sistema.
+obligatoriamente). El instalador de TraduIA permite marcarlo como opcional;
+la app `zero-lliurex-piper-tts-server` se recomienda (`Recommends`) pero no
+es obligatoria y usa `Service=False` (sin estado N4D). En escritorio Linux,
+Firefox necesita `speech-dispatcher` y un motor de voz local; en Android/iOS
+se usa el motor del sistema.
 
 Con `TTS_DEBUG_API = True`, desde la consola del navegador:
 
@@ -65,10 +68,13 @@ TraduiaTTS.stop();
 
 ## Distribución offline
 
-Los modelos, las dependencias Python y los paquetes del sistema se
-empaquetan en un repositorio autocontenido (con `manifest.json` y
-verificación sha256) que se puede distribuir por USB o HTTP e instalar en
-aulas sin salida a Internet.
+Los modelos, las dependencias Python, los paquetes del sistema (TraduIA,
+instaladores zero-center, Piper, voces, ONNX y dependencias estáticas) y un
+índice apt local se empaquetan en un repositorio autocontenido (con
+`manifest.json` y verificación sha256). Incluye `install-offline.sh`, que
+instala desde el USB/directorio usando un entorno apt temporal en `/tmp` sin
+modificar los repositorios del sistema. También se puede publicar por HTTP e
+instalar en aulas sin salida a Internet.
 
 ## Documentación
 

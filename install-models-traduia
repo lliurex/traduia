@@ -345,7 +345,7 @@ def safe_rel(rel):
 
 
 def is_expected_path(rel):
-    if rel == "verify-models.py":
+    if rel in ("verify-models.py", "install-offline.sh", "debs-jammy.txt", "debs-noble.txt", "debs-sources.conf"):
         return True
     return rel.startswith(ALLOWED_TOP)
 
@@ -1253,6 +1253,8 @@ def safe_rel(rel):
         return False
     if rel == "verify-models.py":
         return True
+    if rel in ("install-offline.sh", "debs-jammy.txt", "debs-noble.txt", "debs-sources.conf"):
+        return True
     return rel.startswith(("whisper-small/", "ct2/", "marian/", "wheels/", "debs/"))
 
 
@@ -1507,6 +1509,8 @@ def safe_rel(rel):
     if norm != rel or norm in (".", "..") or norm.startswith("../"):
         return False
     if rel == "verify-models.py":
+        return True
+    if rel in ("install-offline.sh", "debs-jammy.txt", "debs-noble.txt", "debs-sources.conf"):
         return True
     return rel.startswith(("whisper-small/", "ct2/", "marian/", "wheels/", "debs/"))
 

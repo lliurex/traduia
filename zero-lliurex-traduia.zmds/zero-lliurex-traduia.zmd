@@ -1,4 +1,13 @@
 #!/bin/bash
 
-epi-gtk /usr/share/zero-lliurex-traduia/traduia.epi
-exit 0
+EPI="/usr/share/zero-lliurex-traduia/traduia.epi"
+
+if [ ! -r "$EPI" ]; then
+    echo "[WARN] EPI not found: $EPI" >&2
+    exit 0
+fi
+
+if ! epi-gtk "$EPI"; then
+    echo "[WARN] epi-gtk failed; installer not opened" >&2
+    exit 0
+fi

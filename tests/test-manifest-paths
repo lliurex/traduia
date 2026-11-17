@@ -13,6 +13,11 @@ set -euo pipefail
 TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$TESTS_DIR")"
 
+# Mensajes de los validadores en inglés, independientemente del locale de
+# la sesión que ejecuta el test.
+export LC_ALL=C
+export LANGUAGE=en
+
 CONFIG="$REPO_DIR/zero-lliurex-traduia.install-files/usr/sbin/traduia-config"
 IMT="$REPO_DIR/install-models-traduia"
 VERIFY="$REPO_DIR/traduia-verify-models"
