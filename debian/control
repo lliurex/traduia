@@ -42,7 +42,7 @@ Depends:
  epi-gtk,
  jq,
  lliurex-firefox-settings,
- zero-lliurex-piper-tts-server,
  kdialog
+Recommends: zero-lliurex-piper-tts-server
 Description: TraduIA installer
  Easy installer for TraduIA built for zero-center.
