@@ -1,0 +1,28 @@
+# Paquetes del repositorio offline de TraduIA para LliureX 25 (noble).
+# Solo nombres de paquete; el generador elige la version maxima disponible.
+traduia
+zero-lliurex-traduia
+zero-lliurex-piper-tts-server
+piper-tts
+piper-tts-server
+piper-tts-voices-ar
+piper-tts-voices-ca
+piper-tts-voices-de
+piper-tts-voices-en
+piper-tts-voices-es
+piper-tts-voices-fr
+piper-tts-voices-it
+piper-tts-voices-ru
+isympy-common
+isympy3
+libcpuinfo0
+libdnnl3
+libonnxruntime-providers
+libonnxruntime1.23
+python3-coloredlogs
+python3-flatbuffers
+python3-humanfriendly
+python3-mpmath
+python3-onnxruntime
+python3-pathvalidate
+python3-sympy

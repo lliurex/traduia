@@ -48,20 +48,20 @@ El subcomando `full` genera el repositorio 100% offline en un solo paso y
 origen: los descarga directamente de HuggingFace.
 
 ```bash
-# Con los repositorios por defecto (lliurex.net, para ambas distros):
+# Repositorios por defecto: lliurex.net + Ubuntu oficial
 traduia-make-repo full /srv/export/traduia
 
-# Apuntando al repositorio con los debs más actualizados:
-traduia-make-repo full /srv/export/traduia \
-    --url-jammy <URL_REPO_JAMMY> \
-    --url-noble <URL_REPO_NOBLE>
+# Si faltan .deb locales (por ejemplo, paquetes aún no publicados):
+traduia-make-repo full /srv/export/traduia --debs-dir /ruta/a/debs
 ```
 
 - **Equivale a** ejecutar `fetch all` (whisper + marian + ct2 desde
   HuggingFace), `wheels` (dependencias Python para jammy cp310 y noble
-  cp312) y `debs all` (paquetes `traduia` y `zero-lliurex-traduia` de
-  jammy y noble), más el `manifest.json` global y el verificador
-  `verify-models.py`.
+  cp312) y `debs all` (paquetes de `debs-jammy.txt`/`debs-noble.txt`:
+  TraduIA, instaladores zero-center, Piper, voces, ONNX y dependencias
+  estáticas), más el `manifest.json` global, el verificador
+  `verify-models.py`, el instalador `install-offline.sh`, las listas y el
+  índice apt local (`Packages`/`Packages.gz`).
 - **Idempotente**: si algún paso falla se continúan los demás y al final se
   avisa (`[WARN]`) con código de salida 1; re-ejecutar el mismo comando
   reintenta solo lo que falta (los modelos ya descargados se omiten, los
@@ -71,8 +71,12 @@ traduia-make-repo full /srv/export/traduia \
   `huggingface_hub` en el `python3` del sistema
   (`pip install huggingface_hub`); los pasos de wheels y debs solo usan la
   librería estándar.
-- `--url-jammy`/`--url-noble` tienen el mismo significado que en `debs`
-  (sección 4.5) y solo afectan al paso de descarga de los debs.
+- `--debs-dir <dir>` es opcional: apunta a un directorio plano con `.deb`
+  locales. Se usan cuando su versión es la máxima disponible; el resto se
+  descarga de lliurex.net/Ubuntu. Si generas ambas distros, puedes usar
+  subdirectorios `jammy/` y `noble/` dentro de ese directorio.
+- Las fuentes están fijas en `debs-sources.conf`: solo `lliurex.net` y
+  repositorios oficiales de Ubuntu.
 - **Directorio de salida**: debe ser una ruta **absoluta** (se canonicaliza)
   y no puede ser un directorio de sistema. Se rechazan exactamente:
   `/`, `/usr`, `/etc`, `/var`, `/home`, `/root`, `/opt`, `/boot`, `/dev`,
@@ -297,24 +301,53 @@ install-models-traduia --url http://servidor:puerto/public/models/traduia
 
 **Instalación previa de los paquetes del sistema (solo USB / offline total)**:
 
-El equipo debe tener `traduia-config` disponible y el paquete `traduia`
-instalado. Con origen **USB** (offline total) se instalan desde el
-repositorio, en este orden:
+La forma recomendada es usar el instalador incluido en el repositorio:
 
 ```bash
-# En los ejemplos, <distro> es el codename del equipo (jammy o noble).
-
-# 1. zero-lliurex-traduia: proporciona traduia-config
-sudo apt install /media/usuario/USB/traduia/debs/<distro>/zero-lliurex-traduia_*.deb
-
-# 2. traduia: desde la red fallaría; se instala el fichero del repositorio
-sudo apt install /media/usuario/USB/traduia/debs/<distro>/traduia_*.deb
-# (o dpkg -i + apt -f install)
+# En el USB/directorio del repositorio:
+sudo ./install-offline.sh
 ```
 
-Con origen **LAN** no es necesario este paso: se asume red parcial y el
-repositorio habitual por red sí dispone de `traduia`, que se instala con
-`apt-get` de forma normal (sección 3.3).
+El instalador:
+
+- Detecta la distro (`jammy`/`noble`) y el directorio desde el que se ejecuta.
+- Usa un entorno apt temporal en `/tmp` con los repositorios del sistema y,
+  al final, el repositorio local `debs/<distro>/`.
+- Instala las versiones máximas del repositorio local.
+- **No modifica** `/etc/apt`, `/var/lib/apt/lists` ni `/var/cache/apt`.
+- Al terminar elimina el entorno temporal.
+
+Modos:
+
+```bash
+sudo ./install-offline.sh --server   # TraduIA sin Piper
+sudo ./install-offline.sh --client   # TraduIA + Piper + voces
+sudo ./install-offline.sh --all
+sudo ./install-offline.sh --piper
+```
+
+El instalador **solo instala paquetes**. Después hay que configurar TraduIA:
+
+```bash
+sudo traduia-config install
+```
+
+o abrir zero-center y usar el instalador de TraduIA. La instalación manual
+no actualiza el estado N4D de zero-center: TraduIA queda sin configurar
+hasta que se ejecuta `traduia-config` o el instalador de zero-center. Piper
+usa `Service=False`, por lo que no necesita `set-configured`.
+
+Si se prefiere hacerlo a mano, el repositorio también es una fuente apt
+plana:
+
+```bash
+CODENAME=$(. /etc/os-release; echo "$VERSION_CODENAME")
+echo "deb [trusted=yes] file:/media/usuario/USB/traduia/debs/$CODENAME ./" \
+    | sudo tee /etc/apt/sources.list.d/traduia-offline.list
+sudo apt-get update
+sudo apt-get install zero-lliurex-traduia traduia piper-tts-server
+sudo rm /etc/apt/sources.list.d/traduia-offline.list
+```
 
 Si el repositorio USB/LAN incluye `debs/<distro>/traduia_*.deb` (sección
 4.5, con `<distro>` el codename del equipo), el instalador prefiere ese
@@ -814,12 +847,10 @@ traduia-make-repo wheels /srv/export/traduia
 
 ### 4.5 Paquetes del sistema (debs) — opcional, recomendado
 
-Para una instalación **100% offline** también deben incluirse los paquetes
-`traduia` y `zero-lliurex-traduia` (este último proporciona
-`traduia-config`). Sin ellos, en un equipo sin red: (1) `traduia-config` no
-está disponible y (2) `apt-get install traduia` no puede completarse. Se
-añaden sobre el **mismo** directorio de salida (aditivo, igual que los sets
-y los wheels; re-ejecutar refresca los debs de la distro pedida):
+Para una instalación **100% offline** el repositorio incluye los paquetes
+de `debs-jammy.txt`/`debs-noble.txt`: TraduIA, instaladores zero-center,
+Piper, voces, ONNX y dependencias estáticas. Se añaden sobre el **mismo**
+directorio de salida:
 
 ```bash
 # Ambas distribuciones (jammy y noble):
@@ -829,40 +860,33 @@ traduia-make-repo debs /srv/export/traduia
 traduia-make-repo debs /srv/export/traduia jammy
 traduia-make-repo debs /srv/export/traduia noble
 
-# Apuntando al repositorio con los debs más actualizados:
-traduia-make-repo debs /srv/export/traduia all \
-    --url-jammy <URL_REPO_JAMMY> \
-    --url-noble <URL_REPO_NOBLE>
+# Con .deb locales para paquetes que aún no estén en lliurex.net:
+traduia-make-repo debs /srv/export/traduia all --debs-dir /ruta/a/debs
 ```
 
-- **Mecanismo independiente del sistema**: los debs se obtienen leyendo los
-  **índices apt del repositorio por HTTP**
-  (`dists/<suite>/main/binary-amd64/Packages.gz`) con python3 (no usa `apt`
-  ni `apt-get download`), así que una sola máquina — sea jammy o noble —
-  puede bajar los debs de **ambas** distribuciones. Por cada distro se
-  recorren las suites `<s>`, `<s>-updates` y `<s>-security` (las ausentes se
-  omiten) y se elige la **versión mayor** disponible de cada paquete,
-  verificando el `SHA256` del índice.
-- **URLs por distribución**: por defecto se usa `http://lliurex.net/jammy` y
-  `http://lliurex.net/noble`. Con `--url-jammy <url>` y `--url-noble <url>`
-  se apunta al repositorio desde el que se quieran tomar los debs más
-  actualizados (acepta `file://` para pruebas). Ambas opciones se aceptan
-  antes o después del resto de argumentos.
-- **Layout**: cada distro en su subdirectorio — `debs/jammy/` y
-  `debs/noble/`. Al re-ejecutar solo se refresca el subdirectorio de la
-  distro pedida.
-- Regenera el `manifest.json` (los debs quedan indexados con size+sha256 y
-  verificables con la sección 2.3, igual que los modelos) y
-  escribe/actualiza el verificador `verify-models.py`.
-- En el cliente, con origen **USB (offline total)** se instalan desde el
-  subdirectorio de **su** distribución (ver sección 3.2), primero
-  `zero-lliurex-traduia` (aporta `traduia-config`) y después `traduia`,
-  porque desde la red fallaría. Con origen **LAN** no hace falta: se asume
-  red parcial y el repositorio habitual por red sí dispone de `traduia`
-  para instalarlo con `apt-get` de forma normal.
-- Las dependencias del sistema de estos paquetes (python3-venv, kdialog, jq,
-  lliurex-firefox-settings, …) deben estar disponibles en el equipo offline
-  (caché apt, repositorios del aula o medios de instalación).
+- **Listas fijas**: `debs-jammy.txt` y `debs-noble.txt` contienen solo
+  nombres de paquete; el generador elige la **versión máxima** disponible.
+- **Fuentes fijas**: `debs-sources.conf` usa únicamente `lliurex.net` y
+  repositorios oficiales de Ubuntu. No se usan repositorios adicionales.
+- **`--debs-dir`**: directorio plano con `.deb` locales. Se usan cuando su
+  versión es la máxima; el resto se descarga de lliurex.net/Ubuntu. Si
+  generas ambas distros, puedes usar subdirectorios `jammy/`/`noble/`.
+- **Índice apt local**: cada `debs/<distro>/` incluye `Packages` y
+  `Packages.gz` generados con `dpkg-scanpackages`. El repositorio es una
+  fuente apt plana:
+  ```text
+  deb [trusted=yes] file:/ruta/traduia/debs/<distro> ./
+  ```
+- **Instalador**: se copia `install-offline.sh` al repositorio. Solo instala
+  paquetes con un entorno apt temporal; no modifica los repositorios del
+  sistema.
+- Regenera `manifest.json` (debs, `Packages`, listas e instalador indexados
+  con size+sha256) y `verify-models.py`.
+- Las dependencias del sistema no incluidas en las listas (python3-venv,
+  kdialog, jq, lliurex-firefox-settings, …) deben estar disponibles en el
+  equipo offline (caché apt, repositorios del aula o medios de instalación).
+- Piper usa `Service=False`: no necesita estado N4D ni `set-configured`.
+  TraduIA mantiene su estado vía `traduia-config`.
 
 ### 4.6 Publicación HTTP: requisitos del servidor
 
@@ -922,10 +946,14 @@ Or download the models directly from HuggingFace (additive, par a par):
   traduia-make-repo fetch <ct2|marian|all> <output_dir>
 Or export the Python wheels for fully offline installs (additive):
   traduia-make-repo wheels <output_dir>
-Or download the system packages (traduia, zero-lliurex-traduia) from an apt repository over HTTP, for one or both distributions:
-  traduia-make-repo debs <output_dir> [jammy|noble|all] [--url-jammy <url>] [--url-noble <url>]
+Or download the system packages listed in debs-jammy.txt/debs-noble.txt from lliurex.net and official Ubuntu repositories, for one or both distributions:
+  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir <dir>]
 Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):
-  traduia-make-repo full <output_dir> [--url-jammy <url>] [--url-noble <url>]
+  traduia-make-repo full <output_dir> [--debs-dir <dir>]
+
+The debs directory includes Packages/Packages.gz and can be used as a local apt repository.
+The repository also includes install-offline.sh for guided offline installation.
+If some .deb is missing from the configured repositories, --debs-dir can point to a flat directory with those files.
 ```
 
 ### 5.3 `traduia-config help`
