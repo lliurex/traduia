@@ -15,14 +15,20 @@ en el `python3` del sistema.
 
 En el equipo destino (jammy o noble):
 
-    # <distro> = codename del equipo (jammy o noble)
-    sudo apt install /media/usuario/USB/traduia/debs/<distro>/zero-lliurex-traduia_*.deb
-    sudo apt install /media/usuario/USB/traduia/debs/<distro>/traduia_*.deb
+    sudo /media/usuario/USB/traduia/install-offline.sh
+
+Elegir:
+
+- **Servidor** si solo se instala TraduIA.
+- **Cliente** si se instala TraduIA + Piper + voces.
+
+El instalador usa un entorno apt temporal en `/tmp` y no modifica
+`/etc/apt` ni los repositorios del sistema. Después, configurar TraduIA:
 
     sudo traduia-config install
 
-En el asistente: modo **Servidor**, origen **USB** y seleccionar
-`/media/usuario/USB/traduia`. Los modelos quedan instalados y el sistema
-configurado y listo para usarse, sin necesidad de Internet.
+En el asistente: modo **Servidor** o **Cliente**, origen **USB** y
+seleccionar `/media/usuario/USB/traduia`. Los modelos quedan instalados y
+el sistema configurado, sin necesidad de Internet.
 
 Guía completa: [`howto-export-models.md`](howto-export-models.md).

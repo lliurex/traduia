@@ -47,6 +47,20 @@ function kdialog() {
     command kdialog "$@" 2>/dev/null
 }
 
+# Actualiza el estado de zero-center sin asumir que el comando está
+# disponible. El estado no es crítico para la instalación.
+zero_center_set() {
+    local action="$1" app="$2"
+    if ! command -v zero-center >/dev/null 2>&1; then
+        echo "[WARN] $(_ "zero-center not available; skipping state update")" >&2
+        return 0
+    fi
+    if ! zero-center "$action" "$app" >/dev/null 2>&1; then
+        echo "[WARN] $(_ "zero-center state update failed")" >&2
+    fi
+    return 0
+}
+
 # >>> SAFE RM (begin)
 # Borrados confinados a un basedir. safe_within resuelve symlinks con
 # realpath -m y exige que el destino quede estrictamente dentro del base.
@@ -177,7 +191,7 @@ function valid_repo_manifest() {
         and ([.files[].path
               | select(startswith("/") or contains("//") or contains("\\")
                        or test("(^|/)\\.(/|$)") or test("(^|/)\\.\\.(/|$)")
-                       or endswith("/") or contains("\u0000"))]
+                       or endswith("/"))]
              | length == 0)
         and ([.files[] | select(has("size")) | .size
               | type == "number" and . >= 0 and . == floor] | all)
@@ -195,12 +209,12 @@ function warn_unknown_manifest_paths() {
     command -v jq >/dev/null 2>&1 || return 0
     local n
     n="$(jq -r '[.files[].path
-                 | select((test("^(whisper-small|ct2|marian|wheels|debs)/") or . == "verify-models.py") | not)]
+                 | select((test("^(whisper-small|ct2|marian|wheels|debs)/") or . == "verify-models.py" or . == "install-offline.sh" or . == "debs-jammy.txt" or . == "debs-noble.txt" or . == "debs-sources.conf") | not)]
                 | length' "$1" 2>/dev/null)" || return 0
     [ "${n:-0}" -gt 0 ] || return 0
     echo "[WARN] $(_ "manifest.json contains unexpected paths outside known prefixes; they will be ignored"): $n" >&2
     jq -r '[.files[].path
-            | select((test("^(whisper-small|ct2|marian|wheels|debs)/") or . == "verify-models.py") | not)][:5][]
+            | select((test("^(whisper-small|ct2|marian|wheels|debs)/") or . == "verify-models.py" or . == "install-offline.sh" or . == "debs-jammy.txt" or . == "debs-noble.txt" or . == "debs-sources.conf") | not)][:5][]
            | "  - " + .' "$1" >&2 2>/dev/null || true
 }
 
@@ -616,7 +630,12 @@ do_preinstall() {
 
 do_postinstall() {
     require_root
+    local models_failed=false
     mode=$(cat "$TRADUIA_MODE_FILE" 2>/dev/null)
+
+    if [ "$mode" == "Client" ] && ! dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
+        echo "[WARN] $(_ "Client mode: piper-tts-server is not installed; TTS may not work.")" >&2
+    fi
 
     # ==== Override del paquete con el deb del repositorio (USB/LAN) ====
     # En el ciclo de zero-center el apt del paquete ya lo ha realizado el
@@ -643,37 +662,42 @@ do_postinstall() {
 
     # ==== Exclusivo del modo Server: modelos + escritorio ====
     if [ -n "$mode" ] && [ "$mode" == "Server" ]; then
-        echo "$(_ "Downloading models...")"
-        # Origen: sin marcador (instalación previa) => Internet.
-        if [ -f "$TRADUIA_SOURCE_FILE" ]; then
-            MODELS_SOURCE=$(cat "$TRADUIA_SOURCE_FILE")
-            chown root:root "$TRADUIA_SOURCE_FILE"
+        if [ ! -x /usr/sbin/install-models-traduia ]; then
+            echo "[WARN] $(_ "install-models-traduia not found; skipping model installation")" >&2
+            models_failed=true
         else
-            MODELS_SOURCE="internet"
-        fi
-        if [ -f "$TRADUIA_OPTIMIZE_FILE" ] && grep -q "optimized" "$TRADUIA_OPTIMIZE_FILE"; then
-            OPTIMIZED="optimized"
-        else
-            OPTIMIZED=""
-        fi
-        local models_rc=0
-        if [ "$MODELS_SOURCE" == "internet" ]; then
-            if [ -n "$OPTIMIZED" ]; then
-                /usr/sbin/install-models-traduia install optimized || models_rc=$?
+            echo "$(_ "Downloading models...")"
+            # Origen: sin marcador (instalación previa) => Internet.
+            if [ -f "$TRADUIA_SOURCE_FILE" ]; then
+                MODELS_SOURCE=$(cat "$TRADUIA_SOURCE_FILE")
+                chown root:root "$TRADUIA_SOURCE_FILE"
             else
-                /usr/sbin/install-models-traduia install || models_rc=$?
+                MODELS_SOURCE="internet"
             fi
-        else
-            if [ -n "$OPTIMIZED" ]; then
-                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" optimized || models_rc=$?
+            if [ -f "$TRADUIA_OPTIMIZE_FILE" ] && grep -q "optimized" "$TRADUIA_OPTIMIZE_FILE"; then
+                OPTIMIZED="optimized"
             else
-                /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" || models_rc=$?
+                OPTIMIZED=""
             fi
-        fi
-        if [ "$models_rc" -ne 0 ]; then
-            echo "[ERROR] Model installation failed (exit $models_rc). See the details above and in /var/log/traduia-install.log" >&2
-            zero-center set-non-configured zero-lliurex-traduia >/dev/null 2>&1 || true
-            return 1
+            local models_rc=0
+            if [ "$MODELS_SOURCE" == "internet" ]; then
+                if [ -n "$OPTIMIZED" ]; then
+                    /usr/sbin/install-models-traduia install optimized || models_rc=$?
+                else
+                    /usr/sbin/install-models-traduia install || models_rc=$?
+                fi
+            else
+                if [ -n "$OPTIMIZED" ]; then
+                    /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" optimized || models_rc=$?
+                else
+                    /usr/sbin/install-models-traduia --from "$MODELS_SOURCE" || models_rc=$?
+                fi
+            fi
+            if [ "$models_rc" -ne 0 ]; then
+                echo "[ERROR] Model installation failed (exit $models_rc). See the details above and in /var/log/traduia-install.log" >&2
+                zero_center_set set-non-configured zero-lliurex-traduia
+                return 1
+            fi
         fi
         echo "$(_ "Setting server desktop")"
         sed -i -e 's|noDisplay=true|NoDisplay=false|i' /usr/share/applications/traduia-server.desktop
@@ -713,7 +737,11 @@ do_postinstall() {
 
     # Estado de zero-center: instalación completada. El retorno no es
     # crítico para el resultado de la instalación.
-    zero-center set-configured zero-lliurex-traduia >/dev/null 2>&1 || true
+    if [ "$models_failed" = "true" ]; then
+        zero_center_set set-non-configured zero-lliurex-traduia
+    else
+        zero_center_set set-configured zero-lliurex-traduia
+    fi
 }
 
 do_install() {
@@ -801,7 +829,7 @@ do_remove() {
             remove_www_entry
         fi
         # Estado de zero-center: paquete eliminado. El retorno no es crítico.
-        zero-center set-non-configured zero-lliurex-traduia >/dev/null 2>&1 || true
+        zero_center_set set-non-configured zero-lliurex-traduia
     fi
 }
 

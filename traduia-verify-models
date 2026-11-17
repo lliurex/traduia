@@ -24,7 +24,7 @@ MAX_PATH = 4096
 
 
 def is_expected_path(rel):
-    if rel == "verify-models.py":
+    if rel in ("verify-models.py", "install-offline.sh", "debs-jammy.txt", "debs-noble.txt", "debs-sources.conf"):
         return True
     return rel.startswith(ALLOWED_TOP)
 
