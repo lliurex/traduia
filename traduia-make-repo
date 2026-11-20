@@ -1137,6 +1137,132 @@ PY
     printf '[debs] %s\n' "$(_ "Packages ready in:") $debs_dir"
 }
 
+# =========================================================
+# fetch_inet_models <ct2|marian|all> <out_dir>: descarga los
+# modelos directamente de HuggingFace (aditivo, par a par).
+# whisper-small desde mijuanlo (fallback Systran); marian desde
+# mijuanlo (fallback Helsinki-NLP); ct2 desde mijuanlo
+# pre-convertido (sin conversión local). Con 'all' se descargan
+# ambos sets, marian primero. Los pares ya completos se omiten.
+# =========================================================
+fetch_inet_models() {
+    local mode="$1"
+    local out_dir="${2%/}"
+    local rc=0
+    echo "[fetch] $(_ "Downloading models from HuggingFace...")"
+    python3 - "$mode" "$out_dir" <<'PY' || rc=$?
+import os
+import sys
+from huggingface_hub import snapshot_download, model_info
+from huggingface_hub.utils import disable_progress_bars, RepositoryNotFoundError
+
+disable_progress_bars()
+
+mode, out = sys.argv[1], sys.argv[2]
+
+PAIRS = [
+    "es-en", "es-fr", "es-de", "es-ru", "es-ar",
+    "es-uk", "es-ro", "es-it", "ca-en", "ca-es",
+]
+
+failed_ct2 = []
+
+
+def _has(path, fname):
+    f = os.path.join(out, path, fname)
+    return os.path.isfile(f) and os.path.getsize(f) > 0
+
+
+def _download(repo, dest):
+    print(f"[fetch] Downloading {repo} -> {dest}")
+    snapshot_download(repo_id=repo, local_dir=dest)
+
+
+# whisper-small (aditivo: solo si el directorio está vacío)
+wdir = os.path.join(out, "whisper-small")
+if os.path.isdir(wdir) and os.listdir(wdir):
+    print("[fetch] whisper-small already present, skipping.")
+else:
+    os.makedirs(wdir, exist_ok=True)
+    try:
+        model_info("mijuanlo/whisper-small-ct2-int8")
+        _download("mijuanlo/whisper-small-ct2-int8", wdir)
+    except (RepositoryNotFoundError, Exception):
+        print("[fetch] mijuanlo whisper not available, fallback to: Systran/faster-whisper-small")
+        _download("Systran/faster-whisper-small", wdir)
+
+want_marian = mode in ("marian", "all")
+want_ct2 = mode in ("ct2", "all")
+
+for pair in PAIRS:
+    if want_marian:
+        rel = os.path.join("marian", f"opus-mt-{pair}")
+        if _has(rel, "pytorch_model.bin"):
+            print(f"[fetch] {rel} already present, skipping.")
+        else:
+            os.makedirs(os.path.join(out, rel), exist_ok=True)
+            try:
+                model_info(f"mijuanlo/opus-mt-{pair}")
+                _download(f"mijuanlo/opus-mt-{pair}", os.path.join(out, rel))
+            except (RepositoryNotFoundError, Exception):
+                print(f"[fetch] mijuanlo/opus-mt-{pair} not available, fallback to: Helsinki-NLP/opus-mt-{pair}")
+                _download(f"Helsinki-NLP/opus-mt-{pair}", os.path.join(out, rel))
+    if want_ct2:
+        rel = os.path.join("ct2", f"opus-mt-{pair}")
+        if _has(rel, "model.bin"):
+            print(f"[fetch] {rel} already present, skipping.")
+        else:
+            os.makedirs(os.path.join(out, rel), exist_ok=True)
+            try:
+                model_info(f"mijuanlo/opus-mt-{pair}-ct2-int8")
+                _download(f"mijuanlo/opus-mt-{pair}-ct2-int8", os.path.join(out, rel))
+            except (RepositoryNotFoundError, Exception):
+                print(f"[ERROR] Pre-converted CT2 model not available for: {pair}", file=sys.stderr)
+                failed_ct2.append(pair)
+
+if failed_ct2:
+    print(f"[ERROR] CT2 pairs not available: {', '.join(failed_ct2)}", file=sys.stderr)
+    sys.exit(1)
+PY
+    echo "[fetch] $(_ "Fetch finished.")"
+    return "$rc"
+}
+
+# --- Subcomando: traduia-make-repo fetch <ct2|marian|all> <output_dir> ---
+# Descarga los modelos directamente de HuggingFace. Aditivo: se puede
+# ejecutar una vez por set (o con 'all') sobre un directorio ya generado.
+# Si algún par ct2 pre-convertido no está disponible, el manifest se
+# regenera igualmente (re-ejecutar reintenta lo faltante) y se sale con 1.
+if [ "${POSITIONAL[0]:-}" = "fetch" ]; then
+    if [ "${#POSITIONAL[@]}" -ne 3 ]; then
+        usage
+        exit 1
+    fi
+    FETCH_MODE="${POSITIONAL[1]}"
+    if [ "$FETCH_MODE" != "ct2" ] && [ "$FETCH_MODE" != "marian" ] && [ "$FETCH_MODE" != "all" ]; then
+        echo "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" >&2
+        exit 1
+    fi
+    set_out_dir "${POSITIONAL[2]}"
+
+    if ! python3 -c "import huggingface_hub" >/dev/null 2>&1; then
+        echo "[ERROR] $(_ "This command requires the 'huggingface_hub' Python package (pip install huggingface_hub).")" >&2
+        exit 1
+    fi
+    mkdir -p "$OUT_DIR"
+    FETCH_INCOMPLETE=false
+    fetch_inet_models "$FETCH_MODE" "$OUT_DIR" || FETCH_INCOMPLETE=true
+    write_verify_script "$OUT_DIR"
+    generate_manifest "$OUT_DIR"
+    echo ""
+    if [ "$FETCH_INCOMPLETE" = "true" ]; then
+        echo "[WARN] $(_ "Fetch finished with errors: some models may be missing. Re-run the same fetch command to retry.")" >&2
+        exit 1
+    fi
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
+
 # --- Subcomando: traduia-make-repo debs <output_dir> [jammy|noble|all] ---
 # Descarga/copia los paquetes de las listas fijas y genera el repo apt
 # local. El flag global --debs-dir permite aportar .deb locales.
@@ -1189,7 +1315,12 @@ if [ "${POSITIONAL[0]:-}" = "full" ]; then
     mkdir -p "$OUT_DIR"
     echo "[full] $(_ "Building a fully offline repository:") $OUT_DIR"
     rc=0
-    fetch_inet_models all "$OUT_DIR" || rc=$?
+    if python3 -c "import huggingface_hub" >/dev/null 2>&1; then
+        fetch_inet_models all "$OUT_DIR" || rc=$?
+    else
+        echo "[ERROR] $(_ "This command requires the 'huggingface_hub' Python package (pip install huggingface_hub).")" >&2
+        rc=1
+    fi
     make_wheels "$OUT_DIR" || rc=$?
     make_debs "$OUT_DIR" jammy "$DEBS_LOCAL_DIR" || rc=$?
     make_debs "$OUT_DIR" noble "$DEBS_LOCAL_DIR" || rc=$?
