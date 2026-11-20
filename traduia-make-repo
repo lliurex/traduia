@@ -9,7 +9,7 @@ export TEXTDOMAIN="traduia"
 export TEXTDOMAINDIR="/usr/share/locale"
 
 _() {
-    gettext "$1"
+    gettext -- "$1"
 }
 
 # >>> SAFE RM (begin)
@@ -143,7 +143,9 @@ DEBS_LIST_JAMMY="$DEBS_DATA_DIR/debs-jammy.txt"
 DEBS_LIST_NOBLE="$DEBS_DATA_DIR/debs-noble.txt"
 DEBS_SOURCES_FILE="$DEBS_DATA_DIR/debs-sources.conf"
 OFFLINE_INSTALLER="$DEBS_DATA_DIR/install-offline.sh"
-DEBS_LOCAL_DIR=""
+DEBS_DIR_JAMMY=""
+DEBS_DIR_NOBLE=""
+DEBS_OPTS_USED=false
 
 WHISPER_PREFIX="whisper-small"
 MARIAN_PAIRS=(
@@ -173,13 +175,14 @@ usage() {
     echo "$(_ "Or export the Python wheels for fully offline installs (additive):")"
     echo "  traduia-make-repo wheels <output_dir>"
     echo "$(_ "Or download the system packages listed in debs-jammy.txt/debs-noble.txt from lliurex.net and official Ubuntu repositories, for one or both distributions:")"
-    echo "  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir <dir>]"
+    echo "  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]"
     echo "$(_ "Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):")"
-    echo "  traduia-make-repo full <output_dir> [--debs-dir <dir>]"
+    echo "  traduia-make-repo full <output_dir> [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]"
     echo ""
     echo "$(_ "The debs directory includes Packages/Packages.gz and can be used as a local apt repository.")"
     echo "$(_ "The repository also includes install-offline.sh for guided offline installation.")"
-    echo "$(_ "If some .deb is missing from the configured repositories, --debs-dir can point to a flat directory with those files.")"
+    echo "$(_ "If some .deb is missing from the configured repositories, --debs-dir-jammy or --debs-dir-noble can point to a flat directory with those files.")"
+    echo "$(_ "Use one directory per distribution to avoid mixing jammy and noble packages.")"
     echo ""
     echo "$(_ "The output directory must be an ABSOLUTE path and cannot be a system directory")"
     echo "  (/ /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin /lib"
@@ -778,15 +781,39 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         --debs-dir)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--debs-dir requires a value: --debs-dir <dir>")" >&2
-                exit 1
-            fi
-            DEBS_LOCAL_DIR="$2"
-            shift 2
+            echo "[ERROR] $(_ "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble.")" >&2
+            exit 1
             ;;
         --debs-dir=*)
-            DEBS_LOCAL_DIR="${1#--debs-dir=}"
+            echo "[ERROR] $(_ "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble.")" >&2
+            exit 1
+            ;;
+        --debs-dir-jammy)
+            if [ "$#" -lt 2 ]; then
+                echo "[ERROR] $(_ "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>")" >&2
+                exit 1
+            fi
+            DEBS_DIR_JAMMY="$2"
+            DEBS_OPTS_USED=true
+            shift 2
+            ;;
+        --debs-dir-jammy=*)
+            DEBS_DIR_JAMMY="${1#--debs-dir-jammy=}"
+            DEBS_OPTS_USED=true
+            shift
+            ;;
+        --debs-dir-noble)
+            if [ "$#" -lt 2 ]; then
+                echo "[ERROR] $(_ "--debs-dir-noble requires a value: --debs-dir-noble <dir>")" >&2
+                exit 1
+            fi
+            DEBS_DIR_NOBLE="$2"
+            DEBS_OPTS_USED=true
+            shift 2
+            ;;
+        --debs-dir-noble=*)
+            DEBS_DIR_NOBLE="${1#--debs-dir-noble=}"
+            DEBS_OPTS_USED=true
             shift
             ;;
         *)
@@ -795,6 +822,16 @@ while [ "$#" -gt 0 ]; do
             ;;
     esac
 done
+
+if [ "$DEBS_OPTS_USED" = "true" ]; then
+    case "${POSITIONAL[0]:-}" in
+        debs|full) ;;
+        *)
+            echo "[ERROR] $(_ "These options are only valid with the debs and full subcommands.")" >&2
+            exit 1
+            ;;
+    esac
+fi
 
 # --- Subcomando: traduia-make-repo wheels <output_dir> ---
 # Exporta las dependencias Python (wheels, jammy+noble amd64) para
@@ -819,9 +856,9 @@ fi
 
 # --- Subcomando: traduia-make-repo debs <output_dir> [jammy|noble|all] ---
 # Descarga los paquetes listados en debs-jammy.txt/debs-noble.txt desde
-# lliurex.net y repositorios oficiales de Ubuntu. Si --debs-dir apunta a
-# un directorio con .deb locales, esos ficheros tienen prioridad cuando
-# su version es la maxima. Genera un repositorio apt plano con
+# lliurex.net y repositorios oficiales de Ubuntu. Si --debs-dir-jammy o
+# --debs-dir-noble apuntan a un directorio con .deb locales, esos ficheros
+# tienen prioridad cuando su version es la maxima. Genera un repositorio apt plano con
 # Packages/Packages.gz y copia install-offline.sh y las listas.
 # Aditivo: se puede ejecutar sobre un directorio ya generado.
 read_debs_list() {
@@ -893,9 +930,6 @@ make_debs() {
     if [ "${#list[@]}" -eq 0 ]; then
         echo "[ERROR] $(_ "Empty package list for:") $distro" >&2
         return 1
-    fi
-    if [ -n "$local_dir" ] && [ -d "$local_dir/$distro" ]; then
-        local_dir="$local_dir/$distro"
     fi
     if ! safe_within_or_equal "$OUT_DIR" "$debs_dir"; then
         echo "[ERROR] $(_ "Refusing to write outside output directory:") $debs_dir" >&2
@@ -1267,7 +1301,7 @@ fi
 
 # --- Subcomando: traduia-make-repo debs <output_dir> [jammy|noble|all] ---
 # Descarga/copia los paquetes de las listas fijas y genera el repo apt
-# local. El flag global --debs-dir permite aportar .deb locales.
+# local. Los flags --debs-dir-jammy/--debs-dir-noble aportan .deb locales.
 if [ "${POSITIONAL[0]:-}" = "debs" ]; then
     if [ "${#POSITIONAL[@]}" -lt 2 ] || [ "${#POSITIONAL[@]}" -gt 3 ]; then
         usage
@@ -1285,11 +1319,11 @@ if [ "${POSITIONAL[0]:-}" = "debs" ]; then
     mkdir -p "$OUT_DIR"
     rc=0
     case "$DEBS_DISTRO" in
-        jammy) make_debs "$OUT_DIR" jammy "$DEBS_LOCAL_DIR" || rc=$? ;;
-        noble) make_debs "$OUT_DIR" noble "$DEBS_LOCAL_DIR" || rc=$? ;;
+        jammy) make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" || rc=$? ;;
+        noble) make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" || rc=$? ;;
         all)
-            make_debs "$OUT_DIR" jammy "$DEBS_LOCAL_DIR" || rc=$?
-            make_debs "$OUT_DIR" noble "$DEBS_LOCAL_DIR" || rc=$?
+            make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" || rc=$?
+            make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" || rc=$?
             ;;
     esac
     write_offline_installer "$OUT_DIR" || rc=$?
@@ -1324,8 +1358,8 @@ if [ "${POSITIONAL[0]:-}" = "full" ]; then
         rc=1
     fi
     make_wheels "$OUT_DIR" || rc=$?
-    make_debs "$OUT_DIR" jammy "$DEBS_LOCAL_DIR" || rc=$?
-    make_debs "$OUT_DIR" noble "$DEBS_LOCAL_DIR" || rc=$?
+    make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" || rc=$?
+    make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" || rc=$?
     write_offline_installer "$OUT_DIR" || rc=$?
     write_verify_script "$OUT_DIR"
     generate_manifest "$OUT_DIR"

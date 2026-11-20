@@ -52,7 +52,8 @@ origen: los descarga directamente de HuggingFace.
 traduia-make-repo full /srv/export/traduia
 
 # Si faltan .deb locales (por ejemplo, paquetes aún no publicados):
-traduia-make-repo full /srv/export/traduia --debs-dir /ruta/a/debs
+traduia-make-repo full /srv/export/traduia \
+  --debs-dir-jammy /ruta/a/debs-jammy --debs-dir-noble /ruta/a/debs-noble
 ```
 
 - **Equivale a** ejecutar `fetch all` (whisper + marian + ct2 desde
@@ -71,10 +72,11 @@ traduia-make-repo full /srv/export/traduia --debs-dir /ruta/a/debs
   `huggingface_hub` en el `python3` del sistema
   (`pip install huggingface_hub`); los pasos de wheels y debs solo usan la
   librería estándar.
-- `--debs-dir <dir>` es opcional: apunta a un directorio plano con `.deb`
-  locales. Se usan cuando su versión es la máxima disponible; el resto se
-  descarga de lliurex.net/Ubuntu. Si generas ambas distros, puedes usar
-  subdirectorios `jammy/` y `noble/` dentro de ese directorio.
+- `--debs-dir-jammy <dir>` y `--debs-dir-noble <dir>` son opcionales:
+  apuntan a directorios planos con `.deb` locales para cada distro. Se usan
+  cuando su versión es la máxima disponible; el resto se descarga de
+  lliurex.net/Ubuntu. Usa un directorio por distro para no mezclar paquetes
+  de jammy y noble.
 - Las fuentes están fijas en `debs-sources.conf`: solo `lliurex.net` y
   repositorios oficiales de Ubuntu.
 - **Directorio de salida**: debe ser una ruta **absoluta** (se canonicaliza)
@@ -861,16 +863,18 @@ traduia-make-repo debs /srv/export/traduia jammy
 traduia-make-repo debs /srv/export/traduia noble
 
 # Con .deb locales para paquetes que aún no estén en lliurex.net:
-traduia-make-repo debs /srv/export/traduia all --debs-dir /ruta/a/debs
+traduia-make-repo debs /srv/export/traduia all \
+  --debs-dir-jammy /ruta/a/debs-jammy --debs-dir-noble /ruta/a/debs-noble
 ```
 
 - **Listas fijas**: `debs-jammy.txt` y `debs-noble.txt` contienen solo
   nombres de paquete; el generador elige la **versión máxima** disponible.
 - **Fuentes fijas**: `debs-sources.conf` usa únicamente `lliurex.net` y
   repositorios oficiales de Ubuntu. No se usan repositorios adicionales.
-- **`--debs-dir`**: directorio plano con `.deb` locales. Se usan cuando su
-  versión es la máxima; el resto se descarga de lliurex.net/Ubuntu. Si
-  generas ambas distros, puedes usar subdirectorios `jammy/`/`noble/`.
+- **`--debs-dir-jammy` / `--debs-dir-noble`**: directorios planos con
+  `.deb` locales para cada distro. Se usan cuando su versión es la máxima;
+  el resto se descarga de lliurex.net/Ubuntu. No mezcles paquetes de jammy
+  y noble en el mismo directorio.
 - **Índice apt local**: cada `debs/<distro>/` incluye `Packages` y
   `Packages.gz` generados con `dpkg-scanpackages`. El repositorio es una
   fuente apt plana:
@@ -947,13 +951,14 @@ Or download the models directly from HuggingFace (additive, par a par):
 Or export the Python wheels for fully offline installs (additive):
   traduia-make-repo wheels <output_dir>
 Or download the system packages listed in debs-jammy.txt/debs-noble.txt from lliurex.net and official Ubuntu repositories, for one or both distributions:
-  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir <dir>]
+  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]
 Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):
-  traduia-make-repo full <output_dir> [--debs-dir <dir>]
+  traduia-make-repo full <output_dir> [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]
 
 The debs directory includes Packages/Packages.gz and can be used as a local apt repository.
 The repository also includes install-offline.sh for guided offline installation.
-If some .deb is missing from the configured repositories, --debs-dir can point to a flat directory with those files.
+If some .deb is missing from the configured repositories, --debs-dir-jammy or --debs-dir-noble can point to a flat directory with those files.
+Use one directory per distribution to avoid mixing jammy and noble packages.
 ```
 
 ### 5.3 `traduia-config help`
