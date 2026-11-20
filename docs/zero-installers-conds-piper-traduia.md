@@ -112,7 +112,7 @@ TraduIA **no permite elegir voces**: si instala Piper, instala todas. Para elegi
 
 ## 6. Instalación offline
 
-El repositorio generado por `traduia-make-repo full` incluye las listas
+El repositorio generado por `traduia-make-repo --full` incluye las listas
 `debs-jammy.txt`/`debs-noble.txt` (TraduIA, instaladores zero-center, Piper,
 voces, ONNX y dependencias estáticas), el índice apt local
 (`Packages`/`Packages.gz`) y el instalador `install-offline.sh`.

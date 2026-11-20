@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Comprueba el parseo de las opciones de debs de traduia-make-repo.
+# Comprueba el parseo de opciones de traduia-make-repo.
 # Es hermetico: todos los casos terminan antes de tocar la red.
 # Sin root.
 
@@ -15,6 +15,23 @@ export LANGUAGE=en
 
 fail=0
 note_fail() { echo "FAIL: $*" >&2; fail=1; }
+
+# run_ok <mensaje esperado> <args...>: exige rc 0 y el mensaje.
+run_ok() {
+    local expected="$1"; shift
+    local out rc
+    set +e
+    out="$("$MR" "$@" 2>&1)"
+    rc=$?
+    set -e
+    if [ "$rc" -ne 0 ]; then
+        note_fail "expected success for: $* (got: $out)"
+        return 0
+    fi
+    if ! printf '%s\n' "$out" | grep -Fq -- "$expected"; then
+        note_fail "missing message '$expected' for: $* (got: $out)"
+    fi
+}
 
 # run_fails <mensaje esperado> <args...>: exige rc != 0 y el mensaje.
 run_fails() {
@@ -33,36 +50,88 @@ run_fails() {
     fi
 }
 
-# --debs-dir ya no existe y debe indicar los flags nuevos.
+# Ayuda y version.
+run_ok "Usage:" --help
+run_ok "Usage:" -h
+run_ok "traduia-make-repo" --version
+
+# Sin accion / sin salida.
+run_fails "No action specified. Use --export, --fetch, --wheels, --debs or --full." \
+    --output-dir /tmp/out
+run_fails "--output-dir is required." --full
+
+# Opciones desconocidas y posicionales.
+run_fails "Unknown option: --lo-que-sea" --lo-que-sea
+run_fails "Unexpected argument: full" full /tmp/x
+run_fails "Positional arguments are not supported; use named options (see --help)." \
+    full /tmp/x
+run_fails "Unexpected argument: /tmp/x" --full /tmp/x
+
+# --debs-dir antiguo.
 run_fails "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble." \
-    debs / jammy --debs-dir /tmp/debs
+    --debs-dir /tmp/debs
 run_fails "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble." \
-    debs / jammy --debs-dir=/tmp/debs
+    --debs-dir=/tmp/debs
 
-# Flags por distro sin valor.
-run_fails "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>" \
-    debs / jammy --debs-dir-jammy
-run_fails "--debs-dir-noble requires a value: --debs-dir-noble <dir>" \
-    debs / jammy --debs-dir-noble
-run_fails "--extra-repo-jammy requires a value: --extra-repo-jammy <url>" \
-    debs / jammy --extra-repo-jammy
-run_fails "--extra-repo-noble requires a value: --extra-repo-noble <url>" \
-    debs / jammy --extra-repo-noble
+# Una sola accion.
+run_fails "Only one action can be specified." --debs --full --output-dir /
+run_fails "Only one action can be specified." --wheels --debs --output-dir /
 
-# Solo validos con debs y full.
-run_fails "These options are only valid with the debs and full subcommands." \
-    fetch marian /tmp/models --debs-dir-jammy=/tmp/debs
-run_fails "These options are only valid with the debs and full subcommands." \
-    wheels /tmp/models --extra-repo-noble=/tmp/repo
+# Opciones no validas para la accion.
+run_fails "--mode is only valid with --export and --fetch." \
+    --wheels --mode all --output-dir /
+run_fails "--models-dir is only valid with --export." \
+    --fetch --mode all --models-dir /tmp/models --output-dir /
+run_fails "--copy is only valid with --export." \
+    --debs --copy --output-dir /
+run_fails "--distro is only valid with --debs." \
+    --full --distro jammy --output-dir /
+run_fails "Debs options are only valid with --debs and --full." \
+    --wheels --debs-dir-jammy /tmp/debs --output-dir /
+run_fails "Debs options are only valid with --debs and --full." \
+    --fetch --mode all --extra-repo-jammy file:///tmp/repo --output-dir /
 
-# Formas con '=' aceptadas: el parseo pasa y falla despues en set_out_dir
-# porque '/' es un directorio de sistema.
+# Opciones obligatorias.
+run_fails "--mode is required for --export and --fetch." \
+    --export --models-dir /tmp/models --output-dir /
+run_fails "--models-dir is required for --export." \
+    --export --mode all --output-dir /
+run_fails "--mode is required for --export and --fetch." \
+    --fetch --output-dir /
+
+# Valores invalidos.
+run_fails "Error: mode must be 'ct2', 'marian' or 'all'." \
+    --fetch --mode bad --output-dir /
+run_fails "Error: distribution must be 'jammy', 'noble' or 'all'." \
+    --debs --distro bad --output-dir /
+
+# Valores que empiezan por '-'.
+run_fails "Value cannot start with '-': -foo" --debs --output-dir -foo
+run_fails "Value cannot start with '-': -foo" --debs --output-dir=-foo
+run_fails "Value cannot start with '-': -foo" --extra-repo-jammy -foo --debs --output-dir /
+
+# Valor ausente.
+run_fails "Option requires a value: --distro <jammy|noble|all>" --debs --distro
+run_fails "Option requires a value: --output-dir <dir>" --full --output-dir
+
+# Combinaciones validas que fallan despues en set_out_dir ('/' es sistema).
+run_fails "Refusing to use / as output directory." --full --output-dir /
+run_fails "Refusing to use / as output directory." --debs --output-dir / --distro jammy
+run_fails "Refusing to use / as output directory." --wheels --output-dir /
+run_fails "Refusing to use / as output directory." --fetch --mode all --output-dir /
 run_fails "Refusing to use / as output directory." \
-    debs / jammy --debs-dir-jammy=/tmp/debs
+    --export --models-dir /tmp/models --mode all --output-dir /
 run_fails "Refusing to use / as output directory." \
-    debs / jammy --extra-repo-jammy=file:///tmp/repo
+    --export --models-dir /tmp/models --mode all --copy --output-dir /
 run_fails "Refusing to use / as output directory." \
-    full / --debs-dir-noble=/tmp/debs --extra-repo-noble=file:///tmp/repo
+    --debs --output-dir / --extra-repo-jammy file:///tmp/repo
+
+# El orden de las opciones no importa: mismo error con distinto orden.
+order_a="$("$MR" --debs --output-dir / --distro jammy 2>&1 || true)"
+order_b="$("$MR" --distro jammy --debs --output-dir / 2>&1 || true)"
+if [ "$order_a" != "$order_b" ]; then
+    note_fail "option order changes the result"
+fi
 
 if [ "$fail" -ne 0 ]; then
     exit 1

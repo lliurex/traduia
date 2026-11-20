@@ -156,46 +156,57 @@ MARIAN_PAIRS=(
 )
 
 usage() {
-    echo "$(_ "Usage:") traduia-make-repo <models_dir> <ct2|marian|all> <output_dir> [--copy]"
+    echo "$(_ "Usage:")"
+    echo "  traduia-make-repo <action> --output-dir <dir> [options]"
+    echo "  traduia-make-repo --help"
+    echo "  traduia-make-repo --version"
     echo ""
-    echo "$(_ "Generates a static manifest.json (with size+sha256) for a TraduIA model repo.")"
-    echo "$(_ "The output directory is shared: whisper-small/ + one or both model sets + manifest.json")"
-    echo "$(_ "It can be served statically over HTTP or copied to a USB drive.")"
-    echo "$(_ "Mode 'all' assembles both model sets (marian and ct2).")"
+    echo "$(_ "Actions (exactly one):")"
+    echo "  --export     $(_ "Export models from a local directory")"
+    echo "  --fetch      $(_ "Download models from HuggingFace")"
+    echo "  --wheels     $(_ "Export the Python wheels")"
+    echo "  --debs       $(_ "Download the system packages")"
+    echo "  --full       $(_ "Build the complete offline repository")"
     echo ""
-    echo "$(_ "The tool is additive: run it once per set you want in the same output")"
-    echo "$(_ "directory. whisper-small is only copied on the first run (never duplicated).")"
+    echo "$(_ "Common options:")"
+    echo "  --output-dir <dir>   $(_ "Output directory (required)")"
+    echo "  --help, -h           $(_ "Show this help and exit")"
+    echo "  --version            $(_ "Show version and script path and exit")"
     echo ""
-    echo "$(_ "Hardlinks are used when source and destination are on the same filesystem;")"
-    echo "$(_ "otherwise files are copied automatically (e.g. to a USB drive).")"
+    echo "$(_ "Model options (--export, --fetch):")"
+    echo "  --mode <ct2|marian|all>   $(_ "Model set (required)")"
+    echo "  --models-dir <dir>        $(_ "Local models directory (required by --export)")"
+    echo "  --copy                    $(_ "Force copying instead of hardlinking (--export only)")"
     echo ""
-    echo "$(_ "Options:")"
-    echo "  --copy    $(_ "Force copying instead of hardlinking (optional; auto-detected by default)")"
+    echo "$(_ "Debs options (--debs, --full):")"
+    echo "  --distro <jammy|noble|all>   $(_ "Distribution (--debs only; default: all)")"
+    echo "  --debs-dir-jammy <dir>       $(_ "Flat directory with local .deb files for jammy")"
+    echo "  --debs-dir-noble <dir>       $(_ "Flat directory with local .deb files for noble")"
+    echo "  --extra-repo-jammy <url>     $(_ "Extra apt repository for jammy (repeatable)")"
+    echo "  --extra-repo-noble <url>     $(_ "Extra apt repository for noble (repeatable)")"
     echo ""
-    echo "$(_ "Or download the models directly from HuggingFace (additive, par a par):")"
-    echo "  traduia-make-repo fetch <ct2|marian|all> <output_dir>"
-    echo "$(_ "Or export the Python wheels for fully offline installs (additive):")"
-    echo "  traduia-make-repo wheels <output_dir>"
-    echo "$(_ "Or download the system packages listed in debs-jammy.txt/debs-noble.txt from lliurex.net and official Ubuntu repositories, for one or both distributions:")"
-    echo "  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]"
-    echo "                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]"
-    echo "$(_ "Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):")"
-    echo "  traduia-make-repo full <output_dir> [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]"
-    echo "                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]"
+    echo "$(_ "Notes:")"
+    echo "  - $(_ "Model export is additive: run it once per set in the same output directory.")"
+    echo "    $(_ "whisper-small is copied only on the first run.")"
+    echo "    $(_ "Hardlinks are used when source and destination share a filesystem; --copy forces copying.")"
+    echo "  - $(_ "--fetch requires python3 with huggingface_hub.")"
+    echo "  - $(_ "--wheels requires python3 with pip and network access.")"
+    echo "  - $(_ "--debs and --full require dpkg-dev (dpkg-scanpackages).")"
+    echo "  - $(_ "--full continues when a step fails and exits 1 at the end.")"
+    echo "  - $(_ "Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.")"
+    echo "    $(_ "The tool probes <distro>, <distro>-updates and <distro>-security, and main/universe.")"
+    echo "    $(_ "lliurex.net and Ubuntu are always used; the highest version wins.")"
+    echo "    $(_ "Accepts http(s)://, file:// and local paths.")"
     echo ""
-    echo "$(_ "The debs directory includes Packages/Packages.gz and can be used as a local apt repository.")"
-    echo "$(_ "The repository also includes install-offline.sh for guided offline installation.")"
-    echo "$(_ "If some .deb is missing from the configured repositories, --debs-dir-jammy or --debs-dir-noble can point to a flat directory with those files.")"
-    echo "$(_ "Use one directory per distribution to avoid mixing jammy and noble packages.")"
-    echo "$(_ "Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with unpublished packages.")"
-    echo "$(_ "Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.")"
+    echo "$(_ "Output directory:")"
+    echo "  $(_ "Must be an ABSOLUTE path. These exact paths are rejected:")"
+    echo "    / /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin /lib"
+    echo "    /lib32 /lib64 /run /tmp /srv /media /mnt"
+    echo "  $(_ "Any path inside these trees is also rejected:")"
+    echo "    /usr /etc /boot /var /run /root /home /proc /sys /dev /bin /sbin /lib*"
+    echo "  $(_ "Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or /tmp/<dir> are fine.")"
     echo ""
-    echo "$(_ "The output directory must be an ABSOLUTE path and cannot be a system directory")"
-    echo "  (/ /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin /lib"
-    echo "   /lib32 /lib64 /run /tmp /srv /media /mnt),"
-    echo "$(_ "nor anything inside the protected trees (/usr /etc /boot /var /run /root")"
-    echo "   /home /proc /sys /dev /bin /sbin /lib*). Data paths such as"
-    echo "  /srv/export/traduia, /media/<user>/<usb> or /opt/<app> are fine."
+    echo "$(_ "The repository includes debs/<distro>/Packages and Packages.gz, install-offline.sh and the package lists.")"
 }
 
 # =========================================================
@@ -768,7 +779,7 @@ make_wheels() {
         done
         if [ "${#missing[@]}" -gt 0 ]; then
             echo "[ERROR] The wheels repository is incomplete for target $abi. Missing: ${missing[*]}" >&2
-            echo "[ERROR] Re-run 'traduia-make-repo wheels <output_dir>' to complete it." >&2
+            echo "[ERROR] Re-run 'traduia-make-repo --wheels --output-dir <dir>' to complete it." >&2
             return 1
         fi
     done
@@ -778,124 +789,259 @@ make_wheels() {
 
 SCRIPT_NAME="$(basename "$0")"
 
+die_option_value() {
+    local flag="$1" placeholder="$2" value="${3:-}"
+    if [ -z "$value" ]; then
+        echo "[ERROR] $(_ "Option requires a value:") $flag <$placeholder>" >&2
+        exit 1
+    fi
+    if [ "${value#-}" != "$value" ]; then
+        echo "[ERROR] $(_ "Value cannot start with '-':") $value" >&2
+        exit 1
+    fi
+}
+
+print_version() {
+    local ver
+    ver="$(dpkg-query -W -f='${Version}' traduia 2>/dev/null || true)"
+    printf '%s\n' "traduia-make-repo ${ver:-unknown} ($0)"
+}
+
+# --help y --version mandan sobre el resto de la linea de comandos.
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --version)
+            print_version
+            exit 0
+            ;;
+    esac
+done
+
+# Acciones y opciones con nombre. No se aceptan argumentos posicionales.
+ACTION=""
+OUTPUT_DIR=""
+MODELS_DIR=""
+MODE=""
+DISTRO="all"
 COPY_MODE=false
-POSITIONAL=()
+DEBS_DIR_JAMMY=""
+DEBS_DIR_NOBLE=""
+EXTRA_REPOS_JAMMY=()
+EXTRA_REPOS_NOBLE=()
+MODE_USED=false
+MODELS_DIR_USED=false
+COPY_USED=false
+DISTRO_USED=false
+DEBS_OPTS_USED=false
+
+die_error() {
+    echo "[ERROR] $*" >&2
+    exit 1
+}
+
+set_action() {
+    if [ -n "$ACTION" ]; then
+        die_error "$(_ "Only one action can be specified.")"
+    fi
+    ACTION="$1"
+}
+
+set_value() {
+    # $1=variable, $2=flag, $3=value, $4=placeholder
+    if [ -z "$3" ]; then
+        die_error "$(_ "Option requires a value:") $2 <$4>"
+    fi
+    if [ "${3#-}" != "$3" ]; then
+        die_error "$(_ "Value cannot start with '-':") $3"
+    fi
+    printf -v "$1" '%s' "$3"
+}
+
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --copy)
-            COPY_MODE=true
+        --export) set_action export; shift ;;
+        --fetch) set_action fetch; shift ;;
+        --wheels) set_action wheels; shift ;;
+        --debs) set_action debs; shift ;;
+        --full) set_action full; shift ;;
+        --output-dir)
+            set_value OUTPUT_DIR "--output-dir" "${2:-}" "dir"
+            shift 2
+            ;;
+        --output-dir=*)
+            set_value OUTPUT_DIR "--output-dir" "${1#*=}" "dir"
             shift
             ;;
-        --debs-dir)
-            echo "[ERROR] $(_ "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble.")" >&2
-            exit 1
+        --mode)
+            set_value MODE "--mode" "${2:-}" "ct2|marian|all"
+            MODE_USED=true
+            shift 2
             ;;
-        --debs-dir=*)
-            echo "[ERROR] $(_ "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble.")" >&2
-            exit 1
+        --mode=*)
+            set_value MODE "--mode" "${1#*=}" "ct2|marian|all"
+            MODE_USED=true
+            shift
+            ;;
+        --models-dir)
+            set_value MODELS_DIR "--models-dir" "${2:-}" "dir"
+            MODELS_DIR_USED=true
+            shift 2
+            ;;
+        --models-dir=*)
+            set_value MODELS_DIR "--models-dir" "${1#*=}" "dir"
+            MODELS_DIR_USED=true
+            shift
+            ;;
+        --copy)
+            COPY_MODE=true
+            COPY_USED=true
+            shift
+            ;;
+        --distro)
+            set_value DISTRO "--distro" "${2:-}" "jammy|noble|all"
+            DISTRO_USED=true
+            shift 2
+            ;;
+        --distro=*)
+            set_value DISTRO "--distro" "${1#*=}" "jammy|noble|all"
+            DISTRO_USED=true
+            shift
             ;;
         --debs-dir-jammy)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>")" >&2
-                exit 1
-            fi
-            DEBS_DIR_JAMMY="$2"
+            set_value DEBS_DIR_JAMMY "--debs-dir-jammy" "${2:-}" "dir"
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --debs-dir-jammy=*)
-            DEBS_DIR_JAMMY="${1#--debs-dir-jammy=}"
+            set_value DEBS_DIR_JAMMY "--debs-dir-jammy" "${1#*=}" "dir"
             DEBS_OPTS_USED=true
             shift
             ;;
         --debs-dir-noble)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--debs-dir-noble requires a value: --debs-dir-noble <dir>")" >&2
-                exit 1
-            fi
-            DEBS_DIR_NOBLE="$2"
+            set_value DEBS_DIR_NOBLE "--debs-dir-noble" "${2:-}" "dir"
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --debs-dir-noble=*)
-            DEBS_DIR_NOBLE="${1#--debs-dir-noble=}"
+            set_value DEBS_DIR_NOBLE "--debs-dir-noble" "${1#*=}" "dir"
             DEBS_OPTS_USED=true
             shift
             ;;
         --extra-repo-jammy)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--extra-repo-jammy requires a value: --extra-repo-jammy <url>")" >&2
-                exit 1
+            if [ -z "${2:-}" ]; then
+                die_error "$(_ "Option requires a value:") --extra-repo-jammy <url>"
             fi
+            case "${2:-}" in
+                -*) die_error "$(_ "Value cannot start with '-':") $2" ;;
+            esac
             EXTRA_REPOS_JAMMY+=("$2")
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --extra-repo-jammy=*)
-            EXTRA_REPOS_JAMMY+=("${1#--extra-repo-jammy=}")
+            _extra_value="${1#*=}"
+            if [ -z "$_extra_value" ]; then
+                die_error "$(_ "Option requires a value:") --extra-repo-jammy <url>"
+            fi
+            case "$_extra_value" in
+                -*) die_error "$(_ "Value cannot start with '-':") $_extra_value" ;;
+            esac
+            EXTRA_REPOS_JAMMY+=("$_extra_value")
             DEBS_OPTS_USED=true
             shift
             ;;
         --extra-repo-noble)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--extra-repo-noble requires a value: --extra-repo-noble <url>")" >&2
-                exit 1
+            if [ -z "${2:-}" ]; then
+                die_error "$(_ "Option requires a value:") --extra-repo-noble <url>"
             fi
+            case "${2:-}" in
+                -*) die_error "$(_ "Value cannot start with '-':") $2" ;;
+            esac
             EXTRA_REPOS_NOBLE+=("$2")
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --extra-repo-noble=*)
-            EXTRA_REPOS_NOBLE+=("${1#--extra-repo-noble=}")
+            _extra_value="${1#*=}"
+            if [ -z "$_extra_value" ]; then
+                die_error "$(_ "Option requires a value:") --extra-repo-noble <url>"
+            fi
+            case "$_extra_value" in
+                -*) die_error "$(_ "Value cannot start with '-':") $_extra_value" ;;
+            esac
+            EXTRA_REPOS_NOBLE+=("$_extra_value")
             DEBS_OPTS_USED=true
             shift
             ;;
+        --debs-dir|--debs-dir=*)
+            die_error "$(_ "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble.")"
+            ;;
+        --*|-*)
+            die_error "$(_ "Unknown option:") $1"
+            ;;
         *)
-            POSITIONAL+=("$1")
-            shift
+            echo "[ERROR] $(_ "Unexpected argument:") $1" >&2
+            die_error "$(_ "Positional arguments are not supported; use named options (see --help).")"
             ;;
     esac
 done
 
-if [ "$DEBS_OPTS_USED" = "true" ]; then
-    case "${POSITIONAL[0]:-}" in
-        debs|full) ;;
-        *)
-            echo "[ERROR] $(_ "These options are only valid with the debs and full subcommands.")" >&2
-            exit 1
-            ;;
-    esac
+if [ -z "$ACTION" ]; then
+    die_error "$(_ "No action specified. Use --export, --fetch, --wheels, --debs or --full.")"
+fi
+if [ -z "$OUTPUT_DIR" ]; then
+    die_error "$(_ "--output-dir is required.")"
 fi
 
-# --- Subcomando: traduia-make-repo wheels <output_dir> ---
-# Exporta las dependencias Python (wheels, jammy+noble amd64) para
-# permitir una instalación totalmente offline desde USB/LAN. Aditivo:
-# se puede ejecutar sobre un directorio de repositorio ya generado.
-if [ "${POSITIONAL[0]:-}" = "wheels" ]; then
-    if [ "${#POSITIONAL[@]}" -ne 2 ]; then
-        usage
-        exit 1
-    fi
-    set_out_dir "${POSITIONAL[1]}"
-    mkdir -p "$OUT_DIR"
-    if ! make_wheels "$OUT_DIR"; then
-        exit 1
-    fi
-    write_verify_script "$OUT_DIR"
-    generate_manifest "$OUT_DIR"
-    echo ""
-    echo "$(_ "Repository ready:") $OUT_DIR"
-    exit 0
-fi
+case "$ACTION" in
+    export)
+        [ "$MODE_USED" = "true" ] || die_error "$(_ "--mode is required for --export and --fetch.")"
+        [ "$MODELS_DIR_USED" = "true" ] || die_error "$(_ "--models-dir is required for --export.")"
+        [ "$DISTRO_USED" = "true" ] && die_error "$(_ "Debs options are only valid with --debs and --full.")"
+        [ "$DEBS_OPTS_USED" = "true" ] && die_error "$(_ "Debs options are only valid with --debs and --full.")"
+        ;;
+    fetch)
+        [ "$MODE_USED" = "true" ] || die_error "$(_ "--mode is required for --export and --fetch.")"
+        [ "$MODELS_DIR_USED" = "true" ] && die_error "$(_ "--models-dir is only valid with --export.")"
+        [ "$COPY_USED" = "true" ] && die_error "$(_ "--copy is only valid with --export.")"
+        [ "$DISTRO_USED" = "true" ] && die_error "$(_ "Debs options are only valid with --debs and --full.")"
+        [ "$DEBS_OPTS_USED" = "true" ] && die_error "$(_ "Debs options are only valid with --debs and --full.")"
+        ;;
+    wheels)
+        [ "$MODE_USED" = "true" ] && die_error "$(_ "--mode is only valid with --export and --fetch.")"
+        [ "$MODELS_DIR_USED" = "true" ] && die_error "$(_ "--models-dir is only valid with --export.")"
+        [ "$COPY_USED" = "true" ] && die_error "$(_ "--copy is only valid with --export.")"
+        [ "$DISTRO_USED" = "true" ] && die_error "$(_ "Debs options are only valid with --debs and --full.")"
+        [ "$DEBS_OPTS_USED" = "true" ] && die_error "$(_ "Debs options are only valid with --debs and --full.")"
+        ;;
+    debs)
+        [ "$MODE_USED" = "true" ] && die_error "$(_ "--mode is only valid with --export and --fetch.")"
+        [ "$MODELS_DIR_USED" = "true" ] && die_error "$(_ "--models-dir is only valid with --export.")"
+        [ "$COPY_USED" = "true" ] && die_error "$(_ "--copy is only valid with --export.")"
+        ;;
+    full)
+        [ "$MODE_USED" = "true" ] && die_error "$(_ "--mode is only valid with --export and --fetch.")"
+        [ "$MODELS_DIR_USED" = "true" ] && die_error "$(_ "--models-dir is only valid with --export.")"
+        [ "$COPY_USED" = "true" ] && die_error "$(_ "--copy is only valid with --export.")"
+        [ "$DISTRO_USED" = "true" ] && die_error "$(_ "--distro is only valid with --debs.")"
+        ;;
+esac
 
-# --- Subcomando: traduia-make-repo debs <output_dir> [jammy|noble|all] ---
-# Descarga los paquetes listados en debs-jammy.txt/debs-noble.txt desde
-# lliurex.net y repositorios oficiales de Ubuntu. Si --debs-dir-jammy o
-# --debs-dir-noble apuntan a un directorio con .deb locales, esos ficheros
-# tienen prioridad cuando su version es la maxima. Los flags
-# --extra-repo-jammy/--extra-repo-noble añaden repositorios apt extra. Genera un repositorio apt plano con
-# Packages/Packages.gz y copia install-offline.sh y las listas.
-# Aditivo: se puede ejecutar sobre un directorio ya generado.
+case "$MODE" in
+    ""|ct2|marian|all) ;;
+    *) die_error "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" ;;
+esac
+case "$DISTRO" in
+    jammy|noble|all) ;;
+    *) die_error "$(_ "Error: distribution must be 'jammy', 'noble' or 'all'.")" ;;
+esac
+
+set_out_dir "$OUTPUT_DIR"
+
 read_debs_list() {
     local distro="$1" list=""
     case "$distro" in
@@ -1330,62 +1476,25 @@ PY
     return "$rc"
 }
 
-# --- Subcomando: traduia-make-repo fetch <ct2|marian|all> <output_dir> ---
-# Descarga los modelos directamente de HuggingFace. Aditivo: se puede
-# ejecutar una vez por set (o con 'all') sobre un directorio ya generado.
-# Si algún par ct2 pre-convertido no está disponible, el manifest se
-# regenera igualmente (re-ejecutar reintenta lo faltante) y se sale con 1.
-if [ "${POSITIONAL[0]:-}" = "fetch" ]; then
-    if [ "${#POSITIONAL[@]}" -ne 3 ]; then
-        usage
-        exit 1
-    fi
-    FETCH_MODE="${POSITIONAL[1]}"
-    if [ "$FETCH_MODE" != "ct2" ] && [ "$FETCH_MODE" != "marian" ] && [ "$FETCH_MODE" != "all" ]; then
-        echo "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" >&2
-        exit 1
-    fi
-    set_out_dir "${POSITIONAL[2]}"
 
-    if ! python3 -c "import huggingface_hub" >/dev/null 2>&1; then
-        echo "[ERROR] $(_ "This command requires the 'huggingface_hub' Python package (pip install huggingface_hub).")" >&2
+# --- Accion: wheels ---
+if [ "$ACTION" = "wheels" ]; then
+    mkdir -p "$OUT_DIR"
+    if ! make_wheels "$OUT_DIR"; then
         exit 1
     fi
-    mkdir -p "$OUT_DIR"
-    FETCH_INCOMPLETE=false
-    fetch_inet_models "$FETCH_MODE" "$OUT_DIR" || FETCH_INCOMPLETE=true
     write_verify_script "$OUT_DIR"
     generate_manifest "$OUT_DIR"
     echo ""
-    if [ "$FETCH_INCOMPLETE" = "true" ]; then
-        echo "[WARN] $(_ "Fetch finished with errors: some models may be missing. Re-run the same fetch command to retry.")" >&2
-        exit 1
-    fi
     echo "$(_ "Repository ready:") $OUT_DIR"
     exit 0
 fi
 
-# --- Subcomando: traduia-make-repo debs <output_dir> [jammy|noble|all] ---
-# Descarga/copia los paquetes de las listas fijas y genera el repo apt
-# local. Los flags --debs-dir-jammy/--debs-dir-noble aportan .deb locales
-# y --extra-repo-jammy/--extra-repo-noble añaden repositorios apt extra.
-if [ "${POSITIONAL[0]:-}" = "debs" ]; then
-    if [ "${#POSITIONAL[@]}" -lt 2 ] || [ "${#POSITIONAL[@]}" -gt 3 ]; then
-        usage
-        exit 1
-    fi
-    set_out_dir "${POSITIONAL[1]}"
-    DEBS_DISTRO="${POSITIONAL[2]:-all}"
-    case "$DEBS_DISTRO" in
-        jammy|noble|all) ;;
-        *)
-            echo "$(_ "Error: distribution must be 'jammy', 'noble' or 'all'.")" >&2
-            exit 1
-            ;;
-    esac
+# --- Accion: debs ---
+if [ "$ACTION" = "debs" ]; then
     mkdir -p "$OUT_DIR"
     rc=0
-    case "$DEBS_DISTRO" in
+    case "$DISTRO" in
         jammy) make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" ${EXTRA_REPOS_JAMMY[@]+"${EXTRA_REPOS_JAMMY[@]}"} || rc=$? ;;
         noble) make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" ${EXTRA_REPOS_NOBLE[@]+"${EXTRA_REPOS_NOBLE[@]}"} || rc=$? ;;
         all)
@@ -1405,16 +1514,28 @@ if [ "${POSITIONAL[0]:-}" = "debs" ]; then
     exit 0
 fi
 
-# --- Subcomando: traduia-make-repo full <output_dir> ---
-# Genera un repositorio 100% offline: modelos, wheels, debs de ambas
-# distribuciones, indice apt local e instalador offline. Si un paso falla
-# se continuan los demas y se avisa al final (idempotente).
-if [ "${POSITIONAL[0]:-}" = "full" ]; then
-    if [ "${#POSITIONAL[@]}" -ne 2 ]; then
-        usage
+# --- Accion: fetch ---
+if [ "$ACTION" = "fetch" ]; then
+    if ! python3 -c "import huggingface_hub" >/dev/null 2>&1; then
+        echo "[ERROR] $(_ "This command requires the 'huggingface_hub' Python package (pip install huggingface_hub).")" >&2
         exit 1
     fi
-    set_out_dir "${POSITIONAL[1]}"
+    mkdir -p "$OUT_DIR"
+    FETCH_INCOMPLETE=false
+    fetch_inet_models "$MODE" "$OUT_DIR" || FETCH_INCOMPLETE=true
+    write_verify_script "$OUT_DIR"
+    generate_manifest "$OUT_DIR"
+    echo ""
+    if [ "$FETCH_INCOMPLETE" = "true" ]; then
+        echo "[WARN] $(_ "Fetch finished with errors: some models may be missing. Re-run the same fetch command to retry.")" >&2
+        exit 1
+    fi
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    exit 0
+fi
+
+# --- Accion: full ---
+if [ "$ACTION" = "full" ]; then
     mkdir -p "$OUT_DIR"
     echo "[full] $(_ "Building a fully offline repository:") $OUT_DIR"
     rc=0
@@ -1439,184 +1560,178 @@ if [ "${POSITIONAL[0]:-}" = "full" ]; then
     exit 0
 fi
 
-if [ "${#POSITIONAL[@]}" -lt 3 ] || [ "${#POSITIONAL[@]}" -gt 3 ]; then
-    usage
-    exit 1
-fi
+# --- Accion: export (modelos desde un directorio local) ---
+if [ "$ACTION" = "export" ]; then
+    SRC_DIR="$(cd "$(dirname "$MODELS_DIR")" && pwd)/$(basename "$MODELS_DIR")"
 
-SRC_DIR="$(cd "$(dirname "${POSITIONAL[0]}")" && pwd)/$(basename "${POSITIONAL[0]}")"
-MODE="${POSITIONAL[1]}"
-set_out_dir "${POSITIONAL[2]}"
+    if [ ! -d "$SRC_DIR" ]; then
+        echo "$(_ "Error: models directory does not exist:") $SRC_DIR" >&2
+        exit 1
+    fi
 
-if [ "$MODE" != "ct2" ] && [ "$MODE" != "marian" ] && [ "$MODE" != "all" ]; then
-    echo "$(_ "Error: mode must be 'ct2', 'marian' or 'all'.")" >&2
-    exit 1
-fi
+    WHISPER_DIR="$SRC_DIR/$WHISPER_PREFIX"
+    if [ "$MODE" = "all" ]; then
+        SETS=(ct2 marian)
+    else
+        SETS=("$MODE")
+    fi
 
-if [ ! -d "$SRC_DIR" ]; then
-    echo "$(_ "Error: models directory does not exist:") $SRC_DIR" >&2
-    exit 1
-fi
+    missing_files=()
+    expected_files=()
 
-WHISPER_DIR="$SRC_DIR/$WHISPER_PREFIX"
-if [ "$MODE" = "all" ]; then
-    SETS=(ct2 marian)
-else
-    SETS=("$MODE")
-fi
-
-missing_files=()
-expected_files=()
-
-# --- Build expected file lists ---
-WHISPER_FILES=(
-    "model.bin"
-    "config.json"
-)
-for f in "${WHISPER_FILES[@]}"; do
-    expected_files+=("$WHISPER_PREFIX/$f")
-done
-
-if [ "$MODE" = "ct2" ] || [ "$MODE" = "all" ]; then
-    CT2_MANDATORY_FILES=(
+    # --- Build expected file lists ---
+    WHISPER_FILES=(
         "model.bin"
         "config.json"
-        "source.spm"
-        "target.spm"
     )
-    for pair in "${MARIAN_PAIRS[@]}"; do
-        for f in "${CT2_MANDATORY_FILES[@]}"; do
-            expected_files+=("ct2/opus-mt-$pair/$f")
-        done
+    for f in "${WHISPER_FILES[@]}"; do
+        expected_files+=("$WHISPER_PREFIX/$f")
     done
-fi
-if [ "$MODE" = "marian" ] || [ "$MODE" = "all" ]; then
-    MARIAN_REQUIRED_FILES=(
-        "pytorch_model.bin"
-        "config.json"
-        "source.spm"
-        "target.spm"
-        "vocab.json"
-    )
-    for pair in "${MARIAN_PAIRS[@]}"; do
-        for f in "${MARIAN_REQUIRED_FILES[@]}"; do
-            expected_files+=("marian/opus-mt-$pair/$f")
-        done
-    done
-fi
 
-# --- Validate expected files ---
-for rel in "${expected_files[@]}"; do
-    abs="$SRC_DIR/$rel"
-    if [ ! -f "$abs" ] || [ ! -s "$abs" ]; then
-        missing_files+=("$rel")
+    if [ "$MODE" = "ct2" ] || [ "$MODE" = "all" ]; then
+        CT2_MANDATORY_FILES=(
+            "model.bin"
+            "config.json"
+            "source.spm"
+            "target.spm"
+        )
+        for pair in "${MARIAN_PAIRS[@]}"; do
+            for f in "${CT2_MANDATORY_FILES[@]}"; do
+                expected_files+=("ct2/opus-mt-$pair/$f")
+            done
+        done
     fi
-done
+    if [ "$MODE" = "marian" ] || [ "$MODE" = "all" ]; then
+        MARIAN_REQUIRED_FILES=(
+            "pytorch_model.bin"
+            "config.json"
+            "source.spm"
+            "target.spm"
+            "vocab.json"
+        )
+        for pair in "${MARIAN_PAIRS[@]}"; do
+            for f in "${MARIAN_REQUIRED_FILES[@]}"; do
+                expected_files+=("marian/opus-mt-$pair/$f")
+            done
+        done
+    fi
 
-# Vocabulario ct2: vocabulary.txt (conversión local) o vocab.json (pre-convertido)
-if [ "$MODE" = "ct2" ] || [ "$MODE" = "all" ]; then
-    for pair in "${MARIAN_PAIRS[@]}"; do
-        base="ct2/opus-mt-$pair"
-        if [ ! -s "$SRC_DIR/$base/vocabulary.txt" ] && [ ! -s "$SRC_DIR/$base/vocab.json" ]; then
-            missing_files+=("$base/vocabulary.txt o vocab.json")
+    # --- Validate expected files ---
+    for rel in "${expected_files[@]}"; do
+        abs="$SRC_DIR/$rel"
+        if [ ! -f "$abs" ] || [ ! -s "$abs" ]; then
+            missing_files+=("$rel")
         fi
     done
-fi
 
-if [ "${#missing_files[@]}" -gt 0 ]; then
-    echo "$(_ "Error: the following required files are missing or empty:")" >&2
-    for m in "${missing_files[@]}"; do
-        echo "  - $m" >&2
-    done
-    echo "$(_ "Refusing to generate an incomplete repository.")" >&2
-    exit 1
-fi
-
-# --- Assemble output tree (aditivo: whisper compartido, sets acumulativos) ---
-echo "$(_ "Assembling repository in:") $OUT_DIR"
-mkdir -p "$OUT_DIR"
-
-# Autodetección hardlink vs copia: mismo filesystem (device) => hardlink.
-# Se puede forzar la copia con --copy.
-USE_COPY=false
-if [ "$COPY_MODE" = "true" ]; then
-    USE_COPY=true
-    echo "$(_ "Copying files (forced by --copy)...")"
-elif [ "$(stat -c %d "$SRC_DIR" 2>/dev/null)" = "$(stat -c %d "$OUT_DIR" 2>/dev/null)" ] \
-    && [ -n "$(stat -c %d "$SRC_DIR" 2>/dev/null)" ]; then
-    echo "$(_ "Source and destination are on the same filesystem: using hardlinks.")"
-else
-    USE_COPY=true
-    echo "$(_ "Source and destination are on different filesystems: copying files.")"
-fi
-
-copy_or_link() {
-    local src="$1"
-    local dst="$2"
-    if [ "$USE_COPY" = "true" ]; then
-        cp -a "$src" "$dst"
-    else
-        ln -f "$src" "$dst" 2>/dev/null || cp -a "$src" "$dst"
-    fi
-}
-
-if [ -d "$OUT_DIR/$WHISPER_PREFIX" ]; then
-    echo "$(_ "whisper-small already present, skipping copy.")"
-else
-    # Copia de whisper-small excluyendo .cache (artefactos de HuggingFace)
-    mkdir -p "$OUT_DIR/$WHISPER_PREFIX"
-    while IFS= read -r -d '' f; do
-        rel="${f#"$WHISPER_DIR"/}"
-        mkdir -p "$(dirname "$OUT_DIR/$WHISPER_PREFIX/$rel")"
-        copy_or_link "$f" "$OUT_DIR/$WHISPER_PREFIX/$rel"
-    done < <(find "$WHISPER_DIR" -name .cache -prune -o -type f -print0)
-fi
-
-# Copiar/refrescar los sets solicitados (idempotente; excluye *.h5, no usados)
-for set in "${SETS[@]}"; do
-    mkdir -p "$OUT_DIR/$set"
-    for pair in "${MARIAN_PAIRS[@]}"; do
-        src_pair="$SRC_DIR/$set/opus-mt-$pair"
-        dst_pair="$OUT_DIR/$set/opus-mt-$pair"
-        mkdir -p "$dst_pair"
-        for f in "$src_pair"/*; do
-            [ -e "$f" ] || continue
-            case "$f" in
-                *.h5) continue ;;
-            esac
-            copy_or_link "$f" "$dst_pair/"
-        done
-    done
-done
-
-# Aviso: sets en el directorio de salida que parecen incompletos
-check_output_set() {
-    local set_name="$1"
-    local file_name="$2"
-    if [ -d "$OUT_DIR/$set_name" ]; then
-        local incomplete=false
+    # Vocabulario ct2: vocabulary.txt (conversión local) o vocab.json (pre-convertido)
+    if [ "$MODE" = "ct2" ] || [ "$MODE" = "all" ]; then
         for pair in "${MARIAN_PAIRS[@]}"; do
-            if [ ! -s "$OUT_DIR/$set_name/opus-mt-$pair/$file_name" ]; then
-                incomplete=true
+            base="ct2/opus-mt-$pair"
+            if [ ! -s "$SRC_DIR/$base/vocabulary.txt" ] && [ ! -s "$SRC_DIR/$base/vocab.json" ]; then
+                missing_files+=("$base/vocabulary.txt o vocab.json")
             fi
         done
-        if [ "$incomplete" = "true" ]; then
-            echo "[WARN] $(_ "The {} set in the output directory seems incomplete (missing some pairs).")" | sed "s|{}|$set_name|"
-        fi
     fi
-}
-check_output_set "ct2" "model.bin"
-check_output_set "marian" "pytorch_model.bin"
 
-# --- Verificador de integridad (viaja con el repositorio, junto al manifest) ---
-write_verify_script "$OUT_DIR"
+    if [ "${#missing_files[@]}" -gt 0 ]; then
+        echo "$(_ "Error: the following required files are missing or empty:")" >&2
+        for m in "${missing_files[@]}"; do
+            echo "  - $m" >&2
+        done
+        echo "$(_ "Refusing to generate an incomplete repository.")" >&2
+        exit 1
+    fi
 
-# --- Generate manifest.json with full sha256 hashing ---
-generate_manifest "$OUT_DIR"
+    # --- Assemble output tree (aditivo: whisper compartido, sets acumulativos) ---
+    echo "$(_ "Assembling repository in:") $OUT_DIR"
+    mkdir -p "$OUT_DIR"
 
-echo ""
-echo "$(_ "Repository ready:") $OUT_DIR"
-echo "$(_ "Publish it statically over HTTP or copy it to a USB drive.")"
-echo ""
-echo "$(_ "Example rsync to a server:")"
-echo "  rsync -a $OUT_DIR/ server:/var/www/public/models/traduia/"
+    # Autodetección hardlink vs copia: mismo filesystem (device) => hardlink.
+    # Se puede forzar la copia con --copy.
+    USE_COPY=false
+    if [ "$COPY_MODE" = "true" ]; then
+        USE_COPY=true
+        echo "$(_ "Copying files (forced by --copy)...")"
+    elif [ "$(stat -c %d "$SRC_DIR" 2>/dev/null)" = "$(stat -c %d "$OUT_DIR" 2>/dev/null)" ] \
+        && [ -n "$(stat -c %d "$SRC_DIR" 2>/dev/null)" ]; then
+        echo "$(_ "Source and destination are on the same filesystem: using hardlinks.")"
+    else
+        USE_COPY=true
+        echo "$(_ "Source and destination are on different filesystems: copying files.")"
+    fi
+
+    copy_or_link() {
+        local src="$1"
+        local dst="$2"
+        if [ "$USE_COPY" = "true" ]; then
+            cp -a "$src" "$dst"
+        else
+            ln -f "$src" "$dst" 2>/dev/null || cp -a "$src" "$dst"
+        fi
+    }
+
+    if [ -d "$OUT_DIR/$WHISPER_PREFIX" ]; then
+        echo "$(_ "whisper-small already present, skipping copy.")"
+    else
+        # Copia de whisper-small excluyendo .cache (artefactos de HuggingFace)
+        mkdir -p "$OUT_DIR/$WHISPER_PREFIX"
+        while IFS= read -r -d '' f; do
+            rel="${f#"$WHISPER_DIR"/}"
+            mkdir -p "$(dirname "$OUT_DIR/$WHISPER_PREFIX/$rel")"
+            copy_or_link "$f" "$OUT_DIR/$WHISPER_PREFIX/$rel"
+        done < <(find "$WHISPER_DIR" -name .cache -prune -o -type f -print0)
+    fi
+
+    # Copiar/refrescar los sets solicitados (idempotente; excluye *.h5, no usados)
+    for set in "${SETS[@]}"; do
+        mkdir -p "$OUT_DIR/$set"
+        for pair in "${MARIAN_PAIRS[@]}"; do
+            src_pair="$SRC_DIR/$set/opus-mt-$pair"
+            dst_pair="$OUT_DIR/$set/opus-mt-$pair"
+            mkdir -p "$dst_pair"
+            for f in "$src_pair"/*; do
+                [ -e "$f" ] || continue
+                case "$f" in
+                    *.h5) continue ;;
+                esac
+                copy_or_link "$f" "$dst_pair/"
+            done
+        done
+    done
+
+    # Aviso: sets en el directorio de salida que parecen incompletos
+    check_output_set() {
+        local set_name="$1"
+        local file_name="$2"
+        if [ -d "$OUT_DIR/$set_name" ]; then
+            local incomplete=false
+            for pair in "${MARIAN_PAIRS[@]}"; do
+                if [ ! -s "$OUT_DIR/$set_name/opus-mt-$pair/$file_name" ]; then
+                    incomplete=true
+                fi
+            done
+            if [ "$incomplete" = "true" ]; then
+                echo "[WARN] $(_ "The {} set in the output directory seems incomplete (missing some pairs).")" | sed "s|{}|$set_name|"
+            fi
+        fi
+    }
+    check_output_set "ct2" "model.bin"
+    check_output_set "marian" "pytorch_model.bin"
+
+    # --- Verificador de integridad (viaja con el repositorio, junto al manifest) ---
+    write_verify_script "$OUT_DIR"
+
+    # --- Generate manifest.json with full sha256 hashing ---
+    generate_manifest "$OUT_DIR"
+
+    echo ""
+    echo "$(_ "Repository ready:") $OUT_DIR"
+    echo "$(_ "Publish it statically over HTTP or copy it to a USB drive.")"
+    echo ""
+    echo "$(_ "Example rsync to a server:")"
+    echo "  rsync -a $OUT_DIR/ server:/var/www/public/models/traduia/"
+    exit 0
+fi
+
+die_error "$(_ "No action specified. Use --export, --fetch, --wheels, --debs or --full.")"

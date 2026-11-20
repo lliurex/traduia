@@ -84,7 +84,7 @@ MR="$SRC/traduia-make-repo"
 
 run_debs() {
     local out="$1"; shift
-    "$MR" debs "$out" "$@" >"$TMP/last.log" 2>&1
+    "$MR" --debs --output-dir "$out" "$@" >"$TMP/last.log" 2>&1
 }
 
 expect_deb() {
@@ -100,53 +100,60 @@ expect_deb() {
 }
 
 # 1. Repo extra con version superior: gana 1.0 sobre el 0.9 fijo.
-if run_debs "$TMP/out-extra" jammy --extra-repo-jammy "file://$EXTRA"; then
+if run_debs "$TMP/out-extra" --distro jammy --extra-repo-jammy "file://$EXTRA"; then
     expect_deb "$TMP/out-extra" jammy dummy-pkg_1.0_all.deb
 else
     note_fail "extra repo run failed"
 fi
 
 # 2. El repo extra tambien acepta una ruta local plana.
-if run_debs "$TMP/out-extra-path" jammy --extra-repo-jammy "$EXTRA"; then
+if run_debs "$TMP/out-extra-path" --distro jammy --extra-repo-jammy "$EXTRA"; then
     expect_deb "$TMP/out-extra-path" jammy dummy-pkg_1.0_all.deb
 else
     note_fail "extra repo plain path run failed"
 fi
 
 # 3. Sin extra se usa el repo fijo.
-if run_debs "$TMP/out-fixed" jammy; then
+if run_debs "$TMP/out-fixed" --distro jammy; then
     expect_deb "$TMP/out-fixed" jammy dummy-pkg_0.9_all.deb
 else
     note_fail "fixed repo run failed"
 fi
 
 # 4. --debs-dir-jammy aporta el .deb local.
-if run_debs "$TMP/out-local" jammy --debs-dir-jammy "$LOCAL"; then
+if run_debs "$TMP/out-local" --distro jammy --debs-dir-jammy "$LOCAL"; then
     expect_deb "$TMP/out-local" jammy dummy-pkg_1.0_all.deb
 else
     note_fail "debs-dir-jammy run failed"
 fi
 
 # 5. --debs-dir-noble no contamina jammy.
-if run_debs "$TMP/out-noble-dir" jammy --debs-dir-noble "$LOCAL"; then
+if run_debs "$TMP/out-noble-dir" --distro jammy --debs-dir-noble "$LOCAL"; then
     expect_deb "$TMP/out-noble-dir" jammy dummy-pkg_0.9_all.deb
 else
     note_fail "debs-dir-noble isolation run failed"
 fi
 
 # 6. --extra-repo-noble no contamina jammy.
-if run_debs "$TMP/out-noble-repo" jammy --extra-repo-noble "file://$EXTRA"; then
+if run_debs "$TMP/out-noble-repo" --distro jammy --extra-repo-noble "file://$EXTRA"; then
     expect_deb "$TMP/out-noble-repo" jammy dummy-pkg_0.9_all.deb
 else
     note_fail "extra-repo-noble isolation run failed"
 fi
 
 # 7. noble no puede usar los repos de jammy: debe fallar y no copiar nada.
-if run_debs "$TMP/out-noble" noble --extra-repo-jammy "file://$EXTRA"; then
+if run_debs "$TMP/out-noble" --distro noble --extra-repo-jammy "file://$EXTRA"; then
     note_fail "noble run with a jammy-only repo should fail"
 fi
 if compgen -G "$TMP/out-noble/debs/noble/dummy-pkg_*.deb" >/dev/null; then
     note_fail "noble run copied a jammy package"
+fi
+
+# 8. El orden de las opciones no importa.
+if run_debs "$TMP/out-order" --extra-repo-jammy "file://$EXTRA" --distro jammy; then
+    expect_deb "$TMP/out-order" jammy dummy-pkg_1.0_all.deb
+else
+    note_fail "option order run failed"
 fi
 
 if [ "$fail" -ne 0 ]; then
