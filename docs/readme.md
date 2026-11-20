@@ -4,7 +4,7 @@
 
 En un equipo con el paquete `traduia` instalado y acceso a Internet:
 
-    traduia-make-repo full /media/usuario/USB/traduia
+    traduia-make-repo --full --output-dir /media/usuario/USB/traduia
 
 Deja en el USB todos los modelos (whisper + marian + ct2), las dependencias
 Python (wheels) y los paquetes del sistema de jammy y noble, con su

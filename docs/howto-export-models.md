@@ -49,16 +49,16 @@ origen: los descarga directamente de HuggingFace.
 
 ```bash
 # Repositorios por defecto: lliurex.net + Ubuntu oficial
-traduia-make-repo full /srv/export/traduia
+traduia-make-repo --full --output-dir /srv/export/traduia
 
 # Si faltan .deb locales (por ejemplo, paquetes aún no publicados):
-traduia-make-repo full /srv/export/traduia \
+traduia-make-repo --full --output-dir /srv/export/traduia \
   --debs-dir-jammy /ruta/a/debs-jammy --debs-dir-noble /ruta/a/debs-noble
 ```
 
-- **Equivale a** ejecutar `fetch all` (whisper + marian + ct2 desde
-  HuggingFace), `wheels` (dependencias Python para jammy cp310 y noble
-  cp312) y `debs all` (paquetes de `debs-jammy.txt`/`debs-noble.txt`:
+- **Equivale a** ejecutar `--fetch --mode all` (whisper + marian + ct2 desde
+  HuggingFace), `--wheels` (dependencias Python para jammy cp310 y noble
+  cp312) y `--debs --distro all` (paquetes de `debs-jammy.txt`/`debs-noble.txt`:
   TraduIA, instaladores zero-center, Piper, voces, ONNX y dependencias
   estáticas), más el `manifest.json` global, el verificador
   `verify-models.py`, el instalador `install-offline.sh`, las listas y el
@@ -134,7 +134,7 @@ Ejemplo de `manifest.json`:
 }
 ```
 
-> Todos los subcomandos de `traduia-make-repo` son **aditivos**: se puede
+> Todas las acciones de `traduia-make-repo` son **aditivas**: se puede
 > ejecutar una vez por cada cosa que se quiera llevar, apuntando siempre al
 > **mismo** directorio de salida; `whisper-small` solo se copia en la primera
 > ejecución — **nunca se duplica** — y re-ejecutar refresca los ficheros
@@ -742,13 +742,13 @@ origen:
 
 ```bash
 # Modo original (Marian):
-traduia-make-repo /opt/ai/traduia/models marian /srv/export/traduia
+traduia-make-repo --export --models-dir /opt/ai/traduia/models --mode marian --output-dir /srv/export/traduia
 
 # Modo optimizado (CTranslate2):
-traduia-make-repo /opt/ai/traduia/models ct2 /srv/export/traduia
+traduia-make-repo --export --models-dir /opt/ai/traduia/models --mode ct2 --output-dir /srv/export/traduia
 
 # Ambos sets en una sola ejecución:
-traduia-make-repo /opt/ai/traduia/models all /srv/export/traduia
+traduia-make-repo --export --models-dir /opt/ai/traduia/models --mode all --output-dir /srv/export/traduia
 ```
 
 - **Validación**: el script comprueba que el/los set(s) pedidos estén
@@ -780,13 +780,13 @@ de HuggingFace (aditivo, par a par); es el mismo mecanismo que emplea
 
 ```bash
 # Solo Marian (whisper-small + los 10 pares marian):
-traduia-make-repo fetch marian /srv/export/traduia
+traduia-make-repo --fetch --mode marian --output-dir /srv/export/traduia
 
 # Solo optimizado/CT2 (pre-convertidos, sin conversión local):
-traduia-make-repo fetch ct2 /srv/export/traduia
+traduia-make-repo --fetch --mode ct2 --output-dir /srv/export/traduia
 
 # Ambos sets, marian primero (prioridad):
-traduia-make-repo fetch all /srv/export/traduia
+traduia-make-repo --fetch --mode all --output-dir /srv/export/traduia
 ```
 
 - **Fuentes**: whisper-small desde `mijuanlo/whisper-small-ct2-int8`
@@ -819,7 +819,7 @@ torch, …). Para que el repositorio (HTTP o USB) permita una instalación
 de salida (aditivo, igual que los sets; re-ejecutar refresca los wheels):
 
 ```bash
-traduia-make-repo wheels /srv/export/traduia
+traduia-make-repo --wheels --output-dir /srv/export/traduia
 ```
 
 - `pip download` resuelve el **árbol completo de dependencias** (incluidas
@@ -832,7 +832,7 @@ traduia-make-repo wheels /srv/export/traduia
   repositorio de wheels generado antes de este cambio no contendrá esas
   versiones exactas: la comprobación previa del instalador fallará
   (`Offline Python repository is incomplete…`) y el repositorio debe
-  regenerarse con `traduia-make-repo wheels` (o `full`).
+  regenerarse con `traduia-make-repo --wheels` (o `--full`).
 - **torch CPU** se descarga de su índice oficial
   (`https://download.pytorch.org/whl/cpu`), que ya aloja todas sus
   dependencias (y evita el torch CUDA de PyPI, ~10× mayor).
@@ -862,18 +862,18 @@ directorio de salida:
 
 ```bash
 # Ambas distribuciones (jammy y noble):
-traduia-make-repo debs /srv/export/traduia
+traduia-make-repo --debs --output-dir /srv/export/traduia
 
 # Solo una distribución:
-traduia-make-repo debs /srv/export/traduia jammy
-traduia-make-repo debs /srv/export/traduia noble
+traduia-make-repo --debs --output-dir /srv/export/traduia --distro jammy
+traduia-make-repo --debs --output-dir /srv/export/traduia --distro noble
 
 # Con .deb locales para paquetes que aún no estén en lliurex.net:
-traduia-make-repo debs /srv/export/traduia all \
+traduia-make-repo --debs --output-dir /srv/export/traduia --distro all \
   --debs-dir-jammy /ruta/a/debs-jammy --debs-dir-noble /ruta/a/debs-noble
 
 # Con un repositorio apt adicional (por ejemplo, paquetes no publicados):
-traduia-make-repo debs /srv/export/traduia jammy \
+traduia-make-repo --debs --output-dir /srv/export/traduia --distro jammy \
   --extra-repo-jammy https://repositorio.example/lliurex
 ```
 
@@ -943,42 +943,60 @@ Usage: install-models-traduia [options] [mode]
   help, --help, -h  this help
 ```
 
-### 5.2 `traduia-make-repo` (sin parámetros: usage)
+### 5.2 `traduia-make-repo --help`
 
 ```text
-Usage: traduia-make-repo <models_dir> <ct2|marian|all> <output_dir> [--copy]
+Usage:
+  traduia-make-repo <action> --output-dir <dir> [options]
+  traduia-make-repo --help
+  traduia-make-repo --version
 
-Generates a static manifest.json (with size+sha256) for a TraduIA model repo.
-The output directory is shared: whisper-small/ + one or both model sets + manifest.json
-It can be served statically over HTTP or copied to a USB drive.
-Mode 'all' assembles both model sets (marian and ct2).
+Actions (exactly one):
+  --export     Export models from a local directory
+  --fetch      Download models from HuggingFace
+  --wheels     Export the Python wheels
+  --debs       Download the system packages
+  --full       Build the complete offline repository
 
-The tool is additive: run it once per set you want in the same output
-directory. whisper-small is only copied on the first run (never duplicated).
+Common options:
+  --output-dir <dir>   Output directory (required)
+  --help, -h           Show this help and exit
+  --version            Show version and script path and exit
 
-Hardlinks are used when source and destination are on the same filesystem;
-otherwise files are copied automatically (e.g. to a USB drive).
+Model options (--export, --fetch):
+  --mode <ct2|marian|all>   Model set (required)
+  --models-dir <dir>        Local models directory (required by --export)
+  --copy                    Force copying instead of hardlinking (--export only)
 
-Options:
-  --copy    Force copying instead of hardlinking (optional; auto-detected by default)
+Debs options (--debs, --full):
+  --distro <jammy|noble|all>   Distribution (--debs only; default: all)
+  --debs-dir-jammy <dir>       Flat directory with local .deb files for jammy
+  --debs-dir-noble <dir>       Flat directory with local .deb files for noble
+  --extra-repo-jammy <url>     Extra apt repository for jammy (repeatable)
+  --extra-repo-noble <url>     Extra apt repository for noble (repeatable)
 
-Or download the models directly from HuggingFace (additive, par a par):
-  traduia-make-repo fetch <ct2|marian|all> <output_dir>
-Or export the Python wheels for fully offline installs (additive):
-  traduia-make-repo wheels <output_dir>
-Or download the system packages listed in debs-jammy.txt/debs-noble.txt from lliurex.net and official Ubuntu repositories, for one or both distributions:
-  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]
-                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]
-Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):
-  traduia-make-repo full <output_dir> [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]
-                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]
+Notes:
+  - Model export is additive: run it once per set in the same output directory.
+    whisper-small is copied only on the first run.
+    Hardlinks are used when source and destination share a filesystem; --copy forces copying.
+  - --fetch requires python3 with huggingface_hub.
+  - --wheels requires python3 with pip and network access.
+  - --debs and --full require dpkg-dev (dpkg-scanpackages).
+  - --full continues when a step fails and exits 1 at the end.
+  - Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.
+    The tool probes <distro>, <distro>-updates and <distro>-security, and main/universe.
+    lliurex.net and Ubuntu are always used; the highest version wins.
+    Accepts http(s)://, file:// and local paths.
 
-The debs directory includes Packages/Packages.gz and can be used as a local apt repository.
-The repository also includes install-offline.sh for guided offline installation.
-If some .deb is missing from the configured repositories, --debs-dir-jammy or --debs-dir-noble can point to a flat directory with those files.
-Use one directory per distribution to avoid mixing jammy and noble packages.
-Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with unpublished packages.
-Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.
+Output directory:
+  Must be an ABSOLUTE path. These exact paths are rejected:
+    / /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin /lib
+    /lib32 /lib64 /run /tmp /srv /media /mnt
+  Any path inside these trees is also rejected:
+    /usr /etc /boot /var /run /root /home /proc /sys /dev /bin /sbin /lib*
+  Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or /tmp/<dir> are fine.
+
+The repository includes debs/<distro>/Packages and Packages.gz, install-offline.sh and the package lists.
 ```
 
 ### 5.3 `traduia-config help`
