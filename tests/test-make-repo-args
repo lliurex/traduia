@@ -33,6 +33,29 @@ run_fails() {
     fi
 }
 
+run_ok() {
+    local expected="$1"; shift
+    local out rc
+    set +e
+    out="$("$MR" "$@" 2>&1)"
+    rc=$?
+    set -e
+    if [ "$rc" -ne 0 ]; then
+        note_fail "expected success for: $*"
+        return 0
+    fi
+    if ! printf '%s\n' "$out" | grep -Fq -- "$expected"; then
+        note_fail "missing message '$expected' for: $* (got: $out)"
+    fi
+}
+
+run_ok "Usage:" --help
+run_ok "Usage:" -h
+run_ok "traduia-make-repo" --version
+run_fails "Unknown option: --lo-que-sea" --lo-que-sea
+run_fails "Value cannot start with '-': -foo" debs / jammy --debs-dir-jammy -foo
+run_fails "Value cannot start with '-': -foo" debs / jammy --debs-dir-jammy=-foo
+
 # --debs-dir ya no existe y debe indicar los flags nuevos.
 run_fails "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble." \
     debs / jammy --debs-dir /tmp/debs
@@ -40,13 +63,13 @@ run_fails "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble
     debs / jammy --debs-dir=/tmp/debs
 
 # Flags por distro sin valor.
-run_fails "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>" \
+run_fails "Option requires a value: --debs-dir-jammy <dir>" \
     debs / jammy --debs-dir-jammy
-run_fails "--debs-dir-noble requires a value: --debs-dir-noble <dir>" \
+run_fails "Option requires a value: --debs-dir-noble <dir>" \
     debs / jammy --debs-dir-noble
-run_fails "--extra-repo-jammy requires a value: --extra-repo-jammy <url>" \
+run_fails "Option requires a value: --extra-repo-jammy <url>" \
     debs / jammy --extra-repo-jammy
-run_fails "--extra-repo-noble requires a value: --extra-repo-noble <url>" \
+run_fails "Option requires a value: --extra-repo-noble <url>" \
     debs / jammy --extra-repo-noble
 
 # Solo validos con debs y full.

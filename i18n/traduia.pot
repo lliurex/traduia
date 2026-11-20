@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 12:55+0100\n"
+"POT-Creation-Date: 2026-11-20 13:39+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -888,255 +888,259 @@ msgid ""
 "Force copying instead of hardlinking (optional; auto-detected by default)"
 msgstr ""
 
+#: traduia-make-repo:174
+msgid "Show this help and exit"
+msgstr ""
+
 #: traduia-make-repo:175
-msgid "Or download the models directly from HuggingFace (additive, par a par):"
+msgid "Show version and script path and exit"
 msgstr ""
 
 #: traduia-make-repo:177
-msgid "Or export the Python wheels for fully offline installs (additive):"
+msgid "Or download the models directly from HuggingFace (additive, par a par):"
 msgstr ""
 
 #: traduia-make-repo:179
+msgid "Or export the Python wheels for fully offline installs (additive):"
+msgstr ""
+
+#: traduia-make-repo:181
 msgid ""
 "Or download the system packages listed in debs-jammy.txt/debs-noble.txt from "
 "lliurex.net and official Ubuntu repositories, for one or both distributions:"
 msgstr ""
 
-#: traduia-make-repo:182
+#: traduia-make-repo:184
 msgid ""
 "Or build a fully offline repository in one command (all models from "
 "HuggingFace + Python wheels + system debs for jammy and noble):"
 msgstr ""
 
-#: traduia-make-repo:186
+#: traduia-make-repo:188
 msgid ""
 "The debs directory includes Packages/Packages.gz and can be used as a local "
 "apt repository."
 msgstr ""
 
-#: traduia-make-repo:187
+#: traduia-make-repo:189
 msgid ""
 "The repository also includes install-offline.sh for guided offline "
 "installation."
 msgstr ""
 
-#: traduia-make-repo:188
+#: traduia-make-repo:190
 msgid ""
 "If some .deb is missing from the configured repositories, --debs-dir-jammy "
 "or --debs-dir-noble can point to a flat directory with those files."
 msgstr ""
 
-#: traduia-make-repo:189
+#: traduia-make-repo:191
 msgid ""
 "Use one directory per distribution to avoid mixing jammy and noble packages."
 msgstr ""
 
-#: traduia-make-repo:190
+#: traduia-make-repo:192
 msgid ""
 "Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with "
 "unpublished packages."
 msgstr ""
 
-#: traduia-make-repo:191
+#: traduia-make-repo:193
 msgid ""
 "Extra repositories use a base URL with dists/<suite>/<component>/binary-"
 "amd64/Packages.gz."
 msgstr ""
 
-#: traduia-make-repo:193
+#: traduia-make-repo:195
 msgid ""
 "The output directory must be an ABSOLUTE path and cannot be a system "
 "directory"
 msgstr ""
 
-#: traduia-make-repo:196
+#: traduia-make-repo:198
 msgid ""
 "nor anything inside the protected trees (/usr /etc /boot /var /run /root"
 msgstr ""
 
-#: traduia-make-repo:217
+#: traduia-make-repo:219
 msgid "Skipping cleanup outside the output directory:"
 msgstr ""
 
-#: traduia-make-repo:232
+#: traduia-make-repo:234
 msgid "Hashing files (sha256)..."
 msgstr ""
 
-#: traduia-make-repo:339
+#: traduia-make-repo:341
 msgid "Refusing to overwrite a symlink:"
 msgstr ""
 
-#: traduia-make-repo:343 traduia-make-repo:681 traduia-make-repo:992
+#: traduia-make-repo:345 traduia-make-repo:683 traduia-make-repo:1023
 msgid "Refusing to write outside output directory:"
 msgstr ""
 
-#: traduia-make-repo:702
+#: traduia-make-repo:704
 msgid "Downloading wheels for:"
 msgstr ""
 
-#: traduia-make-repo:718 traduia-make-repo:740
+#: traduia-make-repo:720 traduia-make-repo:742
 msgid "Error downloading wheels for target:"
 msgstr ""
 
-#: traduia-make-repo:719 traduia-make-repo:741
+#: traduia-make-repo:721 traduia-make-repo:743
 msgid "pip output:"
 msgstr ""
 
-#: traduia-make-repo:749
+#: traduia-make-repo:751
 msgid ""
 "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
 "missing."
 msgstr ""
 
-#: traduia-make-repo:776
+#: traduia-make-repo:778
 msgid "Wheels ready in:"
 msgstr ""
 
-#: traduia-make-repo:790 traduia-make-repo:794
+#: traduia-make-repo:786
+msgid "Option requires a value:"
+msgstr ""
+
+#: traduia-make-repo:790
+msgid "Value cannot start with '-':"
+msgstr ""
+
+#: traduia-make-repo:824 traduia-make-repo:828
 msgid "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble."
 msgstr ""
 
-#: traduia-make-repo:799
-msgid "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>"
+#: traduia-make-repo:880
+msgid "Unknown option:"
 msgstr ""
 
-#: traduia-make-repo:813
-msgid "--debs-dir-noble requires a value: --debs-dir-noble <dir>"
-msgstr ""
-
-#: traduia-make-repo:827
-msgid "--extra-repo-jammy requires a value: --extra-repo-jammy <url>"
-msgstr ""
-
-#: traduia-make-repo:841
-msgid "--extra-repo-noble requires a value: --extra-repo-noble <url>"
-msgstr ""
-
-#: traduia-make-repo:864
+#: traduia-make-repo:895
 msgid "These options are only valid with the debs and full subcommands."
 msgstr ""
 
-#: traduia-make-repo:887 traduia-make-repo:1364 traduia-make-repo:1404
-#: traduia-make-repo:1438 traduia-make-repo:1618
+#: traduia-make-repo:918 traduia-make-repo:1395 traduia-make-repo:1435
+#: traduia-make-repo:1469 traduia-make-repo:1649
 msgid "Repository ready:"
 msgstr ""
 
-#: traduia-make-repo:919
+#: traduia-make-repo:950
 msgid "dpkg-scanpackages not found (install dpkg-dev)."
 msgstr ""
 
-#: traduia-make-repo:923
+#: traduia-make-repo:954
 msgid "Could not generate the apt index in:"
 msgstr ""
 
-#: traduia-make-repo:927
+#: traduia-make-repo:958
 msgid "Apt index generated:"
 msgstr ""
 
-#: traduia-make-repo:945
+#: traduia-make-repo:976
 msgid "Offline repository helper not found:"
 msgstr ""
 
-#: traduia-make-repo:977
+#: traduia-make-repo:1008
 msgid "Unsupported repository URL:"
 msgstr ""
 
-#: traduia-make-repo:988
+#: traduia-make-repo:1019
 msgid "Empty package list for:"
 msgstr ""
 
-#: traduia-make-repo:996
+#: traduia-make-repo:1027
 msgid "Downloading system packages for:"
 msgstr ""
 
-#: traduia-make-repo:1239
+#: traduia-make-repo:1270
 msgid "Packages ready in:"
 msgstr ""
 
-#: traduia-make-repo:1254
+#: traduia-make-repo:1285
 msgid "Downloading models from HuggingFace..."
 msgstr ""
 
-#: traduia-make-repo:1329
+#: traduia-make-repo:1360
 msgid "Fetch finished."
 msgstr ""
 
-#: traduia-make-repo:1345 traduia-make-repo:1452
+#: traduia-make-repo:1376 traduia-make-repo:1483
 msgid "Error: mode must be 'ct2', 'marian' or 'all'."
 msgstr ""
 
-#: traduia-make-repo:1351 traduia-make-repo:1424
+#: traduia-make-repo:1382 traduia-make-repo:1455
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
 msgstr ""
 
-#: traduia-make-repo:1361
+#: traduia-make-repo:1392
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
 msgstr ""
 
-#: traduia-make-repo:1382
+#: traduia-make-repo:1413
 msgid "Error: distribution must be 'jammy', 'noble' or 'all'."
 msgstr ""
 
-#: traduia-make-repo:1401
+#: traduia-make-repo:1432
 msgid "Could not download the system packages (see the errors above)."
 msgstr ""
 
-#: traduia-make-repo:1419
+#: traduia-make-repo:1450
 msgid "Building a fully offline repository:"
 msgstr ""
 
-#: traduia-make-repo:1435
+#: traduia-make-repo:1466
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
 msgstr ""
 
-#: traduia-make-repo:1457
+#: traduia-make-repo:1488
 msgid "Error: models directory does not exist:"
 msgstr ""
 
-#: traduia-make-repo:1527
+#: traduia-make-repo:1558
 msgid "Error: the following required files are missing or empty:"
 msgstr ""
 
-#: traduia-make-repo:1531
+#: traduia-make-repo:1562
 msgid "Refusing to generate an incomplete repository."
 msgstr ""
 
-#: traduia-make-repo:1536
+#: traduia-make-repo:1567
 msgid "Assembling repository in:"
 msgstr ""
 
-#: traduia-make-repo:1544
+#: traduia-make-repo:1575
 msgid "Copying files (forced by --copy)..."
 msgstr ""
 
-#: traduia-make-repo:1547
+#: traduia-make-repo:1578
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 
-#: traduia-make-repo:1550
+#: traduia-make-repo:1581
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 
-#: traduia-make-repo:1564
+#: traduia-make-repo:1595
 msgid "whisper-small already present, skipping copy."
 msgstr ""
 
-#: traduia-make-repo:1604
+#: traduia-make-repo:1635
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 
-#: traduia-make-repo:1619
+#: traduia-make-repo:1650
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr ""
 
-#: traduia-make-repo:1621
+#: traduia-make-repo:1652
 msgid "Example rsync to a server:"
 msgstr ""
 

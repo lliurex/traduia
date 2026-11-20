@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 12:55+0100\n"
+"POT-Creation-Date: 2026-11-20 13:39+0100\n"
 "PO-Revision-Date: 2026-05-19 12:48+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Spanish\n"
@@ -951,24 +951,32 @@ msgid ""
 msgstr ""
 "Forzar la copia en lugar del hardlink (opcional; se autodetecta por defecto)"
 
+#: traduia-make-repo:174
+msgid "Show this help and exit"
+msgstr "Muestra esta ayuda y sale"
+
 #: traduia-make-repo:175
+msgid "Show version and script path and exit"
+msgstr "Muestra la versión y la ruta del script y sale"
+
+#: traduia-make-repo:177
 msgid "Or download the models directly from HuggingFace (additive, par a par):"
 msgstr ""
 "O descargar los modelos directamente desde HuggingFace (aditivo, par a par):"
 
-#: traduia-make-repo:177
+#: traduia-make-repo:179
 msgid "Or export the Python wheels for fully offline installs (additive):"
 msgstr ""
 "O exporta los wheels de Python para instalaciones totalmente offline "
 "(aditivo):"
 
-#: traduia-make-repo:179
+#: traduia-make-repo:181
 msgid ""
 "Or download the system packages listed in debs-jammy.txt/debs-noble.txt from "
 "lliurex.net and official Ubuntu repositories, for one or both distributions:"
 msgstr ""
 
-#: traduia-make-repo:182
+#: traduia-make-repo:184
 msgid ""
 "Or build a fully offline repository in one command (all models from "
 "HuggingFace + Python wheels + system debs for jammy and noble):"
@@ -977,19 +985,19 @@ msgstr ""
 "modelos desde HuggingFace + wheels Python + debs del sistema para jammy y "
 "noble):"
 
-#: traduia-make-repo:186
+#: traduia-make-repo:188
 msgid ""
 "The debs directory includes Packages/Packages.gz and can be used as a local "
 "apt repository."
 msgstr ""
 
-#: traduia-make-repo:187
+#: traduia-make-repo:189
 msgid ""
 "The repository also includes install-offline.sh for guided offline "
 "installation."
 msgstr ""
 
-#: traduia-make-repo:188
+#: traduia-make-repo:190
 msgid ""
 "If some .deb is missing from the configured repositories, --debs-dir-jammy "
 "or --debs-dir-noble can point to a flat directory with those files."
@@ -997,64 +1005,68 @@ msgstr ""
 "Si falta algún .deb en los repositorios configurados, --debs-dir-jammy o --"
 "debs-dir-noble pueden apuntar a un directorio plano con esos ficheros."
 
-#: traduia-make-repo:189
+#: traduia-make-repo:191
 msgid ""
 "Use one directory per distribution to avoid mixing jammy and noble packages."
 msgstr ""
 "Usa un directorio por distribución para no mezclar paquetes de jammy y noble."
 
-#: traduia-make-repo:190
+#: traduia-make-repo:192
 msgid ""
 "Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with "
 "unpublished packages."
-msgstr "Usa --extra-repo-jammy o --extra-repo-noble para añadir repositorios apt con paquetes aún no publicados."
+msgstr ""
+"Usa --extra-repo-jammy o --extra-repo-noble para añadir repositorios apt con "
+"paquetes aún no publicados."
 
-#: traduia-make-repo:191
+#: traduia-make-repo:193
 msgid ""
 "Extra repositories use a base URL with dists/<suite>/<component>/binary-"
 "amd64/Packages.gz."
-msgstr "Los repositorios extra usan una URL base con dists/<suite>/<component>/binary-amd64/Packages.gz."
+msgstr ""
+"Los repositorios extra usan una URL base con dists/<suite>/<component>/"
+"binary-amd64/Packages.gz."
 
-#: traduia-make-repo:193
+#: traduia-make-repo:195
 msgid ""
 "The output directory must be an ABSOLUTE path and cannot be a system "
 "directory"
 msgstr ""
 
-#: traduia-make-repo:196
+#: traduia-make-repo:198
 msgid ""
 "nor anything inside the protected trees (/usr /etc /boot /var /run /root"
 msgstr ""
 
-#: traduia-make-repo:217
+#: traduia-make-repo:219
 msgid "Skipping cleanup outside the output directory:"
 msgstr "Se omite la limpieza fuera del directorio de salida:"
 
-#: traduia-make-repo:232
+#: traduia-make-repo:234
 msgid "Hashing files (sha256)..."
 msgstr "Calculando hash de los ficheros (sha256)..."
 
-#: traduia-make-repo:339
+#: traduia-make-repo:341
 msgid "Refusing to overwrite a symlink:"
 msgstr "Se rechaza sobrescribir un enlace simbólico:"
 
-#: traduia-make-repo:343 traduia-make-repo:681 traduia-make-repo:992
+#: traduia-make-repo:345 traduia-make-repo:683 traduia-make-repo:1023
 msgid "Refusing to write outside output directory:"
 msgstr "Se rechaza escribir fuera del directorio de salida:"
 
-#: traduia-make-repo:702
+#: traduia-make-repo:704
 msgid "Downloading wheels for:"
 msgstr "Descargando wheels para:"
 
-#: traduia-make-repo:718 traduia-make-repo:740
+#: traduia-make-repo:720 traduia-make-repo:742
 msgid "Error downloading wheels for target:"
 msgstr "Error descargando wheels para el objetivo:"
 
-#: traduia-make-repo:719 traduia-make-repo:741
+#: traduia-make-repo:721 traduia-make-repo:743
 msgid "pip output:"
 msgstr "Salida de pip:"
 
-#: traduia-make-repo:749
+#: traduia-make-repo:751
 msgid ""
 "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
 "missing."
@@ -1062,84 +1074,80 @@ msgstr ""
 "El repositorio de wheels de Python 3.10 está incompleto: falta la wheel "
 "exceptiongroup."
 
-#: traduia-make-repo:776
+#: traduia-make-repo:778
 msgid "Wheels ready in:"
 msgstr "Wheels listos en:"
 
-#: traduia-make-repo:790 traduia-make-repo:794
+#: traduia-make-repo:786
+msgid "Option requires a value:"
+msgstr "La opción requiere un valor:"
+
+#: traduia-make-repo:790
+msgid "Value cannot start with '-':"
+msgstr "El valor no puede empezar por '-':"
+
+#: traduia-make-repo:824 traduia-make-repo:828
 msgid "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble."
 msgstr "--debs-dir ha sido sustituido por --debs-dir-jammy y --debs-dir-noble."
 
-#: traduia-make-repo:799
-msgid "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>"
-msgstr "--debs-dir-jammy requiere un valor: --debs-dir-jammy <dir>"
+#: traduia-make-repo:880
+msgid "Unknown option:"
+msgstr "Opción desconocida:"
 
-#: traduia-make-repo:813
-msgid "--debs-dir-noble requires a value: --debs-dir-noble <dir>"
-msgstr "--debs-dir-noble requiere un valor: --debs-dir-noble <dir>"
-
-#: traduia-make-repo:827
-msgid "--extra-repo-jammy requires a value: --extra-repo-jammy <url>"
-msgstr "--extra-repo-jammy requiere un valor: --extra-repo-jammy <url>"
-
-#: traduia-make-repo:841
-msgid "--extra-repo-noble requires a value: --extra-repo-noble <url>"
-msgstr "--extra-repo-noble requiere un valor: --extra-repo-noble <url>"
-
-#: traduia-make-repo:864
+#: traduia-make-repo:895
 msgid "These options are only valid with the debs and full subcommands."
 msgstr "Estas opciones solo son válidas con los subcomandos debs y full."
 
-#: traduia-make-repo:887 traduia-make-repo:1364 traduia-make-repo:1404
-#: traduia-make-repo:1438 traduia-make-repo:1618
+#: traduia-make-repo:918 traduia-make-repo:1395 traduia-make-repo:1435
+#: traduia-make-repo:1469 traduia-make-repo:1649
 msgid "Repository ready:"
 msgstr "Repositorio listo:"
 
-#: traduia-make-repo:919
+#: traduia-make-repo:950
 msgid "dpkg-scanpackages not found (install dpkg-dev)."
 msgstr "dpkg-scanpackages no encontrado (instala dpkg-dev)."
 
-#: traduia-make-repo:923
+#: traduia-make-repo:954
 msgid "Could not generate the apt index in:"
 msgstr "No se pudo generar el índice apt en:"
 
-#: traduia-make-repo:927
+#: traduia-make-repo:958
 msgid "Apt index generated:"
 msgstr "Índice apt generado:"
 
-#: traduia-make-repo:945
+#: traduia-make-repo:976
 msgid "Offline repository helper not found:"
 msgstr "No se encontró el instalador offline del repositorio:"
 
-#: traduia-make-repo:977
+#: traduia-make-repo:1008
 msgid "Unsupported repository URL:"
 msgstr "URL de repositorio no soportada:"
 
-#: traduia-make-repo:988
+#: traduia-make-repo:1019
 msgid "Empty package list for:"
 msgstr "Lista de paquetes vacía para:"
 
-#: traduia-make-repo:996
+#: traduia-make-repo:1027
 msgid "Downloading system packages for:"
 msgstr "Descargando los paquetes del sistema para:"
 
-#: traduia-make-repo:1239
+#: traduia-make-repo:1270
 msgid "Packages ready in:"
 msgstr "Paquetes listos en:"
 
-#: traduia-make-repo:1254
+#: traduia-make-repo:1285
 msgid "Downloading models from HuggingFace..."
 msgstr "Descargando modelos desde HuggingFace..."
 
-#: traduia-make-repo:1329
+#: traduia-make-repo:1360
 msgid "Fetch finished."
 msgstr "Descarga finalizada."
 
-#: traduia-make-repo:1345 traduia-make-repo:1452
+#: traduia-make-repo:1376 traduia-make-repo:1483
 msgid "Error: mode must be 'ct2', 'marian' or 'all'."
 msgstr "Error: el modo debe ser 'ct2', 'marian' o 'all'."
 
-#: traduia-make-repo:1351 traduia-make-repo:1424
+#: traduia-make-repo:1382 traduia-make-repo:1455
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
@@ -1147,7 +1155,7 @@ msgstr ""
 "Este comando requiere el paquete Python 'huggingface_hub' (pip install "
 "huggingface_hub)."
 
-#: traduia-make-repo:1361
+#: traduia-make-repo:1392
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
@@ -1155,21 +1163,21 @@ msgstr ""
 "La descarga terminó con errores: puede que falten algunos modelos. Re-"
 "ejecute el mismo comando fetch para reintentarlos."
 
-#: traduia-make-repo:1382
+#: traduia-make-repo:1413
 msgid "Error: distribution must be 'jammy', 'noble' or 'all'."
 msgstr "Error: la distribución debe ser 'jammy', 'noble' o 'all'."
 
-#: traduia-make-repo:1401
+#: traduia-make-repo:1432
 msgid "Could not download the system packages (see the errors above)."
 msgstr ""
 "No se pudieron descargar los paquetes del sistema (ver los errores "
 "anteriores)."
 
-#: traduia-make-repo:1419
+#: traduia-make-repo:1450
 msgid "Building a fully offline repository:"
 msgstr "Generando un repositorio totalmente offline:"
 
-#: traduia-make-repo:1435
+#: traduia-make-repo:1466
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
@@ -1177,52 +1185,52 @@ msgstr ""
 "Repositorio offline generado con errores; re-ejecutar el mismo comando para "
 "reintentar lo que falta."
 
-#: traduia-make-repo:1457
+#: traduia-make-repo:1488
 msgid "Error: models directory does not exist:"
 msgstr "Error: el directorio de modelos no existe:"
 
-#: traduia-make-repo:1527
+#: traduia-make-repo:1558
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: faltan los siguientes ficheros requeridos o están vacíos:"
 
-#: traduia-make-repo:1531
+#: traduia-make-repo:1562
 msgid "Refusing to generate an incomplete repository."
 msgstr "Se rechaza generar un repositorio incompleto."
 
-#: traduia-make-repo:1536
+#: traduia-make-repo:1567
 msgid "Assembling repository in:"
 msgstr "Ensamblando el repositorio en:"
 
-#: traduia-make-repo:1544
+#: traduia-make-repo:1575
 msgid "Copying files (forced by --copy)..."
 msgstr "Copiando ficheros (forzado con --copy)..."
 
-#: traduia-make-repo:1547
+#: traduia-make-repo:1578
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 "Origen y destino están en el mismo sistema de ficheros: se usan hardlinks."
 
-#: traduia-make-repo:1550
+#: traduia-make-repo:1581
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 "Origen y destino están en sistemas de ficheros distintos: se copian los "
 "ficheros."
 
-#: traduia-make-repo:1564
+#: traduia-make-repo:1595
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ya presente, se omite la copia."
 
-#: traduia-make-repo:1604
+#: traduia-make-repo:1635
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El set {} del directorio de salida parece incompleto (faltan algunos pares)."
 
-#: traduia-make-repo:1619
+#: traduia-make-repo:1650
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publíquelo estáticamente por HTTP o cópielo a un disco USB."
 
-#: traduia-make-repo:1621
+#: traduia-make-repo:1652
 msgid "Example rsync to a server:"
 msgstr "Ejemplo de rsync a un servidor:"
 
@@ -1628,6 +1636,18 @@ msgstr "  help              esta ayuda"
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:953
 msgid "LliureX metas check disabled (--disable-meta-checks)"
 msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
+
+#~ msgid "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>"
+#~ msgstr "--debs-dir-jammy requiere un valor: --debs-dir-jammy <dir>"
+
+#~ msgid "--debs-dir-noble requires a value: --debs-dir-noble <dir>"
+#~ msgstr "--debs-dir-noble requiere un valor: --debs-dir-noble <dir>"
+
+#~ msgid "--extra-repo-jammy requires a value: --extra-repo-jammy <url>"
+#~ msgstr "--extra-repo-jammy requiere un valor: --extra-repo-jammy <url>"
+
+#~ msgid "--extra-repo-noble requires a value: --extra-repo-noble <url>"
+#~ msgstr "--extra-repo-noble requiere un valor: --extra-repo-noble <url>"
 
 #~ msgid "--debs-dir requires a value: --debs-dir <dir>"
 #~ msgstr "--debs-dir requiere un valor: --debs-dir <dir>"

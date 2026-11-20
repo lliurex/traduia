@@ -170,7 +170,9 @@ usage() {
     echo "$(_ "otherwise files are copied automatically (e.g. to a USB drive).")"
     echo ""
     echo "$(_ "Options:")"
-    echo "  --copy    $(_ "Force copying instead of hardlinking (optional; auto-detected by default)")"
+    echo "  --copy      $(_ "Force copying instead of hardlinking (optional; auto-detected by default)")"
+    echo "  --help, -h  $(_ "Show this help and exit")"
+    echo "  --version   $(_ "Show version and script path and exit")"
     echo ""
     echo "$(_ "Or download the models directly from HuggingFace (additive, par a par):")"
     echo "  traduia-make-repo fetch <ct2|marian|all> <output_dir>"
@@ -778,6 +780,38 @@ make_wheels() {
 
 SCRIPT_NAME="$(basename "$0")"
 
+die_option_value() {
+    local flag="$1" placeholder="$2" value="${3:-}"
+    if [ -z "$value" ]; then
+        echo "[ERROR] $(_ "Option requires a value:") $flag <$placeholder>" >&2
+        exit 1
+    fi
+    if [ "${value#-}" != "$value" ]; then
+        echo "[ERROR] $(_ "Value cannot start with '-':") $value" >&2
+        exit 1
+    fi
+}
+
+print_version() {
+    local ver
+    ver="$(dpkg-query -W -f='${Version}' traduia 2>/dev/null || true)"
+    printf '%s\n' "traduia-make-repo ${ver:-unknown} ($0)"
+}
+
+# --help y --version mandan sobre el resto de la linea de comandos.
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --version)
+            print_version
+            exit 0
+            ;;
+    esac
+done
+
 COPY_MODE=false
 POSITIONAL=()
 while [ "$#" -gt 0 ]; do
@@ -795,60 +829,57 @@ while [ "$#" -gt 0 ]; do
             exit 1
             ;;
         --debs-dir-jammy)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>")" >&2
-                exit 1
-            fi
+            die_option_value "--debs-dir-jammy" "dir" "${2:-}"
             DEBS_DIR_JAMMY="$2"
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --debs-dir-jammy=*)
+            die_option_value "--debs-dir-jammy" "dir" "${1#*=}"
             DEBS_DIR_JAMMY="${1#--debs-dir-jammy=}"
             DEBS_OPTS_USED=true
             shift
             ;;
         --debs-dir-noble)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--debs-dir-noble requires a value: --debs-dir-noble <dir>")" >&2
-                exit 1
-            fi
+            die_option_value "--debs-dir-noble" "dir" "${2:-}"
             DEBS_DIR_NOBLE="$2"
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --debs-dir-noble=*)
+            die_option_value "--debs-dir-noble" "dir" "${1#*=}"
             DEBS_DIR_NOBLE="${1#--debs-dir-noble=}"
             DEBS_OPTS_USED=true
             shift
             ;;
         --extra-repo-jammy)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--extra-repo-jammy requires a value: --extra-repo-jammy <url>")" >&2
-                exit 1
-            fi
+            die_option_value "--extra-repo-jammy" "url" "${2:-}"
             EXTRA_REPOS_JAMMY+=("$2")
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --extra-repo-jammy=*)
+            die_option_value "--extra-repo-jammy" "url" "${1#*=}"
             EXTRA_REPOS_JAMMY+=("${1#--extra-repo-jammy=}")
             DEBS_OPTS_USED=true
             shift
             ;;
         --extra-repo-noble)
-            if [ "$#" -lt 2 ]; then
-                echo "[ERROR] $(_ "--extra-repo-noble requires a value: --extra-repo-noble <url>")" >&2
-                exit 1
-            fi
+            die_option_value "--extra-repo-noble" "url" "${2:-}"
             EXTRA_REPOS_NOBLE+=("$2")
             DEBS_OPTS_USED=true
             shift 2
             ;;
         --extra-repo-noble=*)
+            die_option_value "--extra-repo-noble" "url" "${1#*=}"
             EXTRA_REPOS_NOBLE+=("${1#--extra-repo-noble=}")
             DEBS_OPTS_USED=true
             shift
+            ;;
+        --*|-*)
+            echo "[ERROR] $(_ "Unknown option:") $1" >&2
+            usage >&2
+            exit 1
             ;;
         *)
             POSITIONAL+=("$1")
