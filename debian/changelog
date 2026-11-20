@@ -1,3 +1,11 @@
+traduia (0.9.9.2) jammy; urgency=medium
+
+  * Replace --debs-dir with --debs-dir-jammy and --debs-dir-noble.
+  * Add --extra-repo-jammy and --extra-repo-noble for extra apt
+    repositories.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 20 Nov 2026 12:57:07 +0100
+
 traduia (0.9.9.1) jammy; urgency=medium
 
   * Restore the fetch subcommand in traduia-make-repo.
