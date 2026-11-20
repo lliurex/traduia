@@ -193,6 +193,7 @@ usage() {
     echo "  - $(_ "--wheels requires python3 with pip and network access.")"
     echo "  - $(_ "--debs and --full require dpkg-dev (dpkg-scanpackages).")"
     echo "  - $(_ "--full continues when a step fails and exits 1 at the end.")"
+    echo "  - $(_ "Positional arguments are not supported; use named options.")"
     echo "  - $(_ "Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.")"
     echo "    $(_ "The tool probes <distro>, <distro>-updates and <distro>-security, and main/universe.")"
     echo "    $(_ "lliurex.net and Ubuntu are always used; the highest version wins.")"
