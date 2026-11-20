@@ -709,7 +709,7 @@ make_wheels() {
             echo "[ERROR] $(_ "Error downloading wheels for target:") $label" >&2
             echo "[ERROR] $(_ "pip output:")" >&2
             tail -n 60 "$log_file" >&2
-            exit 1
+            return 1
         fi
 
         : > "$log_file"
@@ -731,14 +731,14 @@ make_wheels() {
             echo "[ERROR] $(_ "Error downloading wheels for target:") $label (torch)" >&2
             echo "[ERROR] $(_ "pip output:")" >&2
             tail -n 60 "$log_file" >&2
-            exit 1
+            return 1
         fi
     done
 
     # Regresión conocida: Python 3.10 necesita exceptiongroup a través de anyio.
     if ! compgen -G "$wheels_dir/exceptiongroup-*.whl" >/dev/null; then
         echo "[ERROR] $(_ "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is missing.")" >&2
-        exit 1
+        return 1
     fi
 
     # Comprobación de completitud por target: si falta algún wheel para
@@ -760,7 +760,7 @@ make_wheels() {
         if [ "${#missing[@]}" -gt 0 ]; then
             echo "[ERROR] The wheels repository is incomplete for target $abi. Missing: ${missing[*]}" >&2
             echo "[ERROR] Re-run 'traduia-make-repo wheels <output_dir>' to complete it." >&2
-            exit 1
+            return 1
         fi
     done
 
@@ -807,7 +807,9 @@ if [ "${POSITIONAL[0]:-}" = "wheels" ]; then
     fi
     set_out_dir "${POSITIONAL[1]}"
     mkdir -p "$OUT_DIR"
-    make_wheels "$OUT_DIR"
+    if ! make_wheels "$OUT_DIR"; then
+        exit 1
+    fi
     write_verify_script "$OUT_DIR"
     generate_manifest "$OUT_DIR"
     echo ""
