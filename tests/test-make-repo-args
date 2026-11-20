@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Comprueba el parseo de las opciones de debs de traduia-make-repo.
+# Es hermetico: todos los casos terminan antes de tocar la red.
+# Sin root.
+
+TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$TESTS_DIR")"
+MR="$REPO_DIR/traduia-make-repo"
+
+# Mensajes estables en ingles, sea cual sea el locale de la sesion.
+export LC_ALL=C
+export LANGUAGE=en
+
+fail=0
+note_fail() { echo "FAIL: $*" >&2; fail=1; }
+
+# run_fails <mensaje esperado> <args...>: exige rc != 0 y el mensaje.
+run_fails() {
+    local expected="$1"; shift
+    local out rc
+    set +e
+    out="$("$MR" "$@" 2>&1)"
+    rc=$?
+    set -e
+    if [ "$rc" -eq 0 ]; then
+        note_fail "expected failure for: $*"
+        return 0
+    fi
+    if ! printf '%s\n' "$out" | grep -Fq -- "$expected"; then
+        note_fail "missing message '$expected' for: $* (got: $out)"
+    fi
+}
+
+# --debs-dir ya no existe y debe indicar los flags nuevos.
+run_fails "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble." \
+    debs / jammy --debs-dir /tmp/debs
+run_fails "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble." \
+    debs / jammy --debs-dir=/tmp/debs
+
+# Flags por distro sin valor.
+run_fails "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>" \
+    debs / jammy --debs-dir-jammy
+run_fails "--debs-dir-noble requires a value: --debs-dir-noble <dir>" \
+    debs / jammy --debs-dir-noble
+run_fails "--extra-repo-jammy requires a value: --extra-repo-jammy <url>" \
+    debs / jammy --extra-repo-jammy
+run_fails "--extra-repo-noble requires a value: --extra-repo-noble <url>" \
+    debs / jammy --extra-repo-noble
+
+# Solo validos con debs y full.
+run_fails "These options are only valid with the debs and full subcommands." \
+    fetch marian /tmp/models --debs-dir-jammy=/tmp/debs
+run_fails "These options are only valid with the debs and full subcommands." \
+    wheels /tmp/models --extra-repo-noble=/tmp/repo
+
+# Formas con '=' aceptadas: el parseo pasa y falla despues en set_out_dir
+# porque '/' es un directorio de sistema.
+run_fails "Refusing to use / as output directory." \
+    debs / jammy --debs-dir-jammy=/tmp/debs
+run_fails "Refusing to use / as output directory." \
+    debs / jammy --extra-repo-jammy=file:///tmp/repo
+run_fails "Refusing to use / as output directory." \
+    full / --debs-dir-noble=/tmp/debs --extra-repo-noble=file:///tmp/repo
+
+if [ "$fail" -ne 0 ]; then
+    exit 1
+fi
+echo "test-make-repo-args: OK"

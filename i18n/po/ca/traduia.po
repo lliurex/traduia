@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 19:20+0100\n"
+"POT-Creation-Date: 2026-11-20 12:55+0100\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -31,7 +31,8 @@ msgstr ""
 
 #: traduia_server.py:249
 msgid "No translation models found on disk. Run install-models-traduia."
-msgstr "No s'han trobat models de traducció al disc. Executa install-models-traduia."
+msgstr ""
+"No s'han trobat models de traducció al disc. Executa install-models-traduia."
 
 #: traduia_server.py:254
 msgid "[WARN] CT2 marker present but CT2 models are not complete on disk."
@@ -471,7 +472,7 @@ msgstr "{} errors"
 msgid "OK"
 msgstr "OK"
 
-#: traduia:13 install-models-traduia:8
+#: traduia:13 install-models-traduia:8 traduia-make-repo:12
 msgid "--"
 msgstr ""
 
@@ -835,7 +836,7 @@ msgstr "Descarregant models des del repositori HTTP:"
 msgid "Fetching manifest:"
 msgstr "Obtenint manifest:"
 
-#: install-models-traduia:1210 install-models-traduia:1769
+#: install-models-traduia:1210 install-models-traduia:1773
 msgid "Could not fetch manifest.json from:"
 msgstr "No s'ha pogut obtindre manifest.json de:"
 
@@ -843,62 +844,62 @@ msgstr "No s'ha pogut obtindre manifest.json de:"
 msgid "Check TRADUIA_MODELS_URL or /etc/traduia/models-repo.conf"
 msgstr "Comproveu TRADUIA_MODELS_URL o /etc/traduia/models-repo.conf"
 
-#: install-models-traduia:1458
+#: install-models-traduia:1460
 msgid "HTTP download finished."
 msgstr "Descàrrega HTTP finalitzada."
 
-#: install-models-traduia:1464
+#: install-models-traduia:1466
 msgid "Copying models from local directory:"
 msgstr "Copiant models des del directori local:"
 
-#: install-models-traduia:1723
+#: install-models-traduia:1727
 msgid "Local copy finished."
 msgstr "Còpia local finalitzada."
 
-#: install-models-traduia:1730
+#: install-models-traduia:1734
 msgid "Downloading models"
 msgstr "Descarregant models"
 
-#: install-models-traduia:1751
+#: install-models-traduia:1755
 msgid "{} models already present on disk. Skipping downloads."
 msgstr "Models {} ja presents al disc. S'ometen les descàrregues."
 
-#: install-models-traduia:1755
+#: install-models-traduia:1759
 msgid "{} models incomplete on disk; completing download."
 msgstr "Models {} incomplets al disc; completant la descàrrega."
 
-#: install-models-traduia:1760 install-models-traduia:1773
+#: install-models-traduia:1764 install-models-traduia:1777
 msgid "ct2 set not available in repository; skipping."
 msgstr "El set ct2 no està disponible al repositori; s'omet."
 
-#: install-models-traduia:1793
+#: install-models-traduia:1797
 msgid "Models downloaded!"
 msgstr "Models descarregats!"
 
-#: install-models-traduia:1801
+#: install-models-traduia:1805
 msgid "Downloading/Converting Marian models to CTranslate2..."
 msgstr "Descarregant/convertint models Marian a CTranslate2..."
 
-#: install-models-traduia:1925
+#: install-models-traduia:1929
 msgid "Ready."
 msgstr "Enllestit."
 
-#: install-models-traduia:1927
+#: install-models-traduia:1931
 msgid "Offline execution (the launcher already exports it):"
 msgstr "Execució fora de línia (el llançador ja ho exporta):"
 
-#: traduia-make-repo:155
+#: traduia-make-repo:159
 msgid "Usage:"
 msgstr "Ús:"
 
-#: traduia-make-repo:157
+#: traduia-make-repo:161
 msgid ""
 "Generates a static manifest.json (with size+sha256) for a TraduIA model repo."
 msgstr ""
 "Genera un manifest.json estàtic (amb size+sha256) per a un repositori de "
 "models TraduIA."
 
-#: traduia-make-repo:158
+#: traduia-make-repo:162
 msgid ""
 "The output directory is shared: whisper-small/ + one or both model sets + "
 "manifest.json"
@@ -906,66 +907,66 @@ msgstr ""
 "El directori d'eixida és compartit: whisper-small/ + un o tots dos conjunts "
 "de models + manifest.json"
 
-#: traduia-make-repo:159
+#: traduia-make-repo:163
 msgid "It can be served statically over HTTP or copied to a USB drive."
 msgstr "Pot servir-se estàticament per HTTP o copiar-se a un disc USB."
 
-#: traduia-make-repo:160
+#: traduia-make-repo:164
 msgid "Mode 'all' assembles both model sets (marian and ct2)."
 msgstr "El mode 'all' ensambla els dos sets de models (marian i ct2)."
 
-#: traduia-make-repo:162
+#: traduia-make-repo:166
 msgid "The tool is additive: run it once per set you want in the same output"
 msgstr ""
 "La ferramenta és additiva: executeu-la una vegada per cada conjunt que "
 "vulgueu en el mateix directori d'eixida"
 
-#: traduia-make-repo:163
+#: traduia-make-repo:167
 msgid ""
 "directory. whisper-small is only copied on the first run (never duplicated)."
 msgstr ""
 
-#: traduia-make-repo:165
+#: traduia-make-repo:169
 msgid ""
 "Hardlinks are used when source and destination are on the same filesystem;"
 msgstr ""
 "S'usen hardlinks quan origen i destinació estan en el mateix sistema de "
 "fitxers;"
 
-#: traduia-make-repo:166
+#: traduia-make-repo:170
 msgid "otherwise files are copied automatically (e.g. to a USB drive)."
 msgstr ""
 "en cas contrari els fitxers es copien automàticament (p. ex. a un USB)."
 
-#: traduia-make-repo:168
+#: traduia-make-repo:172
 msgid "Options:"
 msgstr "Opcions:"
 
-#: traduia-make-repo:169
+#: traduia-make-repo:173
 msgid ""
 "Force copying instead of hardlinking (optional; auto-detected by default)"
 msgstr ""
 "Forçar la còpia en lloc de l'hardlink (opcional; s'autodetecta per defecte)"
 
-#: traduia-make-repo:171
+#: traduia-make-repo:175
 msgid "Or download the models directly from HuggingFace (additive, par a par):"
 msgstr ""
 "O descarregar els models directament des de HuggingFace (additiu, parell a "
 "parell):"
 
-#: traduia-make-repo:173
+#: traduia-make-repo:177
 msgid "Or export the Python wheels for fully offline installs (additive):"
 msgstr ""
 "O exporta els wheels de Python per a instal·lacions totalment offline "
 "(additiu):"
 
-#: traduia-make-repo:175
+#: traduia-make-repo:179
 msgid ""
 "Or download the system packages listed in debs-jammy.txt/debs-noble.txt from "
 "lliurex.net and official Ubuntu repositories, for one or both distributions:"
 msgstr ""
 
-#: traduia-make-repo:177
+#: traduia-make-repo:182
 msgid ""
 "Or build a fully offline repository in one command (all models from "
 "HuggingFace + Python wheels + system debs for jammy and noble):"
@@ -974,64 +975,84 @@ msgstr ""
 "models des de HuggingFace + wheels Python + debs del sistema per a jammy i "
 "noble):"
 
-#: traduia-make-repo:180
+#: traduia-make-repo:186
 msgid ""
 "The debs directory includes Packages/Packages.gz and can be used as a local "
 "apt repository."
 msgstr ""
 
-#: traduia-make-repo:181
+#: traduia-make-repo:187
 msgid ""
 "The repository also includes install-offline.sh for guided offline "
 "installation."
 msgstr ""
 
-#: traduia-make-repo:182
+#: traduia-make-repo:188
 msgid ""
-"If some .deb is missing from the configured repositories, --debs-dir can "
-"point to a flat directory with those files."
+"If some .deb is missing from the configured repositories, --debs-dir-jammy "
+"or --debs-dir-noble can point to a flat directory with those files."
 msgstr ""
+"Si falta algun .deb als repositoris configurats, --debs-dir-jammy o --debs-"
+"dir-noble poden apuntar a un directori pla amb eixos fitxers."
 
-#: traduia-make-repo:184
+#: traduia-make-repo:189
+msgid ""
+"Use one directory per distribution to avoid mixing jammy and noble packages."
+msgstr ""
+"Usa un directori per distribució per a no barrejar paquets de jammy i noble."
+
+#: traduia-make-repo:190
+msgid ""
+"Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with "
+"unpublished packages."
+msgstr "Usa --extra-repo-jammy o --extra-repo-noble per a afegir repositoris apt amb paquets encara no publicats."
+
+#: traduia-make-repo:191
+msgid ""
+"Extra repositories use a base URL with dists/<suite>/<component>/binary-"
+"amd64/Packages.gz."
+msgstr "Els repositoris extra usen una URL base amb dists/<suite>/<component>/binary-amd64/Packages.gz."
+
+#: traduia-make-repo:193
 msgid ""
 "The output directory must be an ABSOLUTE path and cannot be a system "
 "directory"
 msgstr ""
 
-#: traduia-make-repo:187
+#: traduia-make-repo:196
 msgid ""
 "nor anything inside the protected trees (/usr /etc /boot /var /run /root"
 msgstr ""
 
-#: traduia-make-repo:208
+#: traduia-make-repo:217
 msgid "Skipping cleanup outside the output directory:"
 msgstr "S'omet la neteja fora del directori d'eixida:"
 
-#: traduia-make-repo:223
+#: traduia-make-repo:232
 msgid "Hashing files (sha256)..."
 msgstr "Calculant hash dels fitxers (sha256)..."
 
-#: traduia-make-repo:330
+#: traduia-make-repo:339
 msgid "Refusing to overwrite a symlink:"
 msgstr "Es rebutja sobreescriure un enllaç simbòlic:"
 
-#: traduia-make-repo:334 traduia-make-repo:672 traduia-make-repo:899
+#: traduia-make-repo:343 traduia-make-repo:681 traduia-make-repo:992
 msgid "Refusing to write outside output directory:"
 msgstr "Es rebutja escriure fora del directori d'eixida:"
 
-#: traduia-make-repo:693
+#: traduia-make-repo:702
 msgid "Downloading wheels for:"
 msgstr "Descarregant wheels per a:"
 
-#: traduia-make-repo:709 traduia-make-repo:731
+#: traduia-make-repo:718 traduia-make-repo:740
 msgid "Error downloading wheels for target:"
 msgstr "Error descarregant wheels per a l'objectiu:"
 
-#: traduia-make-repo:710 traduia-make-repo:732
+#: traduia-make-repo:719 traduia-make-repo:741
 msgid "pip output:"
 msgstr "Sortida de pip:"
 
-#: traduia-make-repo:740
+#: traduia-make-repo:749
 msgid ""
 "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
 "missing."
@@ -1039,62 +1060,115 @@ msgstr ""
 "El repositori de wheels de Python 3.10 està incomplet: manca la wheel "
 "exceptiongroup."
 
-#: traduia-make-repo:767
+#: traduia-make-repo:776
 msgid "Wheels ready in:"
 msgstr "Wheels llests a:"
 
-#: traduia-make-repo:782
-msgid "--debs-dir requires a value: --debs-dir <dir>"
-msgstr "--debs-dir requereix un valor: --debs-dir <dir>"
+#: traduia-make-repo:790 traduia-make-repo:794
+msgid "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble."
+msgstr ""
+"--debs-dir ha estat substituït per --debs-dir-jammy i --debs-dir-noble."
 
-#: traduia-make-repo:814 traduia-make-repo:1175 traduia-make-repo:1204
-#: traduia-make-repo:1384
+#: traduia-make-repo:799
+msgid "--debs-dir-jammy requires a value: --debs-dir-jammy <dir>"
+msgstr "--debs-dir-jammy requereix un valor: --debs-dir-jammy <dir>"
+
+#: traduia-make-repo:813
+msgid "--debs-dir-noble requires a value: --debs-dir-noble <dir>"
+msgstr "--debs-dir-noble requereix un valor: --debs-dir-noble <dir>"
+
+#: traduia-make-repo:827
+msgid "--extra-repo-jammy requires a value: --extra-repo-jammy <url>"
+msgstr "--extra-repo-jammy requereix un valor: --extra-repo-jammy <url>"
+
+#: traduia-make-repo:841
+msgid "--extra-repo-noble requires a value: --extra-repo-noble <url>"
+msgstr "--extra-repo-noble requereix un valor: --extra-repo-noble <url>"
+
+#: traduia-make-repo:864
+msgid "These options are only valid with the debs and full subcommands."
+msgstr "Aquestes opcions només són vàlides amb els subcomandes debs i full."
+
+#: traduia-make-repo:887 traduia-make-repo:1364 traduia-make-repo:1404
+#: traduia-make-repo:1438 traduia-make-repo:1618
 msgid "Repository ready:"
 msgstr "Repositori a punt:"
 
-#: traduia-make-repo:845
+#: traduia-make-repo:919
 msgid "dpkg-scanpackages not found (install dpkg-dev)."
 msgstr "dpkg-scanpackages no trobat (instal·la dpkg-dev)."
 
-#: traduia-make-repo:849
+#: traduia-make-repo:923
 msgid "Could not generate the apt index in:"
 msgstr "No s'ha pogut generar l'índex apt a:"
 
-#: traduia-make-repo:853
+#: traduia-make-repo:927
 msgid "Apt index generated:"
 msgstr "Índex apt generat:"
 
-#: traduia-make-repo:871
+#: traduia-make-repo:945
 msgid "Offline repository helper not found:"
 msgstr "No s'ha trobat l'instal·lador offline del repositori:"
 
-#: traduia-make-repo:892
+#: traduia-make-repo:977
+msgid "Unsupported repository URL:"
+msgstr "URL de repositori no suportada:"
+
+#: traduia-make-repo:988
 msgid "Empty package list for:"
 msgstr "Llista de paquets buida per a:"
 
-#: traduia-make-repo:903
+#: traduia-make-repo:996
 msgid "Downloading system packages for:"
 msgstr "Descarregant els paquets del sistema per a:"
 
-#: traduia-make-repo:1137
+#: traduia-make-repo:1239
 msgid "Packages ready in:"
 msgstr "Paquets llests a:"
 
-#: traduia-make-repo:1153
+#: traduia-make-repo:1254
+msgid "Downloading models from HuggingFace..."
+msgstr "Descarregant models des de HuggingFace..."
+
+#: traduia-make-repo:1329
+msgid "Fetch finished."
+msgstr "Descàrrega finalitzada."
+
+#: traduia-make-repo:1345 traduia-make-repo:1452
+msgid "Error: mode must be 'ct2', 'marian' or 'all'."
+msgstr "Error: el mode ha de ser 'ct2', 'marian' o 'all'."
+
+#: traduia-make-repo:1351 traduia-make-repo:1424
+msgid ""
+"This command requires the 'huggingface_hub' Python package (pip install "
+"huggingface_hub)."
+msgstr ""
+"Aquesta ordre requereix el paquet Python 'huggingface_hub' (pip install "
+"huggingface_hub)."
+
+#: traduia-make-repo:1361
+msgid ""
+"Fetch finished with errors: some models may be missing. Re-run the same "
+"fetch command to retry."
+msgstr ""
+"La descàrrega ha acabat amb errors: pot ser que falten alguns models. Torneu "
+"a executar la mateixa ordre fetch per a reintentar-los."
+
+#: traduia-make-repo:1382
 msgid "Error: distribution must be 'jammy', 'noble' or 'all'."
 msgstr "Error: la distribució ha de ser 'jammy', 'noble' o 'all'."
 
-#: traduia-make-repo:1172
+#: traduia-make-repo:1401
 msgid "Could not download the system packages (see the errors above)."
 msgstr ""
 "No s'han pogut descarregar els paquets del sistema (vegeu els errors "
 "anteriors)."
 
-#: traduia-make-repo:1190
+#: traduia-make-repo:1419
 msgid "Building a fully offline repository:"
 msgstr "Generant un repositori totalment offline:"
 
-#: traduia-make-repo:1201
+#: traduia-make-repo:1435
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
@@ -1102,57 +1176,53 @@ msgstr ""
 "Repositori offline generat amb errors; torneu a executar el mateix "
 "comandament per a reintentar el que falta."
 
-#: traduia-make-repo:1218
-msgid "Error: mode must be 'ct2', 'marian' or 'all'."
-msgstr "Error: el mode ha de ser 'ct2', 'marian' o 'all'."
-
-#: traduia-make-repo:1223
+#: traduia-make-repo:1457
 msgid "Error: models directory does not exist:"
 msgstr "Error: el directori de models no existix:"
 
-#: traduia-make-repo:1293
+#: traduia-make-repo:1527
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: falten els fitxers requerits següents o estan buits:"
 
-#: traduia-make-repo:1297
+#: traduia-make-repo:1531
 msgid "Refusing to generate an incomplete repository."
 msgstr "Es rebutja generar un repositori incomplet."
 
-#: traduia-make-repo:1302
+#: traduia-make-repo:1536
 msgid "Assembling repository in:"
 msgstr "Muntant el repositori a:"
 
-#: traduia-make-repo:1310
+#: traduia-make-repo:1544
 msgid "Copying files (forced by --copy)..."
 msgstr "Copiant fitxers (forçat amb --copy)..."
 
-#: traduia-make-repo:1313
+#: traduia-make-repo:1547
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 "Origen i destinació estan en el mateix sistema de fitxers: s'usen hardlinks."
 
-#: traduia-make-repo:1316
+#: traduia-make-repo:1550
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 "Origen i destinació estan en sistemes de fitxers diferents: es copien els "
 "fitxers."
 
-#: traduia-make-repo:1330
+#: traduia-make-repo:1564
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ja present, s'omet la còpia."
 
-#: traduia-make-repo:1370
+#: traduia-make-repo:1604
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El conjunt {} del directori d'eixida sembla incomplet (falten alguns "
 "parells)."
 
-#: traduia-make-repo:1385
+#: traduia-make-repo:1619
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publiqueu-lo estàticament per HTTP o copieu-lo a un disc USB."
 
-#: traduia-make-repo:1387
+#: traduia-make-repo:1621
 msgid "Example rsync to a server:"
 msgstr "Exemple d'rsync a un servidor:"
 
@@ -1350,7 +1420,9 @@ msgstr "Mode d'optimització seleccionat:"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:637
 msgid "Client mode: piper-tts-server is not installed; TTS may not work."
-msgstr "Mode client: piper-tts-server no està instal·lat; la lectura en veu alta pot no funcionar."
+msgstr ""
+"Mode client: piper-tts-server no està instal·lat; la lectura en veu alta pot "
+"no funcionar."
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:654
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:770
@@ -1555,32 +1627,15 @@ msgstr "  help              esta ajuda"
 msgid "LliureX metas check disabled (--disable-meta-checks)"
 msgstr "Comprovació de metes LliureX desactivada (--disable-meta-checks)"
 
+#~ msgid "--debs-dir requires a value: --debs-dir <dir>"
+#~ msgstr "--debs-dir requereix un valor: --debs-dir <dir>"
+
 #~ msgid ""
 #~ "Or download the system packages (traduia, zero-lliurex-traduia) from an "
 #~ "apt repository over HTTP, for one or both distributions:"
 #~ msgstr ""
 #~ "O descarregar els paquets del sistema (traduia, zero-lliurex-traduia) des "
 #~ "d'un repositori apt per HTTP, per a una o totes dues distribucions:"
-
-#~ msgid "Downloading models from HuggingFace..."
-#~ msgstr "Descarregant models des de HuggingFace..."
-
-#~ msgid "Fetch finished."
-#~ msgstr "Descàrrega finalitzada."
-
-#~ msgid ""
-#~ "This command requires the 'huggingface_hub' Python package (pip install "
-#~ "huggingface_hub)."
-#~ msgstr ""
-#~ "Aquesta ordre requereix el paquet Python 'huggingface_hub' (pip install "
-#~ "huggingface_hub)."
-
-#~ msgid ""
-#~ "Fetch finished with errors: some models may be missing. Re-run the same "
-#~ "fetch command to retry."
-#~ msgstr ""
-#~ "La descàrrega ha acabat amb errors: pot ser que falten alguns models. "
-#~ "Torneu a executar la mateixa ordre fetch per a reintentar-los."
 
 #~ msgid "--url-jammy requires a value: --url-jammy <url>"
 #~ msgstr "--url-jammy requereix un valor: --url-jammy <url>"

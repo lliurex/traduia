@@ -134,5 +134,9 @@ sudo ./install-offline.sh --piper
   usa estado (`Service=False`).
 - Si un paquete Piper no está disponible en el repo, el instalador avisa y
   continúa con el resto; TraduIA no falla por Piper.
-- `--debs-dir <dir>` permite aportar `.deb` locales que falten. Se elige la
-  versión máxima disponible entre esas fuentes y lliurex.net/Ubuntu.
+- `--debs-dir-jammy <dir>` y `--debs-dir-noble <dir>` permiten aportar
+  `.deb` locales que falten para cada distro. Se elige la versión máxima
+  disponible entre esas fuentes y lliurex.net/Ubuntu.
+- `--extra-repo-jammy <url>` y `--extra-repo-noble <url>` añaden
+  repositorios apt extra para paquetes aún no publicados. lliurex.net y
+  Ubuntu siguen presentes y gana la versión máxima.

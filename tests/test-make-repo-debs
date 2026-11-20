@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Prueba funcional y hermetica de las opciones de debs de
+# traduia-make-repo:
+#   - --debs-dir-jammy / --debs-dir-noble
+#   - --extra-repo-jammy / --extra-repo-noble
+# Usa repositorios apt locales (file://) y un paquete ficticio.
+# Sin red y sin root.
+
+TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$TESTS_DIR")"
+
+export LC_ALL=C
+export LANGUAGE=en
+
+if ! command -v dpkg-deb >/dev/null 2>&1; then
+    echo "SKIP: dpkg-deb is not available" >&2
+    exit 0
+fi
+if ! command -v dpkg-scanpackages >/dev/null 2>&1; then
+    echo "SKIP: dpkg-scanpackages is not available" >&2
+    exit 0
+fi
+
+TMP="$(mktemp -d)"
+trap 'rm -rf -- "$TMP"' EXIT
+
+SRC="$TMP/src"
+mkdir -p "$SRC"
+cp "$REPO_DIR/traduia-make-repo" "$SRC/"
+cp "$REPO_DIR/install-offline.sh" "$SRC/"
+printf 'dummy-pkg\n' > "$SRC/debs-jammy.txt"
+printf 'dummy-pkg\n' > "$SRC/debs-noble.txt"
+
+fail=0
+note_fail() { echo "FAIL: $*" >&2; fail=1; }
+
+build_deb() {
+    local ver="$1" out="$2"
+    local d="$TMP/build-$ver"
+    rm -rf "$d"
+    mkdir -p "$d/DEBIAN" "$d/usr/share/dummy-pkg"
+    cat > "$d/DEBIAN/control" <<EOF
+Package: dummy-pkg
+Version: $ver
+Architecture: all
+Maintainer: Test <test@example.com>
+Description: dummy package for tests
+ Test package.
+EOF
+    echo "$ver" > "$d/usr/share/dummy-pkg/version"
+    dpkg-deb -b "$d" "$out" >/dev/null
+}
+
+make_index() {
+    local dir="$1" suite="$2"
+    mkdir -p "$dir/dists/$suite/main/binary-amd64"
+    ( cd "$dir" && dpkg-scanpackages -m . /dev/null 2>/dev/null \
+        | gzip -9c > "dists/$suite/main/binary-amd64/Packages.gz" )
+}
+
+build_deb 0.9 "$TMP/dummy-pkg_0.9_all.deb"
+build_deb 1.0 "$TMP/dummy-pkg_1.0_all.deb"
+
+# Repositorio fijo (el equivalente a lliurex.net) y repositorio extra.
+FIXED="$TMP/fixed"
+EXTRA="$TMP/extra"
+mkdir -p "$FIXED" "$EXTRA"
+cp "$TMP/dummy-pkg_0.9_all.deb" "$FIXED/"
+cp "$TMP/dummy-pkg_1.0_all.deb" "$EXTRA/"
+make_index "$FIXED" jammy
+make_index "$EXTRA" jammy
+
+# Directorio local plano para --debs-dir-jammy.
+LOCAL="$TMP/local"
+mkdir -p "$LOCAL"
+cp "$TMP/dummy-pkg_1.0_all.deb" "$LOCAL/"
+
+printf 'jammy main file://%s\nnoble main file://%s\n' "$FIXED" "$FIXED" \
+    > "$SRC/debs-sources.conf"
+
+MR="$SRC/traduia-make-repo"
+
+run_debs() {
+    local out="$1"; shift
+    "$MR" debs "$out" "$@" >"$TMP/last.log" 2>&1
+}
+
+expect_deb() {
+    local out="$1" distro="$2" name="$3"
+    if [ ! -f "$out/debs/$distro/$name" ]; then
+        note_fail "missing $distro/$name (log: $(tail -n 3 "$TMP/last.log" | tr '\n' ' '))"
+    fi
+    if [ ! -f "$out/debs/$distro/Packages" ]; then
+        note_fail "missing Packages index for $distro in $out"
+    elif ! grep -Fq 'Package: dummy-pkg' "$out/debs/$distro/Packages"; then
+        note_fail "Packages index for $distro does not list dummy-pkg"
+    fi
+}
+
+# 1. Repo extra con version superior: gana 1.0 sobre el 0.9 fijo.
+if run_debs "$TMP/out-extra" jammy --extra-repo-jammy "file://$EXTRA"; then
+    expect_deb "$TMP/out-extra" jammy dummy-pkg_1.0_all.deb
+else
+    note_fail "extra repo run failed"
+fi
+
+# 2. El repo extra tambien acepta una ruta local plana.
+if run_debs "$TMP/out-extra-path" jammy --extra-repo-jammy "$EXTRA"; then
+    expect_deb "$TMP/out-extra-path" jammy dummy-pkg_1.0_all.deb
+else
+    note_fail "extra repo plain path run failed"
+fi
+
+# 3. Sin extra se usa el repo fijo.
+if run_debs "$TMP/out-fixed" jammy; then
+    expect_deb "$TMP/out-fixed" jammy dummy-pkg_0.9_all.deb
+else
+    note_fail "fixed repo run failed"
+fi
+
+# 4. --debs-dir-jammy aporta el .deb local.
+if run_debs "$TMP/out-local" jammy --debs-dir-jammy "$LOCAL"; then
+    expect_deb "$TMP/out-local" jammy dummy-pkg_1.0_all.deb
+else
+    note_fail "debs-dir-jammy run failed"
+fi
+
+# 5. --debs-dir-noble no contamina jammy.
+if run_debs "$TMP/out-noble-dir" jammy --debs-dir-noble "$LOCAL"; then
+    expect_deb "$TMP/out-noble-dir" jammy dummy-pkg_0.9_all.deb
+else
+    note_fail "debs-dir-noble isolation run failed"
+fi
+
+# 6. --extra-repo-noble no contamina jammy.
+if run_debs "$TMP/out-noble-repo" jammy --extra-repo-noble "file://$EXTRA"; then
+    expect_deb "$TMP/out-noble-repo" jammy dummy-pkg_0.9_all.deb
+else
+    note_fail "extra-repo-noble isolation run failed"
+fi
+
+# 7. noble no puede usar los repos de jammy: debe fallar y no copiar nada.
+if run_debs "$TMP/out-noble" noble --extra-repo-jammy "file://$EXTRA"; then
+    note_fail "noble run with a jammy-only repo should fail"
+fi
+if compgen -G "$TMP/out-noble/debs/noble/dummy-pkg_*.deb" >/dev/null; then
+    note_fail "noble run copied a jammy package"
+fi
+
+if [ "$fail" -ne 0 ]; then
+    exit 1
+fi
+echo "test-make-repo-debs: OK"
