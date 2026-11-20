@@ -137,3 +137,6 @@ sudo ./install-offline.sh --piper
 - `--debs-dir-jammy <dir>` y `--debs-dir-noble <dir>` permiten aportar
   `.deb` locales que falten para cada distro. Se elige la versión máxima
   disponible entre esas fuentes y lliurex.net/Ubuntu.
+- `--extra-repo-jammy <url>` y `--extra-repo-noble <url>` añaden
+  repositorios apt extra para paquetes aún no publicados. lliurex.net y
+  Ubuntu siguen presentes y gana la versión máxima.

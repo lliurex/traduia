@@ -77,6 +77,12 @@ traduia-make-repo full /srv/export/traduia \
   cuando su versión es la máxima disponible; el resto se descarga de
   lliurex.net/Ubuntu. Usa un directorio por distro para no mezclar paquetes
   de jammy y noble.
+- `--extra-repo-jammy <url>` y `--extra-repo-noble <url>` añaden
+  repositorios apt adicionales (repetibles) con el mismo layout que
+  lliurex.net: `dists/<suite>/<component>/binary-amd64/Packages.gz`. Se
+  prueban las suites `<distro>`, `<distro>-updates` y `<distro>-security`
+  y los componentes `main`/`universe`. lliurex.net y Ubuntu siguen
+  presentes; si el repo extra publica una versión mayor, se usa esa.
 - Las fuentes están fijas en `debs-sources.conf`: solo `lliurex.net` y
   repositorios oficiales de Ubuntu.
 - **Directorio de salida**: debe ser una ruta **absoluta** (se canonicaliza)
@@ -865,6 +871,10 @@ traduia-make-repo debs /srv/export/traduia noble
 # Con .deb locales para paquetes que aún no estén en lliurex.net:
 traduia-make-repo debs /srv/export/traduia all \
   --debs-dir-jammy /ruta/a/debs-jammy --debs-dir-noble /ruta/a/debs-noble
+
+# Con un repositorio apt adicional (por ejemplo, paquetes no publicados):
+traduia-make-repo debs /srv/export/traduia jammy \
+  --extra-repo-jammy https://repositorio.example/lliurex
 ```
 
 - **Listas fijas**: `debs-jammy.txt` y `debs-noble.txt` contienen solo
@@ -875,6 +885,12 @@ traduia-make-repo debs /srv/export/traduia all \
   `.deb` locales para cada distro. Se usan cuando su versión es la máxima;
   el resto se descarga de lliurex.net/Ubuntu. No mezcles paquetes de jammy
   y noble en el mismo directorio.
+- **`--extra-repo-jammy` / `--extra-repo-noble`**: añaden repositorios apt
+  extra (repetibles) con el mismo layout que lliurex.net. Se sondean las
+  suites `<distro>`, `<distro>-updates` y `<distro>-security`, y los
+  componentes `main`/`universe`. Las fuentes fijas siguen presentes y gana
+  la versión máxima; en empate, la publicada. Admite `file://` y rutas
+  locales.
 - **Índice apt local**: cada `debs/<distro>/` incluye `Packages` y
   `Packages.gz` generados con `dpkg-scanpackages`. El repositorio es una
   fuente apt plana:
@@ -952,13 +968,17 @@ Or export the Python wheels for fully offline installs (additive):
   traduia-make-repo wheels <output_dir>
 Or download the system packages listed in debs-jammy.txt/debs-noble.txt from lliurex.net and official Ubuntu repositories, for one or both distributions:
   traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]
+                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]
 Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):
   traduia-make-repo full <output_dir> [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]
+                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]
 
 The debs directory includes Packages/Packages.gz and can be used as a local apt repository.
 The repository also includes install-offline.sh for guided offline installation.
 If some .deb is missing from the configured repositories, --debs-dir-jammy or --debs-dir-noble can point to a flat directory with those files.
 Use one directory per distribution to avoid mixing jammy and noble packages.
+Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with unpublished packages.
+Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.
 ```
 
 ### 5.3 `traduia-config help`

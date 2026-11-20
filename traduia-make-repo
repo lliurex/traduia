@@ -146,6 +146,8 @@ OFFLINE_INSTALLER="$DEBS_DATA_DIR/install-offline.sh"
 DEBS_DIR_JAMMY=""
 DEBS_DIR_NOBLE=""
 DEBS_OPTS_USED=false
+EXTRA_REPOS_JAMMY=()
+EXTRA_REPOS_NOBLE=()
 
 WHISPER_PREFIX="whisper-small"
 MARIAN_PAIRS=(
@@ -176,13 +178,17 @@ usage() {
     echo "  traduia-make-repo wheels <output_dir>"
     echo "$(_ "Or download the system packages listed in debs-jammy.txt/debs-noble.txt from lliurex.net and official Ubuntu repositories, for one or both distributions:")"
     echo "  traduia-make-repo debs <output_dir> [jammy|noble|all] [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]"
+    echo "                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]"
     echo "$(_ "Or build a fully offline repository in one command (all models from HuggingFace + Python wheels + system debs for jammy and noble):")"
     echo "  traduia-make-repo full <output_dir> [--debs-dir-jammy <dir>] [--debs-dir-noble <dir>]"
+    echo "                    [--extra-repo-jammy <url>] [--extra-repo-noble <url>]"
     echo ""
     echo "$(_ "The debs directory includes Packages/Packages.gz and can be used as a local apt repository.")"
     echo "$(_ "The repository also includes install-offline.sh for guided offline installation.")"
     echo "$(_ "If some .deb is missing from the configured repositories, --debs-dir-jammy or --debs-dir-noble can point to a flat directory with those files.")"
     echo "$(_ "Use one directory per distribution to avoid mixing jammy and noble packages.")"
+    echo "$(_ "Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with unpublished packages.")"
+    echo "$(_ "Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.")"
     echo ""
     echo "$(_ "The output directory must be an ABSOLUTE path and cannot be a system directory")"
     echo "  (/ /usr /etc /var /home /root /opt /boot /dev /proc /sys /bin /sbin /lib"
@@ -816,6 +822,34 @@ while [ "$#" -gt 0 ]; do
             DEBS_OPTS_USED=true
             shift
             ;;
+        --extra-repo-jammy)
+            if [ "$#" -lt 2 ]; then
+                echo "[ERROR] $(_ "--extra-repo-jammy requires a value: --extra-repo-jammy <url>")" >&2
+                exit 1
+            fi
+            EXTRA_REPOS_JAMMY+=("$2")
+            DEBS_OPTS_USED=true
+            shift 2
+            ;;
+        --extra-repo-jammy=*)
+            EXTRA_REPOS_JAMMY+=("${1#--extra-repo-jammy=}")
+            DEBS_OPTS_USED=true
+            shift
+            ;;
+        --extra-repo-noble)
+            if [ "$#" -lt 2 ]; then
+                echo "[ERROR] $(_ "--extra-repo-noble requires a value: --extra-repo-noble <url>")" >&2
+                exit 1
+            fi
+            EXTRA_REPOS_NOBLE+=("$2")
+            DEBS_OPTS_USED=true
+            shift 2
+            ;;
+        --extra-repo-noble=*)
+            EXTRA_REPOS_NOBLE+=("${1#--extra-repo-noble=}")
+            DEBS_OPTS_USED=true
+            shift
+            ;;
         *)
             POSITIONAL+=("$1")
             shift
@@ -858,7 +892,8 @@ fi
 # Descarga los paquetes listados en debs-jammy.txt/debs-noble.txt desde
 # lliurex.net y repositorios oficiales de Ubuntu. Si --debs-dir-jammy o
 # --debs-dir-noble apuntan a un directorio con .deb locales, esos ficheros
-# tienen prioridad cuando su version es la maxima. Genera un repositorio apt plano con
+# tienen prioridad cuando su version es la maxima. Los flags
+# --extra-repo-jammy/--extra-repo-noble añaden repositorios apt extra. Genera un repositorio apt plano con
 # Packages/Packages.gz y copia install-offline.sh y las listas.
 # Aditivo: se puede ejecutar sobre un directorio ya generado.
 read_debs_list() {
@@ -913,10 +948,10 @@ write_offline_installer() {
 }
 
 # =========================================================
-# make_debs <out_dir> <distro> [local_dir]: descarga/copia los
-# paquetes de la lista para una distro. Busca en las fuentes de
-# debs-sources.conf y, si se indica, en un directorio plano de
-# .deb locales. Elige la version maxima disponible.
+# make_debs <out_dir> <distro> [local_dir] [extra_repo...]: descarga/copia
+# los paquetes de la lista para una distro. Busca en las fuentes de
+# debs-sources.conf, en los repositorios extra indicados y, si se indica,
+# en un directorio plano de .deb locales. Elige la version maxima.
 # =========================================================
 make_debs() {
     local out_dir="$1"
@@ -925,6 +960,28 @@ make_debs() {
     local debs_dir="$out_dir/debs/$distro"
     local list=()
     local rc=0
+    local extra_repo
+    local extra_repos=()
+
+    if [ "$#" -ge 3 ]; then
+        shift 3
+    else
+        shift "$#"
+    fi
+    for extra_repo in "$@"; do
+        case "$extra_repo" in
+            http://*|https://*|file://*)
+                extra_repos+=("${extra_repo%/}")
+                ;;
+            *://*)
+                echo "[ERROR] $(_ "Unsupported repository URL:") $extra_repo" >&2
+                return 1
+                ;;
+            *)
+                extra_repos+=("file://$(realpath -m -- "$extra_repo")")
+                ;;
+        esac
+    done
 
     mapfile -t list < <(read_debs_list "$distro") || return 1
     if [ "${#list[@]}" -eq 0 ]; then
@@ -937,6 +994,7 @@ make_debs() {
     fi
     mkdir -p "$debs_dir"
     echo "[debs] $(_ "Downloading system packages for:") $distro"
+    TRADUIA_EXTRA_REPOS="$(printf '%s\n' "${extra_repos[@]}")" \
     python3 - "$distro" "$out_dir" "$debs_dir" "$DEBS_SOURCES_FILE" "$local_dir" "${list[@]}" <<'PY' || rc=$?
 import gzip
 import hashlib
@@ -1049,6 +1107,14 @@ with open(sources_file, encoding="utf-8", errors="replace") as fh:
         src_distro, component, base_url = parts
         if src_distro == distro:
             sources.append((component, base_url.rstrip("/")))
+
+# Repositorios extra indicados por linea de comandos (aditivos).
+for extra_base in os.environ.get("TRADUIA_EXTRA_REPOS", "").splitlines():
+    extra_base = extra_base.strip().rstrip("/")
+    if not extra_base:
+        continue
+    for extra_component in ("main", "universe"):
+        sources.append((extra_component, extra_base))
 
 if not sources:
     print(f"[ERROR] No sources configured for {distro} in {sources_file}", file=sys.stderr)
@@ -1301,7 +1367,8 @@ fi
 
 # --- Subcomando: traduia-make-repo debs <output_dir> [jammy|noble|all] ---
 # Descarga/copia los paquetes de las listas fijas y genera el repo apt
-# local. Los flags --debs-dir-jammy/--debs-dir-noble aportan .deb locales.
+# local. Los flags --debs-dir-jammy/--debs-dir-noble aportan .deb locales
+# y --extra-repo-jammy/--extra-repo-noble añaden repositorios apt extra.
 if [ "${POSITIONAL[0]:-}" = "debs" ]; then
     if [ "${#POSITIONAL[@]}" -lt 2 ] || [ "${#POSITIONAL[@]}" -gt 3 ]; then
         usage
@@ -1319,11 +1386,11 @@ if [ "${POSITIONAL[0]:-}" = "debs" ]; then
     mkdir -p "$OUT_DIR"
     rc=0
     case "$DEBS_DISTRO" in
-        jammy) make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" || rc=$? ;;
-        noble) make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" || rc=$? ;;
+        jammy) make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" ${EXTRA_REPOS_JAMMY[@]+"${EXTRA_REPOS_JAMMY[@]}"} || rc=$? ;;
+        noble) make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" ${EXTRA_REPOS_NOBLE[@]+"${EXTRA_REPOS_NOBLE[@]}"} || rc=$? ;;
         all)
-            make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" || rc=$?
-            make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" || rc=$?
+            make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" ${EXTRA_REPOS_JAMMY[@]+"${EXTRA_REPOS_JAMMY[@]}"} || rc=$?
+            make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" ${EXTRA_REPOS_NOBLE[@]+"${EXTRA_REPOS_NOBLE[@]}"} || rc=$?
             ;;
     esac
     write_offline_installer "$OUT_DIR" || rc=$?
@@ -1358,8 +1425,8 @@ if [ "${POSITIONAL[0]:-}" = "full" ]; then
         rc=1
     fi
     make_wheels "$OUT_DIR" || rc=$?
-    make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" || rc=$?
-    make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" || rc=$?
+    make_debs "$OUT_DIR" jammy "$DEBS_DIR_JAMMY" ${EXTRA_REPOS_JAMMY[@]+"${EXTRA_REPOS_JAMMY[@]}"} || rc=$?
+    make_debs "$OUT_DIR" noble "$DEBS_DIR_NOBLE" ${EXTRA_REPOS_NOBLE[@]+"${EXTRA_REPOS_NOBLE[@]}"} || rc=$?
     write_offline_installer "$OUT_DIR" || rc=$?
     write_verify_script "$OUT_DIR"
     generate_manifest "$OUT_DIR"
