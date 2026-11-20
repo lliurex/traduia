@@ -18,7 +18,7 @@ traducciones, soportando múltiples idiomas.
 - `install-models-traduia`: instalación de modelos desde Internet, USB o
   LAN.
 - `traduia-make-repo`: genera repositorios offline (modelos + wheels +
-  debs) — subcomandos `fetch`, `wheels`, `debs` y `full`.
+  debs) — acciones `--export`, `--fetch`, `--wheels`, `--debs` y `--full`.
 - `traduia-config` (paquete `zero-lliurex-traduia`): instalación y
   configuración integrada, desde zero-center o desde consola.
 

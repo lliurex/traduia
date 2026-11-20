@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 13:44+0100\n"
+"POT-Creation-Date: 2026-11-20 13:56+0100\n"
 "PO-Revision-Date: 2026-05-08 17:54+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -952,7 +952,8 @@ msgstr "Notes:"
 #: traduia-make-repo:189
 msgid ""
 "Model export is additive: run it once per set in the same output directory."
-msgstr "Model export is additive: run it once per set in the same output directory."
+msgstr ""
+"Model export is additive: run it once per set in the same output directory."
 
 #: traduia-make-repo:190
 msgid "whisper-small is copied only on the first run."
@@ -962,7 +963,9 @@ msgstr "whisper-small is copied only on the first run."
 msgid ""
 "Hardlinks are used when source and destination share a filesystem; --copy "
 "forces copying."
-msgstr "Hardlinks are used when source and destination share a filesystem; --copy forces copying."
+msgstr ""
+"Hardlinks are used when source and destination share a filesystem; --copy "
+"forces copying."
 
 #: traduia-make-repo:192
 msgid "--fetch requires python3 with huggingface_hub."
@@ -981,214 +984,230 @@ msgid "--full continues when a step fails and exits 1 at the end."
 msgstr "--full continues when a step fails and exits 1 at the end."
 
 #: traduia-make-repo:196
-msgid ""
-"Extra repositories use a base URL with dists/<suite>/<component>/binary-"
-"amd64/Packages.gz."
-msgstr "Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz."
+msgid "Positional arguments are not supported; use named options."
+msgstr "Positional arguments are not supported; use named options."
 
 #: traduia-make-repo:197
 msgid ""
-"The tool probes <distro>, <distro>-updates and <distro>-security, and main/"
-"universe."
-msgstr "The tool probes <distro>, <distro>-updates and <distro>-security, and main/universe."
+"Extra repositories use a base URL with dists/<suite>/<component>/binary-"
+"amd64/Packages.gz."
+msgstr ""
+"Extra repositories use a base URL with dists/<suite>/<component>/binary-"
+"amd64/Packages.gz."
 
 #: traduia-make-repo:198
+msgid ""
+"The tool probes <distro>, <distro>-updates and <distro>-security, and main/"
+"universe."
+msgstr ""
+"The tool probes <distro>, <distro>-updates and <distro>-security, and main/"
+"universe."
+
+#: traduia-make-repo:199
 msgid "lliurex.net and Ubuntu are always used; the highest version wins."
 msgstr "lliurex.net and Ubuntu are always used; the highest version wins."
 
-#: traduia-make-repo:199
+#: traduia-make-repo:200
 msgid "Accepts http(s)://, file:// and local paths."
 msgstr "Accepts http(s)://, file:// and local paths."
 
-#: traduia-make-repo:201
+#: traduia-make-repo:202
 msgid "Output directory:"
 msgstr "Output directory:"
 
-#: traduia-make-repo:202
+#: traduia-make-repo:203
 msgid "Must be an ABSOLUTE path. These exact paths are rejected:"
 msgstr "Must be an ABSOLUTE path. These exact paths are rejected:"
 
-#: traduia-make-repo:205
+#: traduia-make-repo:206
 msgid "Any path inside these trees is also rejected:"
 msgstr "Any path inside these trees is also rejected:"
 
-#: traduia-make-repo:207
+#: traduia-make-repo:208
 msgid ""
 "Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or /"
 "tmp/<dir> are fine."
-msgstr "Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or /tmp/<dir> are fine."
+msgstr ""
+"Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or /"
+"tmp/<dir> are fine."
 
-#: traduia-make-repo:209
+#: traduia-make-repo:210
 msgid ""
 "The repository includes debs/<distro>/Packages and Packages.gz, install-"
 "offline.sh and the package lists."
-msgstr "The repository includes debs/<distro>/Packages and Packages.gz, install-offline.sh and the package lists."
+msgstr ""
+"The repository includes debs/<distro>/Packages and Packages.gz, install-"
+"offline.sh and the package lists."
 
-#: traduia-make-repo:228
+#: traduia-make-repo:229
 msgid "Skipping cleanup outside the output directory:"
 msgstr ""
 
-#: traduia-make-repo:243
+#: traduia-make-repo:244
 msgid "Hashing files (sha256)..."
 msgstr "Hashing files (sha256)..."
 
-#: traduia-make-repo:350
+#: traduia-make-repo:351
 msgid "Refusing to overwrite a symlink:"
 msgstr ""
 
-#: traduia-make-repo:354 traduia-make-repo:692 traduia-make-repo:1138
+#: traduia-make-repo:355 traduia-make-repo:693 traduia-make-repo:1139
 msgid "Refusing to write outside output directory:"
 msgstr ""
 
-#: traduia-make-repo:713
+#: traduia-make-repo:714
 msgid "Downloading wheels for:"
 msgstr "Downloading wheels for:"
 
-#: traduia-make-repo:729 traduia-make-repo:751
+#: traduia-make-repo:730 traduia-make-repo:752
 msgid "Error downloading wheels for target:"
 msgstr "Error downloading wheels for target:"
 
-#: traduia-make-repo:730 traduia-make-repo:752
+#: traduia-make-repo:731 traduia-make-repo:753
 msgid "pip output:"
 msgstr "pip output:"
 
-#: traduia-make-repo:760
+#: traduia-make-repo:761
 msgid ""
 "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
 "missing."
-msgstr "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is missing."
+msgstr ""
+"The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
+"missing."
 
-#: traduia-make-repo:787
+#: traduia-make-repo:788
 msgid "Wheels ready in:"
 msgstr "Wheels ready in:"
 
-#: traduia-make-repo:795 traduia-make-repo:856 traduia-make-repo:936
-#: traduia-make-repo:948 traduia-make-repo:959 traduia-make-repo:971
+#: traduia-make-repo:796 traduia-make-repo:857 traduia-make-repo:937
+#: traduia-make-repo:949 traduia-make-repo:960 traduia-make-repo:972
 msgid "Option requires a value:"
 msgstr "Option requires a value:"
 
-#: traduia-make-repo:799 traduia-make-repo:859 traduia-make-repo:939
-#: traduia-make-repo:951 traduia-make-repo:962 traduia-make-repo:974
+#: traduia-make-repo:800 traduia-make-repo:860 traduia-make-repo:940
+#: traduia-make-repo:952 traduia-make-repo:963 traduia-make-repo:975
 msgid "Value cannot start with '-':"
 msgstr "Value cannot start with '-':"
 
-#: traduia-make-repo:848
+#: traduia-make-repo:849
 msgid "Only one action can be specified."
 msgstr "Only one action can be specified."
 
-#: traduia-make-repo:981
+#: traduia-make-repo:982
 msgid "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble."
 msgstr "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble."
 
-#: traduia-make-repo:984
+#: traduia-make-repo:985
 msgid "Unknown option:"
 msgstr "Unknown option:"
 
-#: traduia-make-repo:987
+#: traduia-make-repo:988
 msgid "Unexpected argument:"
 msgstr "Unexpected argument:"
 
-#: traduia-make-repo:988
+#: traduia-make-repo:989
 msgid "Positional arguments are not supported; use named options (see --help)."
-msgstr "Positional arguments are not supported; use named options (see --help)."
+msgstr ""
+"Positional arguments are not supported; use named options (see --help)."
 
-#: traduia-make-repo:994 traduia-make-repo:1737
+#: traduia-make-repo:995 traduia-make-repo:1738
 msgid "No action specified. Use --export, --fetch, --wheels, --debs or --full."
-msgstr "No action specified. Use --export, --fetch, --wheels, --debs or --full."
+msgstr ""
+"No action specified. Use --export, --fetch, --wheels, --debs or --full."
 
-#: traduia-make-repo:997
+#: traduia-make-repo:998
 msgid "--output-dir is required."
 msgstr "--output-dir is required."
 
-#: traduia-make-repo:1002 traduia-make-repo:1008
+#: traduia-make-repo:1003 traduia-make-repo:1009
 msgid "--mode is required for --export and --fetch."
 msgstr "--mode is required for --export and --fetch."
 
-#: traduia-make-repo:1003
+#: traduia-make-repo:1004
 msgid "--models-dir is required for --export."
 msgstr "--models-dir is required for --export."
 
-#: traduia-make-repo:1004 traduia-make-repo:1005 traduia-make-repo:1011
-#: traduia-make-repo:1012 traduia-make-repo:1018 traduia-make-repo:1019
+#: traduia-make-repo:1005 traduia-make-repo:1006 traduia-make-repo:1012
+#: traduia-make-repo:1013 traduia-make-repo:1019 traduia-make-repo:1020
 msgid "Debs options are only valid with --debs and --full."
 msgstr "Debs options are only valid with --debs and --full."
 
-#: traduia-make-repo:1009 traduia-make-repo:1016 traduia-make-repo:1023
-#: traduia-make-repo:1028
+#: traduia-make-repo:1010 traduia-make-repo:1017 traduia-make-repo:1024
+#: traduia-make-repo:1029
 msgid "--models-dir is only valid with --export."
 msgstr "--models-dir is only valid with --export."
 
-#: traduia-make-repo:1010 traduia-make-repo:1017 traduia-make-repo:1024
-#: traduia-make-repo:1029
+#: traduia-make-repo:1011 traduia-make-repo:1018 traduia-make-repo:1025
+#: traduia-make-repo:1030
 msgid "--copy is only valid with --export."
 msgstr "--copy is only valid with --export."
 
-#: traduia-make-repo:1015 traduia-make-repo:1022 traduia-make-repo:1027
+#: traduia-make-repo:1016 traduia-make-repo:1023 traduia-make-repo:1028
 msgid "--mode is only valid with --export and --fetch."
 msgstr "--mode is only valid with --export and --fetch."
 
-#: traduia-make-repo:1030
+#: traduia-make-repo:1031
 msgid "--distro is only valid with --debs."
 msgstr "--distro is only valid with --debs."
 
-#: traduia-make-repo:1036
+#: traduia-make-repo:1037
 msgid "Error: mode must be 'ct2', 'marian' or 'all'."
 msgstr "Error: mode must be 'ct2', 'marian' or 'all'."
 
-#: traduia-make-repo:1040
+#: traduia-make-repo:1041
 msgid "Error: distribution must be 'jammy', 'noble' or 'all'."
 msgstr "Error: distribution must be 'jammy', 'noble' or 'all'."
 
-#: traduia-make-repo:1065
+#: traduia-make-repo:1066
 msgid "dpkg-scanpackages not found (install dpkg-dev)."
 msgstr ""
 
-#: traduia-make-repo:1069
+#: traduia-make-repo:1070
 msgid "Could not generate the apt index in:"
 msgstr ""
 
-#: traduia-make-repo:1073
+#: traduia-make-repo:1074
 msgid "Apt index generated:"
 msgstr ""
 
-#: traduia-make-repo:1091
+#: traduia-make-repo:1092
 msgid "Offline repository helper not found:"
 msgstr ""
 
-#: traduia-make-repo:1123
+#: traduia-make-repo:1124
 msgid "Unsupported repository URL:"
 msgstr "Unsupported repository URL:"
 
-#: traduia-make-repo:1134
+#: traduia-make-repo:1135
 msgid "Empty package list for:"
 msgstr ""
 
-#: traduia-make-repo:1142
+#: traduia-make-repo:1143
 msgid "Downloading system packages for:"
 msgstr "Downloading system packages for:"
 
-#: traduia-make-repo:1385
+#: traduia-make-repo:1386
 msgid "Packages ready in:"
 msgstr "Packages ready in:"
 
-#: traduia-make-repo:1400
+#: traduia-make-repo:1401
 msgid "Downloading models from HuggingFace..."
 msgstr "Downloading models from HuggingFace..."
 
-#: traduia-make-repo:1475
+#: traduia-make-repo:1476
 msgid "Fetch finished."
 msgstr "Fetch finished."
 
-#: traduia-make-repo:1489 traduia-make-repo:1513 traduia-make-repo:1533
-#: traduia-make-repo:1559 traduia-make-repo:1729
+#: traduia-make-repo:1490 traduia-make-repo:1514 traduia-make-repo:1534
+#: traduia-make-repo:1560 traduia-make-repo:1730
 msgid "Repository ready:"
 msgstr "Repository ready:"
 
-#: traduia-make-repo:1510
+#: traduia-make-repo:1511
 msgid "Could not download the system packages (see the errors above)."
 msgstr "Could not download the system packages (see the errors above)."
 
-#: traduia-make-repo:1520 traduia-make-repo:1545
+#: traduia-make-repo:1521 traduia-make-repo:1546
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
@@ -1196,7 +1215,7 @@ msgstr ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
 
-#: traduia-make-repo:1530
+#: traduia-make-repo:1531
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
@@ -1204,11 +1223,11 @@ msgstr ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
 
-#: traduia-make-repo:1540
+#: traduia-make-repo:1541
 msgid "Building a fully offline repository:"
 msgstr "Building a fully offline repository:"
 
-#: traduia-make-repo:1556
+#: traduia-make-repo:1557
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
@@ -1216,49 +1235,49 @@ msgstr ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
 
-#: traduia-make-repo:1568
+#: traduia-make-repo:1569
 msgid "Error: models directory does not exist:"
 msgstr "Error: models directory does not exist:"
 
-#: traduia-make-repo:1638
+#: traduia-make-repo:1639
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: the following required files are missing or empty:"
 
-#: traduia-make-repo:1642
+#: traduia-make-repo:1643
 msgid "Refusing to generate an incomplete repository."
 msgstr "Refusing to generate an incomplete repository."
 
-#: traduia-make-repo:1647
+#: traduia-make-repo:1648
 msgid "Assembling repository in:"
 msgstr "Assembling repository in:"
 
-#: traduia-make-repo:1655
+#: traduia-make-repo:1656
 msgid "Copying files (forced by --copy)..."
 msgstr "Copying files (forced by --copy)..."
 
-#: traduia-make-repo:1658
+#: traduia-make-repo:1659
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr "Source and destination are on the same filesystem: using hardlinks."
 
-#: traduia-make-repo:1661
+#: traduia-make-repo:1662
 msgid "Source and destination are on different filesystems: copying files."
 msgstr "Source and destination are on different filesystems: copying files."
 
-#: traduia-make-repo:1675
+#: traduia-make-repo:1676
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small already present, skipping copy."
 
-#: traduia-make-repo:1715
+#: traduia-make-repo:1716
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 
-#: traduia-make-repo:1730
+#: traduia-make-repo:1731
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publish it statically over HTTP or copy it to a USB drive."
 
-#: traduia-make-repo:1732
+#: traduia-make-repo:1733
 msgid "Example rsync to a server:"
 msgstr "Example rsync to a server:"
 
