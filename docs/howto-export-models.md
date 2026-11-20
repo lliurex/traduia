@@ -7,7 +7,7 @@ un `manifest.json` de integridad) y cómo **instalar TraduIA en otras
 máquinas** a partir de él, tanto por **USB** como por **red** (HTTP).
 
 - **Máquina origen**: la que genera el repositorio. No necesita tener los
-  modelos instalados: el subcomando `full` los descarga de HuggingFace (con
+  modelos instalados: la acción `--full` los descarga de HuggingFace (con
   Internet).
 - **Máquina destino**: la que instala TraduIA desde el repositorio, con
   distribución **jammy** (Ubuntu 22.04) o **noble** (Ubuntu 24.04).
@@ -41,9 +41,9 @@ Organización del documento:
 
 ## 2. Crear el repositorio (la forma más sencilla)
 
-### 2.1 Un comando: `full`
+### 2.1 Una acción: `--full`
 
-El subcomando `full` genera el repositorio 100% offline en un solo paso y
+La acción `--full` genera el repositorio 100% offline en un solo paso y
 **sin necesidad de tener los modelos previamente instalados** en la máquina
 origen: los descarga directamente de HuggingFace.
 
@@ -55,6 +55,9 @@ traduia-make-repo --full --output-dir /srv/export/traduia
 traduia-make-repo --full --output-dir /srv/export/traduia \
   --debs-dir-jammy /ruta/a/debs-jammy --debs-dir-noble /ruta/a/debs-noble
 ```
+
+> Desde la versión 0.9.9.3, `traduia-make-repo` no acepta argumentos
+> posicionales: todas las acciones y opciones se indican con `--`.
 
 - **Equivale a** ejecutar `--fetch --mode all` (whisper + marian + ct2 desde
   HuggingFace), `--wheels` (dependencias Python para jammy cp310 y noble
@@ -83,8 +86,9 @@ traduia-make-repo --full --output-dir /srv/export/traduia \
   prueban las suites `<distro>`, `<distro>-updates` y `<distro>-security`
   y los componentes `main`/`universe`. lliurex.net y Ubuntu siguen
   presentes; si el repo extra publica una versión mayor, se usa esa.
-- Las fuentes están fijas en `debs-sources.conf`: solo `lliurex.net` y
-  repositorios oficiales de Ubuntu.
+- Por defecto, las fuentes son `lliurex.net` y repositorios oficiales de
+  Ubuntu (`debs-sources.conf`). `--extra-repo-jammy`/`--extra-repo-noble`
+  permiten añadir repositorios extra de forma opcional.
 - **Directorio de salida**: debe ser una ruta **absoluta** (se canonicaliza)
   y no puede ser un directorio de sistema. Se rechazan exactamente:
   `/`, `/usr`, `/etc`, `/var`, `/home`, `/root`, `/opt`, `/boot`, `/dev`,
@@ -684,7 +688,7 @@ descarga nada.
 
 ## 4. Modos avanzados: crear el repositorio por partes
 
-La sección 2 muestra la forma más sencilla (`full`). Esta sección detalla
+La sección 2 muestra la forma más sencilla (`--full`). Esta sección detalla
 cada parte por separado, para los casos en que se quiera controlar cada paso
 o partir de material ya existente (p. ej. una máquina con los modelos ya
 instalados).
@@ -772,11 +776,11 @@ traduia-make-repo --export --models-dir /opt/ai/traduia/models --mode all --outp
   (p.ej. escribir directo a un USB) → copia automática. `--copy` fuerza la
   copia opcionalmente.
 
-### 4.3 Descarga directa de HuggingFace (`fetch`)
+### 4.3 Descarga directa de HuggingFace (`--fetch`)
 
 Sin un directorio local de modelos, los modelos se pueden bajar directamente
 de HuggingFace (aditivo, par a par); es el mismo mecanismo que emplea
-`full`:
+`--full`:
 
 ```bash
 # Solo Marian (whisper-small + los 10 pares marian):
@@ -795,22 +799,22 @@ traduia-make-repo --fetch --mode all --output-dir /srv/export/traduia
   desde los repos **pre-convertidos** `mijuanlo/opus-mt-{par}-ct2-int8`
   (no hay conversión local). Si un repo pre-convertido no existe, se
   informa del par, el `manifest.json` se regenera igualmente (los pares ya
-  descargados se conservan) y el comando termina con error: re-ejecutar el
-  mismo `fetch` reintenta los pares que faltan.
-- **Requisito**: `fetch` necesita el paquete Python `huggingface_hub` en el
+  descargados se conservan) y el comando termina con error: re-ejecutar
+  `--fetch` reintenta los pares que faltan.
+- **Requisito**: `--fetch` necesita el paquete Python `huggingface_hub` en el
   `python3` del sistema (`pip install huggingface_hub`); el resto de
-  subcomandos solo usa la librería estándar.
+  acciones solo usa la librería estándar.
 - **Aditivo**: los pares ya completos en el directorio de salida se omiten;
   se puede ejecutar una vez por set (o con `all`) sobre un directorio ya
-  generado. Tras el `fetch` se regenera el `manifest.json` (el `mode` se
+  generado. Tras `--fetch` se regenera el `manifest.json` (el `mode` se
   detecta del contenido, incluyendo `both`) y se escribe/actualiza el
   verificador `verify-models.py` (sección 2.3), igual que en el resto de
-  subcomandos.
-- **Combinable**: `fetch` + `wheels` + `debs` sobre el mismo directorio de
+  acciones.
+- **Combinable**: `--fetch` + `--wheels` + `--debs` sobre el mismo directorio de
   salida producen un repositorio completo (modelos + dependencias Python +
   paquetes del sistema) para una instalación totalmente offline.
 
-### 4.4 Dependencias Python (wheels) — opcional, recomendado
+### 4.4 Dependencias Python (--wheels) — opcional, recomendado
 
 Los pasos anteriores exportan **solo los modelos**: la instalación seguirá
 necesitando internet para las dependencias Python del venv (pip, fastapi,
@@ -843,7 +847,7 @@ traduia-make-repo --wheels --output-dir /srv/export/traduia
 - Si alguna descarga de `pip download` falla, se muestra la salida de pip
   (últimas 60 líneas) junto al error, en lugar de descartarla.
 - Los wheels quedan en `wheels/` y se incorporan al `manifest.json`
-  (verificables con la sección 2.3, igual que los modelos); el subcomando
+  (verificables con la sección 2.3, igual que los modelos); la acción
   también escribe/actualiza el verificador `verify-models.py`.
 - Al instalar desde USB/LAN, `install-models-traduia` los detecta, los
   **valida antes de instalar** (sección 3.6) y los usa con
@@ -853,7 +857,7 @@ traduia-make-repo --wheels --output-dir /srv/export/traduia
   pueden descargar ni verificar (caso HTTP), la instalación **aborta** con
   error en lugar de caer a internet.
 
-### 4.5 Paquetes del sistema (debs) — opcional, recomendado
+### 4.5 Paquetes del sistema (--debs) — opcional, recomendado
 
 Para una instalación **100% offline** el repositorio incluye los paquetes
 de `debs-jammy.txt`/`debs-noble.txt`: TraduIA, instaladores zero-center,
@@ -879,8 +883,9 @@ traduia-make-repo --debs --output-dir /srv/export/traduia --distro jammy \
 
 - **Listas fijas**: `debs-jammy.txt` y `debs-noble.txt` contienen solo
   nombres de paquete; el generador elige la **versión máxima** disponible.
-- **Fuentes fijas**: `debs-sources.conf` usa únicamente `lliurex.net` y
-  repositorios oficiales de Ubuntu. No se usan repositorios adicionales.
+- **Fuentes por defecto**: `debs-sources.conf` usa `lliurex.net` y
+  repositorios oficiales de Ubuntu. `--extra-repo-*` añade repositorios
+  adicionales de forma opcional.
 - **`--debs-dir-jammy` / `--debs-dir-noble`**: directorios planos con
   `.deb` locales para cada distro. Se usan cuando su versión es la máxima;
   el resto se descarga de lliurex.net/Ubuntu. No mezcles paquetes de jammy
@@ -888,7 +893,7 @@ traduia-make-repo --debs --output-dir /srv/export/traduia --distro jammy \
 - **`--extra-repo-jammy` / `--extra-repo-noble`**: añaden repositorios apt
   extra (repetibles) con el mismo layout que lliurex.net. Se sondean las
   suites `<distro>`, `<distro>-updates` y `<distro>-security`, y los
-  componentes `main`/`universe`. Las fuentes fijas siguen presentes y gana
+  componentes `main`/`universe`. Las fuentes por defecto siguen presentes y gana
   la versión máxima; en empate, la publicada. Admite `file://` y rutas
   locales.
 - **Índice apt local**: cada `debs/<distro>/` incluye `Packages` y
@@ -983,6 +988,7 @@ Notes:
   - --wheels requires python3 with pip and network access.
   - --debs and --full require dpkg-dev (dpkg-scanpackages).
   - --full continues when a step fails and exits 1 at the end.
+  - Positional arguments are not supported; use named options.
   - Extra repositories use a base URL with dists/<suite>/<component>/binary-amd64/Packages.gz.
     The tool probes <distro>, <distro>-updates and <distro>-security, and main/universe.
     lliurex.net and Ubuntu are always used; the highest version wins.

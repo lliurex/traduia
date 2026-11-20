@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 13:44+0100\n"
+"POT-Creation-Date: 2026-11-20 13:56+0100\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -979,7 +979,9 @@ msgstr "Notes:"
 #: traduia-make-repo:189
 msgid ""
 "Model export is additive: run it once per set in the same output directory."
-msgstr "L'exportació de models és additiva: executa-la una vegada per conjunt en el mateix directori d'eixida."
+msgstr ""
+"L'exportació de models és additiva: executa-la una vegada per conjunt en el "
+"mateix directori d'eixida."
 
 #: traduia-make-repo:190
 msgid "whisper-small is copied only on the first run."
@@ -989,7 +991,9 @@ msgstr "whisper-small només es copia en la primera execució."
 msgid ""
 "Hardlinks are used when source and destination share a filesystem; --copy "
 "forces copying."
-msgstr "S'usen hardlinks quan origen i destinació comparteixen sistema de fitxers; --copy força la còpia."
+msgstr ""
+"S'usen hardlinks quan origen i destinació comparteixen sistema de fitxers; --"
+"copy força la còpia."
 
 #: traduia-make-repo:192
 msgid "--fetch requires python3 with huggingface_hub."
@@ -1008,217 +1012,232 @@ msgid "--full continues when a step fails and exits 1 at the end."
 msgstr "--full continua quan falla un pas i ix amb 1 al final."
 
 #: traduia-make-repo:196
-msgid ""
-"Extra repositories use a base URL with dists/<suite>/<component>/binary-"
-"amd64/Packages.gz."
-msgstr "Els repositoris extra usen una URL base amb dists/<suite>/<component>/binary-amd64/Packages.gz."
+msgid "Positional arguments are not supported; use named options."
+msgstr "No s'admeten arguments posicionals; usa opcions amb nom."
 
 #: traduia-make-repo:197
 msgid ""
-"The tool probes <distro>, <distro>-updates and <distro>-security, and main/"
-"universe."
-msgstr "L'eina prova <distro>, <distro>-updates i <distro>-security, i main/universe."
+"Extra repositories use a base URL with dists/<suite>/<component>/binary-"
+"amd64/Packages.gz."
+msgstr ""
+"Els repositoris extra usen una URL base amb dists/<suite>/<component>/binary-"
+"amd64/Packages.gz."
 
 #: traduia-make-repo:198
+msgid ""
+"The tool probes <distro>, <distro>-updates and <distro>-security, and main/"
+"universe."
+msgstr ""
+"L'eina prova <distro>, <distro>-updates i <distro>-security, i main/universe."
+
+#: traduia-make-repo:199
 msgid "lliurex.net and Ubuntu are always used; the highest version wins."
 msgstr "lliurex.net i Ubuntu sempre hi són; guanya la versió màxima."
 
-#: traduia-make-repo:199
+#: traduia-make-repo:200
 msgid "Accepts http(s)://, file:// and local paths."
 msgstr "Accepta http(s)://, file:// i rutes locals."
 
-#: traduia-make-repo:201
+#: traduia-make-repo:202
 msgid "Output directory:"
 msgstr "Directori d'eixida:"
 
-#: traduia-make-repo:202
+#: traduia-make-repo:203
 msgid "Must be an ABSOLUTE path. These exact paths are rejected:"
 msgstr "Ha de ser una ruta ABSOLUTA. Es rebutgen exactament estes rutes:"
 
-#: traduia-make-repo:205
+#: traduia-make-repo:206
 msgid "Any path inside these trees is also rejected:"
 msgstr "També es rebutja qualsevol ruta dins d'estos arbres:"
 
-#: traduia-make-repo:207
+#: traduia-make-repo:208
 msgid ""
 "Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or /"
 "tmp/<dir> are fine."
-msgstr "Les rutes de dades com /srv/export/traduia, /media/<usuari>/<usb>, /opt/<app> o /tmp/<dir> són vàlides."
+msgstr ""
+"Les rutes de dades com /srv/export/traduia, /media/<usuari>/<usb>, /opt/"
+"<app> o /tmp/<dir> són vàlides."
 
-#: traduia-make-repo:209
+#: traduia-make-repo:210
 msgid ""
 "The repository includes debs/<distro>/Packages and Packages.gz, install-"
 "offline.sh and the package lists."
-msgstr "El repositori inclou debs/<distro>/Packages i Packages.gz, install-offline.sh i les llistes de paquets."
+msgstr ""
+"El repositori inclou debs/<distro>/Packages i Packages.gz, install-offline."
+"sh i les llistes de paquets."
 
-#: traduia-make-repo:228
+#: traduia-make-repo:229
 msgid "Skipping cleanup outside the output directory:"
 msgstr "S'omet la neteja fora del directori d'eixida:"
 
-#: traduia-make-repo:243
+#: traduia-make-repo:244
 msgid "Hashing files (sha256)..."
 msgstr "Calculant hash dels fitxers (sha256)..."
 
-#: traduia-make-repo:350
+#: traduia-make-repo:351
 msgid "Refusing to overwrite a symlink:"
 msgstr "Es rebutja sobreescriure un enllaç simbòlic:"
 
-#: traduia-make-repo:354 traduia-make-repo:692 traduia-make-repo:1138
+#: traduia-make-repo:355 traduia-make-repo:693 traduia-make-repo:1139
 msgid "Refusing to write outside output directory:"
 msgstr "Es rebutja escriure fora del directori d'eixida:"
 
-#: traduia-make-repo:713
+#: traduia-make-repo:714
 msgid "Downloading wheels for:"
 msgstr "Descarregant wheels per a:"
 
-#: traduia-make-repo:729 traduia-make-repo:751
+#: traduia-make-repo:730 traduia-make-repo:752
 msgid "Error downloading wheels for target:"
 msgstr "Error descarregant wheels per a l'objectiu:"
 
-#: traduia-make-repo:730 traduia-make-repo:752
+#: traduia-make-repo:731 traduia-make-repo:753
 msgid "pip output:"
 msgstr "Sortida de pip:"
 
-#: traduia-make-repo:760
+#: traduia-make-repo:761
 msgid ""
 "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
 "missing."
-msgstr "El repositori de wheels per a Python 3.10 està incomplet: falta el wheel d'exceptiongroup."
+msgstr ""
+"El repositori de wheels per a Python 3.10 està incomplet: falta el wheel "
+"d'exceptiongroup."
 
-#: traduia-make-repo:787
+#: traduia-make-repo:788
 msgid "Wheels ready in:"
 msgstr "Wheels llests a:"
 
-#: traduia-make-repo:795 traduia-make-repo:856 traduia-make-repo:936
-#: traduia-make-repo:948 traduia-make-repo:959 traduia-make-repo:971
+#: traduia-make-repo:796 traduia-make-repo:857 traduia-make-repo:937
+#: traduia-make-repo:949 traduia-make-repo:960 traduia-make-repo:972
 msgid "Option requires a value:"
 msgstr "L'opció requereix un valor:"
 
-#: traduia-make-repo:799 traduia-make-repo:859 traduia-make-repo:939
-#: traduia-make-repo:951 traduia-make-repo:962 traduia-make-repo:974
+#: traduia-make-repo:800 traduia-make-repo:860 traduia-make-repo:940
+#: traduia-make-repo:952 traduia-make-repo:963 traduia-make-repo:975
 msgid "Value cannot start with '-':"
 msgstr "El valor no pot començar per '-':"
 
-#: traduia-make-repo:848
+#: traduia-make-repo:849
 msgid "Only one action can be specified."
 msgstr "Només es pot indicar una acció."
 
-#: traduia-make-repo:981
+#: traduia-make-repo:982
 msgid "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble."
 msgstr ""
 "--debs-dir ha estat substituït per --debs-dir-jammy i --debs-dir-noble."
 
-#: traduia-make-repo:984
+#: traduia-make-repo:985
 msgid "Unknown option:"
 msgstr "Opció desconeguda:"
 
-#: traduia-make-repo:987
+#: traduia-make-repo:988
 msgid "Unexpected argument:"
 msgstr "Argument inesperat:"
 
-#: traduia-make-repo:988
+#: traduia-make-repo:989
 msgid "Positional arguments are not supported; use named options (see --help)."
-msgstr "No s'admeten arguments posicionals; usa opcions amb nom (veure --help)."
+msgstr ""
+"No s'admeten arguments posicionals; usa opcions amb nom (veure --help)."
 
-#: traduia-make-repo:994 traduia-make-repo:1737
+#: traduia-make-repo:995 traduia-make-repo:1738
 msgid "No action specified. Use --export, --fetch, --wheels, --debs or --full."
-msgstr "No s'ha indicat cap acció. Usa --export, --fetch, --wheels, --debs o --full."
+msgstr ""
+"No s'ha indicat cap acció. Usa --export, --fetch, --wheels, --debs o --full."
 
-#: traduia-make-repo:997
+#: traduia-make-repo:998
 msgid "--output-dir is required."
 msgstr "--output-dir és obligatori."
 
-#: traduia-make-repo:1002 traduia-make-repo:1008
+#: traduia-make-repo:1003 traduia-make-repo:1009
 msgid "--mode is required for --export and --fetch."
 msgstr "--mode és obligatori amb --export i --fetch."
 
-#: traduia-make-repo:1003
+#: traduia-make-repo:1004
 msgid "--models-dir is required for --export."
 msgstr "--models-dir és obligatori amb --export."
 
-#: traduia-make-repo:1004 traduia-make-repo:1005 traduia-make-repo:1011
-#: traduia-make-repo:1012 traduia-make-repo:1018 traduia-make-repo:1019
+#: traduia-make-repo:1005 traduia-make-repo:1006 traduia-make-repo:1012
+#: traduia-make-repo:1013 traduia-make-repo:1019 traduia-make-repo:1020
 msgid "Debs options are only valid with --debs and --full."
 msgstr "Les opcions de paquets només són vàlides amb --debs i --full."
 
-#: traduia-make-repo:1009 traduia-make-repo:1016 traduia-make-repo:1023
-#: traduia-make-repo:1028
+#: traduia-make-repo:1010 traduia-make-repo:1017 traduia-make-repo:1024
+#: traduia-make-repo:1029
 msgid "--models-dir is only valid with --export."
 msgstr "--models-dir només és vàlid amb --export."
 
-#: traduia-make-repo:1010 traduia-make-repo:1017 traduia-make-repo:1024
-#: traduia-make-repo:1029
+#: traduia-make-repo:1011 traduia-make-repo:1018 traduia-make-repo:1025
+#: traduia-make-repo:1030
 msgid "--copy is only valid with --export."
 msgstr "--copy només és vàlid amb --export."
 
-#: traduia-make-repo:1015 traduia-make-repo:1022 traduia-make-repo:1027
+#: traduia-make-repo:1016 traduia-make-repo:1023 traduia-make-repo:1028
 msgid "--mode is only valid with --export and --fetch."
 msgstr "--mode només és vàlid amb --export i --fetch."
 
-#: traduia-make-repo:1030
+#: traduia-make-repo:1031
 msgid "--distro is only valid with --debs."
 msgstr "--distro només és vàlid amb --debs."
 
-#: traduia-make-repo:1036
+#: traduia-make-repo:1037
 msgid "Error: mode must be 'ct2', 'marian' or 'all'."
 msgstr "Error: el mode ha de ser 'ct2', 'marian' o 'all'."
 
-#: traduia-make-repo:1040
+#: traduia-make-repo:1041
 msgid "Error: distribution must be 'jammy', 'noble' or 'all'."
 msgstr "Error: la distribució ha de ser 'jammy', 'noble' o 'all'."
 
-#: traduia-make-repo:1065
+#: traduia-make-repo:1066
 msgid "dpkg-scanpackages not found (install dpkg-dev)."
 msgstr "dpkg-scanpackages no trobat (instal·la dpkg-dev)."
 
-#: traduia-make-repo:1069
+#: traduia-make-repo:1070
 msgid "Could not generate the apt index in:"
 msgstr "No s'ha pogut generar l'índex apt a:"
 
-#: traduia-make-repo:1073
+#: traduia-make-repo:1074
 msgid "Apt index generated:"
 msgstr "Índex apt generat:"
 
-#: traduia-make-repo:1091
+#: traduia-make-repo:1092
 msgid "Offline repository helper not found:"
 msgstr "No s'ha trobat l'instal·lador offline del repositori:"
 
-#: traduia-make-repo:1123
+#: traduia-make-repo:1124
 msgid "Unsupported repository URL:"
 msgstr "URL de repositori no suportada:"
 
-#: traduia-make-repo:1134
+#: traduia-make-repo:1135
 msgid "Empty package list for:"
 msgstr "Llista de paquets buida per a:"
 
-#: traduia-make-repo:1142
+#: traduia-make-repo:1143
 msgid "Downloading system packages for:"
 msgstr "Descarregant els paquets del sistema per a:"
 
-#: traduia-make-repo:1385
+#: traduia-make-repo:1386
 msgid "Packages ready in:"
 msgstr "Paquets llests a:"
 
-#: traduia-make-repo:1400
+#: traduia-make-repo:1401
 msgid "Downloading models from HuggingFace..."
 msgstr "Descarregant models des de HuggingFace..."
 
-#: traduia-make-repo:1475
+#: traduia-make-repo:1476
 msgid "Fetch finished."
 msgstr "Descàrrega finalitzada."
 
-#: traduia-make-repo:1489 traduia-make-repo:1513 traduia-make-repo:1533
-#: traduia-make-repo:1559 traduia-make-repo:1729
+#: traduia-make-repo:1490 traduia-make-repo:1514 traduia-make-repo:1534
+#: traduia-make-repo:1560 traduia-make-repo:1730
 msgid "Repository ready:"
 msgstr "Repositori a punt:"
 
-#: traduia-make-repo:1510
+#: traduia-make-repo:1511
 msgid "Could not download the system packages (see the errors above)."
 msgstr ""
 "No s'han pogut descarregar els paquets del sistema (vegeu els errors "
 "anteriors)."
 
-#: traduia-make-repo:1520 traduia-make-repo:1545
+#: traduia-make-repo:1521 traduia-make-repo:1546
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
@@ -1226,7 +1245,7 @@ msgstr ""
 "Aquesta ordre requereix el paquet Python 'huggingface_hub' (pip install "
 "huggingface_hub)."
 
-#: traduia-make-repo:1530
+#: traduia-make-repo:1531
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
@@ -1234,11 +1253,11 @@ msgstr ""
 "La descàrrega ha acabat amb errors: pot ser que falten alguns models. Torneu "
 "a executar la mateixa ordre fetch per a reintentar-los."
 
-#: traduia-make-repo:1540
+#: traduia-make-repo:1541
 msgid "Building a fully offline repository:"
 msgstr "Generant un repositori totalment offline:"
 
-#: traduia-make-repo:1556
+#: traduia-make-repo:1557
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
@@ -1246,53 +1265,53 @@ msgstr ""
 "Repositori offline generat amb errors; torneu a executar el mateix "
 "comandament per a reintentar el que falta."
 
-#: traduia-make-repo:1568
+#: traduia-make-repo:1569
 msgid "Error: models directory does not exist:"
 msgstr "Error: el directori de models no existix:"
 
-#: traduia-make-repo:1638
+#: traduia-make-repo:1639
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: falten els fitxers requerits següents o estan buits:"
 
-#: traduia-make-repo:1642
+#: traduia-make-repo:1643
 msgid "Refusing to generate an incomplete repository."
 msgstr "Es rebutja generar un repositori incomplet."
 
-#: traduia-make-repo:1647
+#: traduia-make-repo:1648
 msgid "Assembling repository in:"
 msgstr "Muntant el repositori a:"
 
-#: traduia-make-repo:1655
+#: traduia-make-repo:1656
 msgid "Copying files (forced by --copy)..."
 msgstr "Copiant fitxers (forçat amb --copy)..."
 
-#: traduia-make-repo:1658
+#: traduia-make-repo:1659
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 "Origen i destinació estan en el mateix sistema de fitxers: s'usen hardlinks."
 
-#: traduia-make-repo:1661
+#: traduia-make-repo:1662
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 "Origen i destinació estan en sistemes de fitxers diferents: es copien els "
 "fitxers."
 
-#: traduia-make-repo:1675
+#: traduia-make-repo:1676
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ja present, s'omet la còpia."
 
-#: traduia-make-repo:1715
+#: traduia-make-repo:1716
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El conjunt {} del directori d'eixida sembla incomplet (falten alguns "
 "parells)."
 
-#: traduia-make-repo:1730
+#: traduia-make-repo:1731
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publiqueu-lo estàticament per HTTP o copieu-lo a un disc USB."
 
-#: traduia-make-repo:1732
+#: traduia-make-repo:1733
 msgid "Example rsync to a server:"
 msgstr "Exemple d'rsync a un servidor:"
 
