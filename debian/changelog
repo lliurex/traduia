@@ -1,3 +1,10 @@
+traduia (0.9.9.3) noble; urgency=medium
+
+  * Add --help and --version options to traduia-make-repo.
+  * Replace positional arguments with named options.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 20 Nov 2026 13:45:46 +0100
+
 traduia (0.9.9.2) noble; urgency=medium
 
   * Replace --debs-dir with --debs-dir-jammy and --debs-dir-noble.
