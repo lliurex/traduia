@@ -647,7 +647,7 @@ ask_piper() {
 }
 
 prepare_apt_env() {
-    local src tmp
+    local src tmp offline_list
     src="$(cat "$TRADUIA_SOURCE_FILE" 2>/dev/null || echo internet)"
     cleanup_apt_env
     if [ "$src" = "internet" ] || [ -z "$src" ]; then
@@ -663,6 +663,9 @@ prepare_apt_env() {
     if [ -d /etc/apt/sources.list.d ]; then
         cp -a /etc/apt/sources.list.d/. "$tmp/etc/apt/sources.list.d/" 2>/dev/null || :
     fi
+    # Reutiliza las listas del sistema si el refresco completo tarda o falla.
+    find /var/lib/apt/lists -maxdepth 1 -type f -name '*_*' \
+        -exec cp -a {} "$tmp/lists/" \; 2>/dev/null || :
     if [[ "$src" == http://* || "$src" == https://* ]]; then
         printf 'deb [trusted=yes] %s/debs/%s ./\n' "${src%/}" "$CODENAME" > "$tmp/etc/apt/sources.list.d/99-traduia-offline.list"
     else
@@ -670,9 +673,19 @@ prepare_apt_env() {
     fi
     echo "$tmp" > "$TRADUIA_APT_ENV"
     chown root:root "$TRADUIA_APT_ENV" 2>/dev/null || true
-    if ! run_apt update >/dev/null 2>&1; then
+    offline_list="$tmp/etc/apt/sources.list.d/99-traduia-offline.list"
+    echo "[INFO] $(_ "Updating apt indexes...")"
+    if ! run_apt -o "Dir::Etc::sourcelist=$offline_list" \
+                 -o "Dir::Etc::sourceparts=-" update; then
+        echo "[ERROR] $(_ "Could not update apt indexes.")" >&2
         cleanup_apt_env
         return 1
+    fi
+    # Refresco best-effort del resto de fuentes; el repo offline ya está listo.
+    export -f run_apt
+    export TRADUIA_APT_ENV
+    if ! timeout 30 bash -c 'run_apt update'; then
+        echo "[WARN] $(_ "Could not refresh all apt sources; continuing with the offline repository and the cached system lists.")" >&2
     fi
     return 0
 }
@@ -707,6 +720,10 @@ run_apt() {
                 -o "Dir::Cache=$d/cache" \
                 -o "Dir::Log=$d/log" \
                 -o "APT::Get::List-Cleanup=0" \
+                -o "Acquire::http::Timeout=5" \
+                -o "Acquire::https::Timeout=5" \
+                -o "Acquire::Retries=0" \
+                -o "Acquire::Languages=none" \
                 "$@"
             return $?
         fi
