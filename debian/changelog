@@ -1,3 +1,9 @@
+traduia (0.9.9.7) jammy; urgency=medium
+
+  * Keep unchanged packages when updating the offline repository.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 23 Nov 2026 15:39:12 +0100
+
 traduia (0.9.9.6) jammy; urgency=medium
 
   * Add timeouts, disable retries and translation downloads in the
