@@ -35,4 +35,8 @@ En cliente/servidor el modo y el origen USB ya quedan preconfigurados; en
 modelos quedan instalados y el sistema configurado, sin necesidad de
 Internet.
 
+> En el diálogo de origen USB de `traduia-config` puedes seleccionar
+> `manifest.json` o la carpeta del repositorio; también se acepta cualquier
+> fichero dentro del repo (por ejemplo `debs/<codename>/Packages`).
+
 Guía completa: [`howto-export-models.md`](howto-export-models.md).

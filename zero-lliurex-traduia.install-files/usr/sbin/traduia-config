@@ -222,11 +222,6 @@ function warn_unknown_manifest_paths() {
            | "  - " + .' "$1" >&2 2>/dev/null || true
 }
 
-# Comprueba si el manifest contiene entradas de un set ("ct2" | "marian").
-function repo_has_set() {
-    jq -e --arg set "$2/" '[.files[].path | startswith($set)] | any' "$1" >/dev/null 2>&1
-}
-
 # Directorio local (USB): existe, es legible y tiene manifest válido.
 function valid_repo_dir() {
     [ -d "$1" ] && [ -r "$1" ] && [ -f "$1/manifest.json" ] && valid_repo_manifest "$1/manifest.json"
@@ -504,104 +499,6 @@ ask_mode() {
     echo "$mode" > "$TRADUIA_MODE_FILE"
 }
 
-ask_source() {
-    # Pregunta de origen de modelos (solo si Server):
-    # Internet (siempre válido) / USB (directorio) / LAN (URL).
-    # El directorio/URL debe ser una exportación de repositorio de
-    # modelos (manifest.json con files[] y al menos un set ct2|marian).
-    # Si no es válido, se informa y se vuelve a pedir la ubicación.
-    # Cancelar en cualquier diálogo aborta la instalación.
-    SOURCE_TITLE=$(_ "Model source")
-    SOURCE_LABEL=$(_ "Where are the models taken from?")
-    SOURCE_INT=$(_ "Internet")
-    SOURCE_USB=$(_ "USB")
-    SOURCE_LAN=$(_ "LAN")
-    MODELS_SOURCE=""
-
-    while [ -z "$MODELS_SOURCE" ]; do
-        echo "[INFO] $(_ "Asking model source (Internet/USB/LAN)")"
-        selected=$(kdialog --title "$SOURCE_TITLE" --combobox "$SOURCE_LABEL" "$SOURCE_INT" "$SOURCE_USB" "$SOURCE_LAN")
-        ret=$?
-        if [ $ret -ne 0 ]; then
-            abort_install
-        fi
-        echo "[INFO] $(_ "Model source selected:") $selected"
-
-        if [ "$selected" == "$SOURCE_INT" ]; then
-            MODELS_SOURCE="internet"
-        elif [ "$selected" == "$SOURCE_USB" ]; then
-            # Bucle interno: si la ruta no es válida se informa y se
-            # vuelve a pedir la ubicación (no el combobox).
-            while [ -z "$MODELS_SOURCE" ]; do
-                echo "[INFO] $(_ "Asking models repository path (USB)")"
-                repo_path=$(kdialog --title "$(_ "Select the models repository manifest (USB):")" --getopenfilename / "*.json")
-                if [ $? -ne 0 ]; then
-                    abort_install
-                fi
-                # Normalización: sin barra final y, si el diálogo
-                # devolvió un fichero (p.ej. un fichero resaltado
-                # dentro del repo), se usa su directorio.
-                repo_path="${repo_path%/}"
-                if [ -n "$repo_path" ] && [ -f "$repo_path" ]; then
-                    repo_path="$(dirname "$repo_path")"
-                fi
-                if [ -n "$repo_path" ] && valid_repo_dir "$repo_path"; then
-                    echo "[INFO] $(_ "Valid models repository:") $repo_path"
-                    MODELS_SOURCE="$repo_path"
-                else
-                    kdialog --error "$(_ "The models repository is not valid:") $repo_path"
-                    echo "[WARN] $(_ "The models repository is not valid:") $repo_path" >&2
-                fi
-            done
-        elif [ "$selected" == "$SOURCE_LAN" ]; then
-            while [ -z "$MODELS_SOURCE" ]; do
-                echo "[INFO] $(_ "Asking models repository URL (LAN)")"
-                repo_url=$(kdialog --inputbox "$(_ "Models repository URL (LAN):")")
-                if [ $? -ne 0 ]; then
-                    abort_install
-                fi
-                if [ -n "$repo_url" ] && valid_repo_url "$repo_url"; then
-                    echo "[INFO] $(_ "Valid models repository:") $repo_url"
-                    MODELS_SOURCE="$repo_url"
-                else
-                    kdialog --error "$(_ "The models repository is not valid:") $repo_url"
-                    echo "[WARN] $(_ "The models repository is not valid:") $repo_url" >&2
-                fi
-            done
-        fi
-    done
-    # Guardamos el valor interno, no el traducido
-    echo "$MODELS_SOURCE" > "$TRADUIA_SOURCE_FILE"
-    chown root:root "$TRADUIA_SOURCE_FILE"
-
-    # Pregunta de optimización (última): con Internet se pregunta
-    # siempre; con USB/LAN se adapta al contenido real del repo
-    # (el manifest ya se ha validado). Cancelar aborta la instalación.
-    if [ "$MODELS_SOURCE" == "internet" ]; then
-        ask_optimization
-    else
-        if [[ "$MODELS_SOURCE" == http://* || "$MODELS_SOURCE" == https://* ]]; then
-            manifest_tmp="$(mktemp)"
-            curl -fsSL --connect-timeout 5 --max-time 10 -o "$manifest_tmp" "${MODELS_SOURCE%/}/manifest.json" 2>/dev/null
-        else
-            manifest_tmp="${MODELS_SOURCE%/}/manifest.json"
-        fi
-        if repo_has_set "$manifest_tmp" "ct2" && ! repo_has_set "$manifest_tmp" "marian"; then
-            # Solo CT2: se elige Optimized sin preguntar.
-            echo "optimized" > "$TRADUIA_OPTIMIZE_FILE"
-        elif repo_has_set "$manifest_tmp" "marian" && ! repo_has_set "$manifest_tmp" "ct2"; then
-            # Solo Marian: sin marcador.
-            true
-        else
-            # Ambos sets: se pregunta como con Internet.
-            ask_optimization
-        fi
-        if [[ "$MODELS_SOURCE" == http://* || "$MODELS_SOURCE" == https://* ]]; then
-            safe_rm_f "$TMP_BASE" "$manifest_tmp" || true
-        fi
-    fi
-}
-
 ask_optimization() {
     OPT_TITLE=$(_ "Model Optimization?")
     OPT_LABEL=$(_ "Optimization mode:")
@@ -634,6 +531,27 @@ valid_install_repo_dir() {
     return 0
 }
 
+# Resuelve la raíz del repositorio a partir de un fichero o directorio
+# seleccionado en el diálogo (p. ej. manifest.json, Packages o una
+# subcarpeta). Sube por los ancestros hasta encontrar debs/<codename>/Packages
+# y, en modo Server, un manifest válido.
+find_install_repo_root() {
+    local path="$1" dir
+    [ -n "$path" ] || return 1
+    path="$(realpath -m -- "$path" 2>/dev/null)" || return 1
+    dir="$path"
+    [ -f "$dir" ] && dir="$(dirname -- "$dir")"
+    while [ -n "$dir" ]; do
+        if valid_install_repo_dir "$dir"; then
+            printf '%s\n' "$dir"
+            return 0
+        fi
+        [ "$dir" = "/" ] && break
+        dir="$(dirname -- "$dir")"
+    done
+    return 1
+}
+
 valid_install_repo_url() {
     local url="${1%/}"
     [ -n "$url" ] || return 1
@@ -645,6 +563,7 @@ valid_install_repo_url() {
 }
 
 ask_install_source() {
+    local repo_title repo_filter selected_path repo_path
     SOURCE_TITLE=$(_ "Installation source")
     SOURCE_LABEL=$(_ "Where are the packages and models taken from?")
     SOURCE_INT=$(_ "Internet")
@@ -662,18 +581,24 @@ ask_install_source() {
         if [ "$selected" == "$SOURCE_INT" ]; then
             INSTALL_SOURCE="internet"
         elif [ "$selected" == "$SOURCE_USB" ]; then
+            if [ "$mode" == "Server" ]; then
+                repo_title=$(_ "Select manifest.json or the repository folder (USB):")
+                repo_filter="*.json"
+            else
+                repo_title=$(_ "Select the repository folder or a file inside it (USB):")
+                repo_filter="*"
+            fi
             while [ -z "$INSTALL_SOURCE" ]; do
                 echo "[INFO] $(_ "Asking offline repository path (USB)")"
-                repo_path=$(kdialog --title "$(_ "Select the offline repository (USB):")" --getexistingdirectory /)
+                selected_path=$(kdialog --title "$repo_title" --getopenfilename / "$repo_filter")
                 if [ $? -ne 0 ]; then
                     abort_install
                 fi
-                repo_path="${repo_path%/}"
-                if valid_install_repo_dir "$repo_path"; then
+                if repo_path="$(find_install_repo_root "$selected_path")"; then
                     INSTALL_SOURCE="$repo_path"
                 else
-                    kdialog --error "$(_ "The repository is not valid:") $repo_path"
-                    echo "[WARN] $(_ "The repository is not valid:") $repo_path" >&2
+                    kdialog --error "$(_ "The repository is not valid:") $selected_path"
+                    echo "[WARN] $(_ "The repository is not valid:") $selected_path" >&2
                 fi
             done
         elif [ "$selected" == "$SOURCE_LAN" ]; then
