@@ -5,7 +5,6 @@ shift
 PACKAGE_LIST="$*"
 
 TRADUIA_CONFIG="/usr/sbin/traduia-config"
-PIPER_SCRIPT="/usr/share/zero-lliurex-piper-tts-server/piper-tts-server_script"
 
 has_pkg() {
     [[ " $PACKAGE_LIST " == *" $1 "* ]]
@@ -17,23 +16,6 @@ pkg_installed() {
 
 warn() {
     echo "[WARN] $*" >&2
-}
-
-install_traduia() {
-    LANG=C LANGUAGE=en DEBIAN_FRONTEND=noninteractive \
-        apt-get install --reinstall --allow-downgrades --yes traduia
-}
-
-install_piper() {
-    if pkg_installed piper-tts-server; then
-        return 0
-    fi
-    if ! apt-cache show piper-tts-server >/dev/null 2>&1; then
-        warn "piper-tts-server is not available; skipping Piper installation"
-        return 1
-    fi
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -y piper-tts-server
 }
 
 case "$ACTION" in
@@ -57,71 +39,39 @@ case "$ACTION" in
         exit 0
         ;;
     installPackage)
-        rc=0
-        traduia_selected=false
-        piper_selected=false
-        for pkg in "$@"; do
-            case "$pkg" in
-                traduia) traduia_selected=true ;;
-                piper-tts-server) piper_selected=true ;;
-            esac
-        done
-        if $traduia_selected; then
-            install_traduia || rc=1
-        fi
-        if $piper_selected; then
-            if ! install_piper; then
-                warn "Piper installation failed or was skipped"
-                if ! $traduia_selected; then
-                    rc=1
-                fi
-            fi
-        fi
-        exit $rc
-        ;;
-    postInstall)
-        rc=0
         if has_pkg traduia; then
             if [ -x "$TRADUIA_CONFIG" ]; then
-                "$TRADUIA_CONFIG" postinstall || rc=1
-            else
-                warn "traduia-config not found; skipping postinstall"
+                "$TRADUIA_CONFIG" install-package traduia
+                exit $?
             fi
+            warn "traduia-config not found; installing traduia with apt"
+            LANG=C LANGUAGE=en DEBIAN_FRONTEND=noninteractive \
+                apt-get install --reinstall --allow-downgrades --yes traduia
+            exit $?
         fi
-        exit $rc
+        exit 0
+        ;;
+    postInstall)
+        if has_pkg traduia; then
+            if [ -x "$TRADUIA_CONFIG" ]; then
+                "$TRADUIA_CONFIG" postinstall
+                exit $?
+            fi
+            warn "traduia-config not found; skipping postinstall"
+        fi
+        exit 0
         ;;
     remove)
-        rc=0
-        traduia_selected=false
-        piper_selected=false
-        for pkg in "$@"; do
-            case "$pkg" in
-                traduia) traduia_selected=true ;;
-                piper-tts-server) piper_selected=true ;;
-            esac
-        done
-        if $traduia_selected; then
+        if has_pkg traduia; then
             if [ -x "$TRADUIA_CONFIG" ]; then
-                "$TRADUIA_CONFIG" remove || rc=1
-            else
-                warn "traduia-config not found; skipping TraduIA removal"
+                "$TRADUIA_CONFIG" remove
+                exit $?
             fi
+            warn "traduia-config not found; removing traduia with apt"
+            DEBIAN_FRONTEND=noninteractive apt-get remove -y traduia
+            exit $?
         fi
-        if $piper_selected; then
-            if [ -x "$PIPER_SCRIPT" ]; then
-                "$PIPER_SCRIPT" remove piper-tts-server || {
-                    warn "Piper removal failed"
-                    if ! $traduia_selected; then rc=1; fi
-                }
-            elif pkg_installed piper-tts-server; then
-                DEBIAN_FRONTEND=noninteractive \
-                    apt-get remove -y piper-tts-server || {
-                        warn "Piper removal failed"
-                        if ! $traduia_selected; then rc=1; fi
-                    }
-            fi
-        fi
-        exit $rc
+        exit 0
         ;;
     *)
         exit 1

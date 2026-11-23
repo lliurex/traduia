@@ -38,7 +38,7 @@ export TEXTDOMAINDIR="/usr/share/locale"
 
 # Función para simplificar la llamada a gettext
 _() {
-    gettext "$1"
+    gettext -- "$1"
 }
 
 # kdialog con stderr silenciado: los frameworks KDE ensucian la consola
@@ -122,7 +122,8 @@ fi
 # marcadores temporales para que el reintento empiece limpio.
 function abort_install() {
     echo "[INFO] $(_ "Installation cancelled")"
-    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" || true
+    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_PIPER_FILE" "$TRADUIA_APT_ENV" || true
+    cleanup_apt_env || true
     exit 1
 }
 
@@ -144,6 +145,9 @@ TRADUIA_SKIP_METAS_CHECK="${TRADUIA_SKIP_METAS_CHECK:-0}"
 TRADUIA_MODE_FILE="${TMP_BASE}/.traduia_install_mode"
 TRADUIA_SOURCE_FILE="${TMP_BASE}/.traduia_models_source"
 TRADUIA_OPTIMIZE_FILE="${TMP_BASE}/.traduia_optimize_model"
+TRADUIA_PIPER_FILE="${TMP_BASE}/.traduia_install_piper"
+TRADUIA_APT_ENV="${TMP_BASE}/.traduia_apt_env"
+CODENAME="$(. /etc/os-release 2>/dev/null; echo "${VERSION_CODENAME:-}")"
 
 # Marcador persistente del modo de instalación (Server/Client)
 TRADUIA_MODE_FLAG="/opt/ai/traduia/.mode"
@@ -617,15 +621,264 @@ ask_optimization() {
 }
 
 # =========================================================
+# Origen único de instalación y Piper
+# =========================================================
+
+valid_install_repo_dir() {
+    local repo="${1%/}"
+    [ -n "$repo" ] && [ -d "$repo" ] || return 1
+    [ -r "$repo/debs/$CODENAME/Packages" ] || return 1
+    if [ "$mode" == "Server" ]; then
+        valid_repo_dir "$repo" || return 1
+    fi
+    return 0
+}
+
+valid_install_repo_url() {
+    local url="${1%/}"
+    [ -n "$url" ] || return 1
+    curl -fsSL --connect-timeout 5 --max-time 10 -o /dev/null "$url/debs/$CODENAME/Packages" 2>/dev/null || return 1
+    if [ "$mode" == "Server" ]; then
+        valid_repo_url "$url" || return 1
+    fi
+    return 0
+}
+
+ask_install_source() {
+    SOURCE_TITLE=$(_ "Installation source")
+    SOURCE_LABEL=$(_ "Where are the packages and models taken from?")
+    SOURCE_INT=$(_ "Internet")
+    SOURCE_USB=$(_ "USB")
+    SOURCE_LAN=$(_ "LAN")
+    INSTALL_SOURCE=""
+
+    while [ -z "$INSTALL_SOURCE" ]; do
+        echo "[INFO] $(_ "Asking installation source (Internet/USB/LAN)")"
+        selected=$(kdialog --title "$SOURCE_TITLE" --combobox "$SOURCE_LABEL" "$SOURCE_INT" "$SOURCE_USB" "$SOURCE_LAN")
+        ret=$?
+        if [ $ret -ne 0 ]; then
+            abort_install
+        fi
+        if [ "$selected" == "$SOURCE_INT" ]; then
+            INSTALL_SOURCE="internet"
+        elif [ "$selected" == "$SOURCE_USB" ]; then
+            while [ -z "$INSTALL_SOURCE" ]; do
+                echo "[INFO] $(_ "Asking offline repository path (USB)")"
+                repo_path=$(kdialog --title "$(_ "Select the offline repository (USB):")" --getexistingdirectory /)
+                if [ $? -ne 0 ]; then
+                    abort_install
+                fi
+                repo_path="${repo_path%/}"
+                if valid_install_repo_dir "$repo_path"; then
+                    INSTALL_SOURCE="$repo_path"
+                else
+                    kdialog --error "$(_ "The repository is not valid:") $repo_path"
+                    echo "[WARN] $(_ "The repository is not valid:") $repo_path" >&2
+                fi
+            done
+        elif [ "$selected" == "$SOURCE_LAN" ]; then
+            while [ -z "$INSTALL_SOURCE" ]; do
+                echo "[INFO] $(_ "Asking offline repository URL (LAN)")"
+                repo_url=$(kdialog --inputbox "$(_ "Offline repository URL (LAN):")")
+                if [ $? -ne 0 ]; then
+                    abort_install
+                fi
+                repo_url="${repo_url%/}"
+                if valid_install_repo_url "$repo_url"; then
+                    INSTALL_SOURCE="$repo_url"
+                else
+                    kdialog --error "$(_ "The repository is not valid:") $repo_url"
+                    echo "[WARN] $(_ "The repository is not valid:") $repo_url" >&2
+                fi
+            done
+        fi
+    done
+    echo "$INSTALL_SOURCE" > "$TRADUIA_SOURCE_FILE"
+    chown root:root "$TRADUIA_SOURCE_FILE" 2>/dev/null || true
+    echo "[INFO] $(_ "Installation source selected:") $INSTALL_SOURCE"
+}
+
+ask_piper() {
+    if dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
+        echo "no" > "$TRADUIA_PIPER_FILE"
+        chown root:root "$TRADUIA_PIPER_FILE" 2>/dev/null || true
+        echo "[INFO] $(_ "Piper is already installed; keeping the current voices.")"
+        return 0
+    fi
+    YES_LABEL=$(_ "Yes")
+    NO_LABEL=$(_ "No")
+    echo "[INFO] $(_ "Asking whether to install Piper")"
+    selected=$(kdialog --title "$(_ "Piper TTS")" --combobox "$(_ "Install Piper TTS?")" "$NO_LABEL" "$YES_LABEL")
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        abort_install
+    fi
+    if [ "$selected" == "$YES_LABEL" ]; then
+        echo "yes" > "$TRADUIA_PIPER_FILE"
+    else
+        echo "no" > "$TRADUIA_PIPER_FILE"
+    fi
+    chown root:root "$TRADUIA_PIPER_FILE" 2>/dev/null || true
+}
+
+prepare_apt_env() {
+    local src tmp
+    src="$(cat "$TRADUIA_SOURCE_FILE" 2>/dev/null || echo internet)"
+    cleanup_apt_env
+    if [ "$src" = "internet" ] || [ -z "$src" ]; then
+        return 0
+    fi
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/traduia-apt.XXXXXX")" || return 1
+    mkdir -p "$tmp/etc/apt/sources.list.d" \
+             "$tmp/etc/apt/preferences.d" \
+             "$tmp/lists/partial" \
+             "$tmp/cache/archives/partial" \
+             "$tmp/log"
+    cp -a /etc/apt/sources.list "$tmp/etc/apt/sources.list" 2>/dev/null || :
+    if [ -d /etc/apt/sources.list.d ]; then
+        cp -a /etc/apt/sources.list.d/. "$tmp/etc/apt/sources.list.d/" 2>/dev/null || :
+    fi
+    if [[ "$src" == http://* || "$src" == https://* ]]; then
+        printf 'deb [trusted=yes] %s/debs/%s ./\n' "${src%/}" "$CODENAME" > "$tmp/etc/apt/sources.list.d/99-traduia-offline.list"
+    else
+        printf 'deb [trusted=yes] file:%s/debs/%s ./\n' "${src%/}" "$CODENAME" > "$tmp/etc/apt/sources.list.d/99-traduia-offline.list"
+    fi
+    echo "$tmp" > "$TRADUIA_APT_ENV"
+    chown root:root "$TRADUIA_APT_ENV" 2>/dev/null || true
+    if ! run_apt update >/dev/null 2>&1; then
+        cleanup_apt_env
+        return 1
+    fi
+    return 0
+}
+
+cleanup_apt_env() {
+    local d
+    if [ -f "$TRADUIA_APT_ENV" ]; then
+        d="$(cat "$TRADUIA_APT_ENV" 2>/dev/null || true)"
+        if [ -n "$d" ] && [ -d "$d" ]; then
+            safe_rm_rf "$TMP_BASE" "$d" || rm -rf -- "$d" 2>/dev/null || true
+        fi
+        safe_rm_f "$TMP_BASE" "$TRADUIA_APT_ENV" || true
+    fi
+}
+
+run_apt() {
+    local d
+    if [ -f "$TRADUIA_APT_ENV" ]; then
+        d="$(cat "$TRADUIA_APT_ENV" 2>/dev/null || true)"
+        if [ -n "$d" ] && [ -d "$d" ]; then
+            apt-get \
+                -o "Dir::Etc=$d/etc/apt" \
+                -o "Dir::Etc::sourcelist=$d/etc/apt/sources.list" \
+                -o "Dir::Etc::sourceparts=$d/etc/apt/sources.list.d" \
+                -o "Dir::Etc::trusted=/etc/apt/trusted.gpg" \
+                -o "Dir::Etc::trustedparts=/etc/apt/trusted.gpg.d" \
+                -o "Dir::Etc::main=/etc/apt/apt.conf" \
+                -o "Dir::Etc::parts=/etc/apt/apt.conf.d" \
+                -o "Dir::Etc::preferences=/etc/apt/preferences" \
+                -o "Dir::Etc::preferencesparts=/etc/apt/preferences.d" \
+                -o "Dir::State::lists=$d/lists" \
+                -o "Dir::Cache=$d/cache" \
+                -o "Dir::Log=$d/log" \
+                -o "APT::Get::List-Cleanup=0" \
+                "$@"
+            return $?
+        fi
+    fi
+    apt-get "$@"
+}
+
+install_traduia_from_source() {
+    echo "$(_ "Installing traduia package")"
+    if ! run_apt install -y --reinstall --allow-downgrades traduia; then
+        echo "[ERROR] $(_ "Failed to install traduia package")" >&2
+        return 1
+    fi
+    return 0
+}
+
+install_piper_all_voices() {
+    local piper_state src list tmp_list v
+    piper_state="$(cat "$TRADUIA_PIPER_FILE" 2>/dev/null || echo no)"
+    [ "$piper_state" = "yes" ] || return 0
+    if dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
+        echo "[INFO] $(_ "Piper is already installed; keeping the current voices.")"
+        return 0
+    fi
+    src="$(cat "$TRADUIA_SOURCE_FILE" 2>/dev/null || echo internet)"
+    if [ "$src" = "internet" ] || [ -z "$src" ]; then
+        echo "$(_ "Installing Piper TTS and all voices...")"
+        run_apt install -y piper-tts-server || return 1
+        return 0
+    fi
+    list="$src/debs-$CODENAME.txt"
+    tmp_list=""
+    if [[ "$src" == http://* || "$src" == https://* ]]; then
+        tmp_list="$(mktemp)"
+        if ! curl -fsSL --connect-timeout 5 --max-time 10 -o "$tmp_list" "$list" 2>/dev/null; then
+            echo "[WARN] $(_ "Could not download the package list from:") $list" >&2
+            safe_rm_f "$TMP_BASE" "$tmp_list" || true
+            tmp_list=""
+        fi
+        list="$tmp_list"
+    fi
+    local voices=()
+    if [ -n "$list" ] && [ -r "$list" ]; then
+        mapfile -t voices < <(grep '^piper-tts-voices-' "$list" | sed 's/[[:space:]]//g' | sed '/^$/d')
+    fi
+    echo "$(_ "Installing Piper TTS and all voices...")"
+    if ! run_apt install -y --no-install-recommends piper-tts-server; then
+        [ -n "$tmp_list" ] && safe_rm_f "$TMP_BASE" "$tmp_list" || true
+        return 1
+    fi
+    for v in "${voices[@]}"; do
+        if ! run_apt install -y "$v"; then
+            echo "[WARN] $(_ "Could not install voice:") $v" >&2
+        fi
+    done
+    [ -n "$tmp_list" ] && safe_rm_f "$TMP_BASE" "$tmp_list" || true
+    return 0
+}
+
+# =========================================================
 # Operaciones
 # =========================================================
 
 do_preinstall() {
     require_root
+    case "${CLI_MODE:-}" in
+        ""|Client|Server) ;;
+        *) echo "[ERROR] $(_ "Invalid mode:") $CLI_MODE" >&2; return 1 ;;
+    esac
+    case "${CLI_PIPER:-}" in
+        ""|yes|no) ;;
+        *) echo "[ERROR] $(_ "Invalid Piper value:") $CLI_PIPER" >&2; return 1 ;;
+    esac
+    [ -n "${CLI_MODE:-}" ] && echo "$CLI_MODE" > "$TRADUIA_MODE_FILE"
+    [ -n "${CLI_SOURCE:-}" ] && echo "$CLI_SOURCE" > "$TRADUIA_SOURCE_FILE"
+    [ -n "${CLI_PIPER:-}" ] && echo "$CLI_PIPER" > "$TRADUIA_PIPER_FILE"
+
     ask_mode
-    if [ "$mode" == "Server" ]; then
-        ask_source
+    if [ ! -f "$TRADUIA_SOURCE_FILE" ]; then
+        ask_install_source
+    elif [ -n "${CLI_SOURCE:-}" ] && [ "$CLI_SOURCE" != "internet" ]; then
+        if ! valid_install_repo_dir "$CLI_SOURCE" && ! valid_install_repo_url "$CLI_SOURCE"; then
+            echo "[ERROR] $(_ "The repository is not valid:") $CLI_SOURCE" >&2
+            return 1
+        fi
     fi
+    if [ ! -f "$TRADUIA_PIPER_FILE" ]; then
+        ask_piper
+    fi
+    if [ "$mode" == "Server" ] && [ ! -f "$TRADUIA_OPTIMIZE_FILE" ]; then
+        ask_optimization
+    fi
+    if ! prepare_apt_env; then
+        echo "[ERROR] $(_ "Could not prepare the package source.")" >&2
+        return 1
+    fi
+    return 0
 }
 
 do_postinstall() {
@@ -633,31 +886,10 @@ do_postinstall() {
     local models_failed=false
     mode=$(cat "$TRADUIA_MODE_FILE" 2>/dev/null)
 
+    install_piper_all_voices || echo "[WARN] $(_ "Could not install Piper TTS or all its voices; continuing.")" >&2
+
     if [ "$mode" == "Client" ] && ! dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
         echo "[WARN] $(_ "Client mode: piper-tts-server is not installed; TTS may not work.")" >&2
-    fi
-
-    # ==== Override del paquete con el deb del repositorio (USB/LAN) ====
-    # En el ciclo de zero-center el apt del paquete ya lo ha realizado el
-    # script superior entre preInstall y postInstall. Si el origen es
-    # USB/LAN y el repositorio incluye un deb de traduia con versión
-    # superior o IGUAL a la instalada, se instala ese fichero para
-    # sobreescribir la instalación (misma versión con build distinta
-    # incluida). Un fallo aquí no es crítico: el paquete base ya está
-    # instalado. Solo aplica en modo Server (un cliente no tiene origen).
-    if [ -n "$mode" ] && [ "$mode" == "Server" ] && [ -f "$TRADUIA_SOURCE_FILE" ]; then
-        local src installed
-        src="$(cat "$TRADUIA_SOURCE_FILE")"
-        if [ -n "$src" ] && [ "$src" != "internet" ] && find_repo_traduia_deb "$src"; then
-            installed="$(dpkg-query -W -f='${Version}' traduia 2>/dev/null)"
-            if deb_is_newer_or_equal "$REPO_DEB_VER" "$installed"; then
-                echo "[INFO] $(_ "Using repository deb:") $REPO_DEB_PATH"
-                if ! apt-get install -y "$REPO_DEB_PATH" >/dev/null 2>&1; then
-                    echo "[WARN] $(_ "Failed to install repository deb:") $REPO_DEB_PATH" >&2
-                fi
-            fi
-            if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$REPO_DEB_PATH" || true; fi
-        fi
     fi
 
     # ==== Exclusivo del modo Server: modelos + escritorio ====
@@ -733,7 +965,8 @@ do_postinstall() {
         fi
     fi
     # Los marcadores se consumen siempre.
-    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_SOURCE_FILE" || true || true
+    cleanup_apt_env || true
+    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_PIPER_FILE" "$TRADUIA_APT_ENV" || true
 
     # Estado de zero-center: instalación completada. El retorno no es
     # crítico para el resultado de la instalación.
@@ -746,47 +979,44 @@ do_postinstall() {
 
 do_install() {
     require_root
-    do_preinstall
-    # Si el origen es USB/LAN y el repositorio incluye un deb de traduia
-    # con versión superior o IGUAL a la disponible por apt (Candidate), se
-    # instala ese fichero en lugar de descargar por internet. Sin marcador
-    # de origen, origen internet o versión menor, se usa apt como siempre.
-    local repo_deb="" ref=""
-    if [ -f "$TRADUIA_SOURCE_FILE" ]; then
-        local src
-        src="$(cat "$TRADUIA_SOURCE_FILE")"
-        if [ -n "$src" ] && [ "$src" != "internet" ] && find_repo_traduia_deb "$src"; then
-            ref="$(apt-cache policy traduia 2>/dev/null | awk '/^  Candidate:/{print $2}')"
-            [ "$ref" = "(none)" ] && ref=""
-            if deb_is_newer_or_equal "$REPO_DEB_VER" "$ref"; then
-                repo_deb="$REPO_DEB_PATH"
-            else
-                if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$REPO_DEB_PATH" || true; fi
-            fi
-        fi
+    do_preinstall || exit 1
+    install_traduia_from_source || { cleanup_apt_env || true; exit 1; }
+    do_postinstall
+}
+
+do_install_package() {
+    require_root
+    install_traduia_from_source
+}
+
+do_configure() {
+    require_root
+    if [ -n "${CLI_MODE:-}" ]; then echo "$CLI_MODE" > "$TRADUIA_MODE_FILE"; fi
+    if [ -n "${CLI_SOURCE:-}" ]; then echo "$CLI_SOURCE" > "$TRADUIA_SOURCE_FILE"; fi
+    if [ -n "${CLI_PIPER:-}" ]; then echo "$CLI_PIPER" > "$TRADUIA_PIPER_FILE"; fi
+    if [ ! -f "$TRADUIA_MODE_FILE" ] || [ ! -f "$TRADUIA_SOURCE_FILE" ]; then
+        echo "[ERROR] $(_ "configure requires --mode and --source.")" >&2
+        return 1
     fi
-    echo "$(_ "Installing traduia package")"
-    if [ -n "$repo_deb" ]; then
-        echo "[INFO] $(_ "Using repository deb:") $repo_deb"
-        if ! apt-get install -y "$repo_deb"; then
-            echo "[ERROR] $(_ "Failed to install traduia package")" >&2
-            safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" || true
-            if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$repo_deb" || true; fi
-            exit 1
-        fi
-        # El deb temporal descargado de LAN se limpia tras instalar.
-        if [ "$REPO_DEB_TMP" = "1" ]; then safe_rm_f "$TMP_BASE" "$repo_deb" || true; fi
-    elif ! apt-get install -y traduia; then
-        echo "[ERROR] $(_ "Failed to install traduia package")" >&2
-        safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" || true
-        exit 1
-    fi
+    prepare_apt_env || true
     do_postinstall
 }
 
 do_remove() {
     require_root
-    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" || true || true
+    REMOVE_PIPER=false
+    if dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
+        KEEP_LABEL=$(_ "Keep")
+        DELETE_LABEL=$(_ "Delete")
+        echo "[INFO] $(_ "Asking remove Piper")"
+        selected=$(kdialog --title "$(_ "Remove Piper TTS?")" --combobox "$(_ "Do you want to remove Piper TTS and its voices?")" "$KEEP_LABEL" "$DELETE_LABEL")
+        ret=$?
+        if [ $ret -eq 0 ] && [ "$selected" == "$DELETE_LABEL" ]; then
+            REMOVE_PIPER=true
+        fi
+    fi
+    cleanup_apt_env || true
+    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_PIPER_FILE" "$TRADUIA_APT_ENV" || true
     safe_rm_f "$TRADUIA_DATA_BASE" "$TRADUIA_MODE_FLAG" || true
 
     # Solo se pregunta sobre los modelos si existen en disco.
@@ -830,6 +1060,13 @@ do_remove() {
         fi
         # Estado de zero-center: paquete eliminado. El retorno no es crítico.
         zero_center_set set-non-configured zero-lliurex-traduia
+    fi
+
+    if [ "$REMOVE_PIPER" = "true" ]; then
+        local voices
+        voices="$(dpkg-query -W -f='${Package} ${Status}\n' 'piper-tts-voices-*' 2>/dev/null | awk '$0 ~ /install ok installed/ {print $1}')"
+        echo "$(_ "Removing Piper TTS and voices...")"
+        apt-get remove -y piper-tts-server $voices || true
     fi
 }
 
@@ -922,12 +1159,17 @@ show_help() {
     echo ""
     echo "$(_ "  (no parameters)  interactive: detects the traduia package and offers")"
     echo "$(_ "                    Install or Remove (only Install if not installed)")"
-    echo "$(_ "  install           preinstall + apt-get install traduia + postinstall")"
-    echo "$(_ "  remove            ask about models + apt-get remove + cleanup")"
-    echo "$(_ "  preinstall        Q&A (mode/source/optimization) + markers (zero-center)")"
-    echo "$(_ "  postinstall       model download + web entries (zero-center)")"
+    echo "$(_ "  install           preinstall + install traduia + postinstall")"
+    echo "$(_ "  install-package   install traduia using the prepared source")"
+    echo "$(_ "  configure         configure mode/source/Piper after packages are installed")"
+    echo "$(_ "  remove            ask about models/Piper + apt-get remove + cleanup")"
+    echo "$(_ "  preinstall        Q&A (mode/source/Piper/optimization) + markers")"
+    echo "$(_ "  postinstall       Piper/models + web entries (zero-center)")"
     echo "$(_ "  status            web entries status")"
     echo "$(_ "  validate <dir|url>  quick models repository validation")"
+    echo "$(_ "  --mode <Client|Server>  installation mode")"
+    echo "$(_ "  --source <internet|path|url>  packages and models source")"
+    echo "$(_ "  --piper / --no-piper   install Piper TTS or not")"
     echo "$(_ "  --disable-meta-checks  skip the LliureX metas check (web entries)")"
     echo "$(_ "  help              this help")"
 }
@@ -940,14 +1182,63 @@ show_help() {
 # de metas y fuerza la configuración de las entradas web de Firefox; la
 # entrada Ainur sigue limitada al modo Server).
 ARGS=()
+ORIG_ARGS=("$@")
 META_SKIP_CLI=false
-for arg in "$@"; do
-    if [ "$arg" == "--disable-meta-checks" ]; then
-        META_SKIP_CLI=true
-    else
-        ARGS+=("$arg")
-    fi
+CLI_MODE=""
+CLI_SOURCE=""
+CLI_PIPER=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --disable-meta-checks)
+            META_SKIP_CLI=true
+            shift
+            ;;
+        --mode)
+            if [ "$#" -lt 2 ]; then
+                echo "[ERROR] $(_ "Option requires a value:") --mode <Client|Server>" >&2
+                exit 1
+            fi
+            CLI_MODE="$2"
+            shift 2
+            ;;
+        --mode=*)
+            CLI_MODE="${1#*=}"
+            shift
+            ;;
+        --source)
+            if [ "$#" -lt 2 ]; then
+                echo "[ERROR] $(_ "Option requires a value:") --source <internet|path|url>" >&2
+                exit 1
+            fi
+            CLI_SOURCE="$2"
+            shift 2
+            ;;
+        --source=*)
+            CLI_SOURCE="${1#*=}"
+            shift
+            ;;
+        --piper)
+            CLI_PIPER="yes"
+            shift
+            ;;
+        --no-piper)
+            CLI_PIPER="no"
+            shift
+            ;;
+        *)
+            ARGS+=("$1")
+            shift
+            ;;
+    esac
 done
+case "${CLI_MODE:-}" in
+    ""|Client|Server) ;;
+    *) echo "[ERROR] $(_ "Invalid mode:") $CLI_MODE" >&2; exit 1 ;;
+esac
+case "${CLI_PIPER:-}" in
+    ""|yes|no) ;;
+    *) echo "[ERROR] $(_ "Invalid Piper value:") $CLI_PIPER" >&2; exit 1 ;;
+esac
 if [ "$META_SKIP_CLI" = "true" ]; then
     TRADUIA_SKIP_METAS_CHECK=1
     echo "[INFO] $(_ "LliureX metas check disabled (--disable-meta-checks)")"
@@ -962,7 +1253,7 @@ fi
 TRADUIA_CONFIG_LOG="${TRADUIA_CONFIG_LOG:-/var/log/traduia-install.log}"
 if touch "$TRADUIA_CONFIG_LOG" 2>/dev/null; then
     printf 'Starting traduia-config (%s) at %s\n' \
-        "$*" "$(date '+%d/%m/%Y %H:%M:%S')" >>"$TRADUIA_CONFIG_LOG"
+        "${ORIG_ARGS[*]}" "$(date '+%d/%m/%Y %H:%M:%S')" >>"$TRADUIA_CONFIG_LOG"
     exec > >(tee -a "$TRADUIA_CONFIG_LOG") 2>&1
     # install-models-traduia (hijo) no debe tee-ear también: la salida
     # del hijo ya queda capturada por este tee (evita doble escritura).
@@ -972,6 +1263,8 @@ fi
 case "${ARGS[0]:-}" in
     "")            interactive_main ;;
     install)       do_install ;;
+    install-package) do_install_package ;;
+    configure)     do_configure ;;
     remove)        do_remove ;;
     preinstall)    do_preinstall ;;
     postinstall)   do_postinstall ;;

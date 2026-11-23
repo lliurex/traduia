@@ -104,9 +104,12 @@ TraduIA **no permite elegir voces**: si instala Piper, instala todas. Para elegi
 ## 5. Resumen rápido
 
 - Instalador de Piper: servidor obligatorio + voces opcionales.
-- Instalador de TraduIA: TraduIA marcado por defecto; Piper opcional.
+- Instalador de TraduIA: solo instala TraduIA; la pregunta de Piper y las
+  voces se hace desde `traduia-config`.
 - Si TraduIA instala Piper, instala todas las voces.
 - Si Piper ya existe, TraduIA no añade voces.
+- El instalador offline pregunta Piper y, si se acepta, instala todas las
+  voces.
 - Al eliminar Piper, se puede decidir si se eliminan también las voces.
 - Las voces pueden sobrevivir a la desinstalación de Piper, pero no funcionan sin él.
 
@@ -118,17 +121,23 @@ voces, ONNX y dependencias estáticas), el índice apt local
 (`Packages`/`Packages.gz`) y el instalador `install-offline.sh`.
 
 ```bash
-sudo ./install-offline.sh --server   # solo TraduIA
-sudo ./install-offline.sh --client   # TraduIA + Piper + voces
+sudo ./install-offline.sh --client --with-piper
+sudo ./install-offline.sh --server --without-piper
 sudo ./install-offline.sh --all
-sudo ./install-offline.sh --piper
 ```
 
+- Menú interactivo: TraduIA cliente / TraduIA servidor / Todo con todas las
+  voces. En cliente/servidor se pregunta si instalar Piper; si se acepta, se
+  instalan todas las voces.
 - El instalador usa un entorno apt temporal en `/tmp` con los repositorios
   del sistema y el repo local al final.
 - No modifica `/etc/apt`, `/var/lib/apt/lists` ni `/var/cache/apt`.
-- Solo instala paquetes; después hay que ejecutar `sudo traduia-config install`
-  (o usar zero-center).
+- Al terminar avisa y ofrece ejecutar `traduia-config`. En cliente/servidor
+  el modo y el origen USB quedan preconfigurados; en “Todo con todas las
+  voces”, `traduia-config` pregunta modo y origen.
+- `--with-piper` / `--without-piper` y `--run-config` / `--no-run-config`
+  permiten el modo no interactivo con `--yes`. `--configure` es alias de
+  `--run-config`.
 - Si se instala manualmente/offline, el estado N4D de TraduIA queda sin
   configurar hasta `traduia-config` o el instalador de zero-center. Piper no
   usa estado (`Service=False`).

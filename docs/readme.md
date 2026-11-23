@@ -19,16 +19,20 @@ En el equipo destino (jammy o noble):
 
 Elegir:
 
-- **Servidor** si solo se instala TraduIA.
-- **Cliente** si se instala TraduIA + Piper + voces.
+- **TraduIA cliente** o **TraduIA servidor**.
+- **Todo con todas las voces**.
+- En cliente/servidor se pregunta si instalar Piper; si se acepta, se
+  instalan todas las voces.
 
 El instalador usa un entorno apt temporal en `/tmp` y no modifica
-`/etc/apt` ni los repositorios del sistema. Después, configurar TraduIA:
+`/etc/apt` ni los repositorios del sistema. Al terminar avisa y ofrece
+ejecutar `traduia-config`:
 
-    sudo traduia-config install
+    sudo traduia-config
 
-En el asistente: modo **Servidor** o **Cliente**, origen **USB** y
-seleccionar `/media/usuario/USB/traduia`. Los modelos quedan instalados y
-el sistema configurado, sin necesidad de Internet.
+En cliente/servidor el modo y el origen USB ya quedan preconfigurados; en
+“Todo con todas las voces”, `traduia-config` pregunta modo y origen. Los
+modelos quedan instalados y el sistema configurado, sin necesidad de
+Internet.
 
 Guía completa: [`howto-export-models.md`](howto-export-models.md).
