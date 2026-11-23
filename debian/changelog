@@ -1,3 +1,10 @@
+traduia (0.9.9.5) noble; urgency=medium
+
+  * Allow selecting the manifest file or the repository folder in the
+    offline repository dialog.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 23 Nov 2026 13:39:12 +0100
+
 traduia (0.9.9.4) noble; urgency=medium
 
   * Add a single installation source and optional Piper installation to
