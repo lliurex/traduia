@@ -1,3 +1,11 @@
+traduia (0.9.9.4) noble; urgency=medium
+
+  * Add a single installation source and optional Piper installation to
+    traduia-config.
+  * Redesign the offline installer menu.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 23 Nov 2026 12:24:12 +0100
+
 traduia (0.9.9.3) noble; urgency=medium
 
   * Add --help and --version options to traduia-make-repo.
