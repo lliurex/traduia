@@ -1176,6 +1176,31 @@ def safe_join(base, name):
     return target
 
 
+def existing_matches(path, info):
+    if not os.path.isfile(path):
+        return False
+    try:
+        if info.get("size") and str(os.path.getsize(path)) != str(info["size"]):
+            return False
+    except OSError:
+        return False
+    if info.get("sha256"):
+        h = hashlib.sha256()
+        try:
+            with open(path, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    h.update(chunk)
+        except OSError:
+            return False
+        return h.hexdigest() == info["sha256"]
+    if info.get("local"):
+        try:
+            return os.path.getsize(path) == os.path.getsize(info["local"])
+        except OSError:
+            return False
+    return True
+
+
 def fetch(url):
     req = urllib.request.Request(url, headers={"User-Agent": "traduia-make-repo"})
     with urllib.request.urlopen(req, timeout=60) as resp:
@@ -1322,15 +1347,8 @@ if not best:
     print("[ERROR] None of the packages were found in the configured sources.", file=sys.stderr)
     sys.exit(1)
 
-# Refresco: se vacia el subdirectorio de esta distro.
-for name in os.listdir(debs_dir):
-    if name.endswith(".deb"):
-        try:
-            os.remove(safe_join(real_debs, name))
-        except (OSError, ValueError):
-            pass
-
 failed = False
+selected = set()
 for pkg in packages:
     if pkg not in best:
         print(f"[ERROR] Package not found in the configured sources: {pkg}", file=sys.stderr)
@@ -1348,9 +1366,14 @@ for pkg in packages:
         print(f"[ERROR] Refusing to write outside debs dir: {fname}", file=sys.stderr)
         failed = True
         continue
+    if existing_matches(dest, info):
+        print(f"[debs] Keeping {pkg} {info['version']} -> {dest}")
+        selected.add(os.path.basename(dest))
+        continue
     if info["local"]:
         print(f"[debs] Using local {pkg} {info['version']} -> {dest}")
         shutil.copy2(info["local"], dest)
+        selected.add(os.path.basename(dest))
         continue
     deb_url = info.get("url", "")
     if not deb_url:
@@ -1376,6 +1399,15 @@ for pkg in packages:
             continue
     with open(dest, "wb") as fh:
         fh.write(data)
+    selected.add(os.path.basename(dest))
+
+if not failed:
+    for name in os.listdir(debs_dir):
+        if name.endswith(".deb") and name not in selected:
+            try:
+                os.remove(safe_join(real_debs, name))
+            except (OSError, ValueError):
+                pass
 
 sys.exit(1 if failed else 0)
 PY
