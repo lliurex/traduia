@@ -10,15 +10,6 @@
         "ca@valencia": "TraduIA: Sistema de traducció en temps real"
       },
       "default_pkg": true
-    },
-    {
-      "name": "piper-tts-server",
-      "custom_icon": "piper-tts-server.png",
-      "custom_name": {
-        "en": "Piper TTS server",
-        "es": "Servidor Piper TTS",
-        "ca@valencia": "Servidor Piper TTS"
-      }
     }
   ],
   "selection_enabled": {
