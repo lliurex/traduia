@@ -8,18 +8,16 @@
 # temporal.
 #
 # Uso:
-#   sudo ./install-offline.sh [--server|--client|--all|--piper|--core]
-#                             [--configure] [--yes]
+#   sudo ./install-offline.sh [--client|--server|--all]
+#                             [--with-piper|--without-piper]
+#                             [--run-config|--no-run-config] [--yes]
 #
 # Modos:
-#   --server   TraduIA + instaladores zero-center (sin servidor Piper)
-#   --client   TraduIA + Piper + voces + dependencias
-#   --all      Todo lo anterior
-#   --piper    Solo Piper y sus dependencias
-#   --core     Solo instaladores zero-center
+#   --client   TraduIA cliente
+#   --server   TraduIA servidor
+#   --all      Todo con todas las voces
 #
-# Sin modo muestra un menú. --configure ejecuta traduia-config install al
-# finalizar (opcional; por defecto solo se instalan paquetes).
+# Sin modo muestra un menú interactivo.
 set -uo pipefail
 
 umask 022
@@ -31,7 +29,8 @@ LIST_FILE="$SCRIPT_DIR/debs-$CODENAME.txt"
 PACKAGES_FILE="$DEBS_DIR/Packages"
 
 MODE=""
-CONFIGURE=false
+PIPER="ask"          # ask | yes | no
+RUN_CONFIG="ask"     # ask | yes | no
 ASSUME_YES=false
 
 usage() {
@@ -42,14 +41,16 @@ Instala paquetes desde el repositorio offline de este directorio usando un
 entorno apt temporal en /tmp. No modifica los repositorios del sistema.
 
 Opciones:
-  --server      TraduIA + instaladores zero-center (sin Piper)
-  --client      TraduIA + Piper + voces + dependencias
-  --all         Todo
-  --piper       Solo Piper y sus dependencias
-  --core        Solo instaladores zero-center
-  --configure   Ejecutar traduia-config install al terminar
-  --yes, -y     No pedir confirmación (requiere modo)
-  --help, -h    Esta ayuda
+  --client              TraduIA cliente
+  --server              TraduIA servidor
+  --all                 Todo con todas las voces
+  --with-piper          Instalar Piper TTS y todas las voces
+  --without-piper       No instalar Piper TTS
+  --run-config          Ejecutar traduia-config al terminar
+  --no-run-config       No ejecutar traduia-config
+  --configure           Alias de --run-config
+  --yes, -y             No pedir confirmación (requiere modo)
+  --help, -h            Esta ayuda
 
 Sin modo se muestra un menú interactivo.
 EOF
@@ -66,11 +67,20 @@ warn() {
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --server|--client|--all|--piper|--core)
+        --server|--client|--all)
             MODE="${1#--}"
             ;;
-        --configure)
-            CONFIGURE=true
+        --with-piper)
+            PIPER="yes"
+            ;;
+        --without-piper)
+            PIPER="no"
+            ;;
+        --run-config|--configure)
+            RUN_CONFIG="yes"
+            ;;
+        --no-run-config)
+            RUN_CONFIG="no"
             ;;
         --yes|-y)
             ASSUME_YES=true
@@ -99,33 +109,67 @@ if [ ! -d "$DEBS_DIR" ]; then
     die "No existe el repositorio de paquetes: $DEBS_DIR"
 fi
 
-if [ -z "$MODE" ]; then
-    if $ASSUME_YES; then
-        die "Con --yes es necesario indicar un modo (--server, --client, --all, --piper o --core)."
-    fi
-    cat <<EOF
+# Menú principal con opción Atrás desde la pregunta de Piper.
+while true; do
+    if [ -z "$MODE" ]; then
+        if $ASSUME_YES; then
+            die "Con --yes es necesario indicar --client, --server o --all."
+        fi
+        cat <<EOF
 === Instalación offline de TraduIA ===
 Repositorio: $SCRIPT_DIR
 Distribución: $CODENAME
 
 ¿Qué quieres instalar?
-  1) TraduIA en modo servidor (sin Piper)
-  2) TraduIA en modo cliente (con Piper y voces)
-  3) Todo
-  4) Solo Piper
-  5) Solo instaladores zero-center
-  6) Salir
+  1) TraduIA cliente
+  2) TraduIA servidor
+  3) Todo con todas las voces
+  0) Salir
 EOF
-    read -r -p "Opción [1]: " option
-    case "${option:-1}" in
-        1) MODE="server" ;;
-        2) MODE="client" ;;
-        3) MODE="all" ;;
-        4) MODE="piper" ;;
-        5) MODE="core" ;;
-        6) exit 0 ;;
-        *) die "Opción no válida: $option" ;;
-    esac
+        read -r -p "Opción [1]: " option
+        case "${option:-1}" in
+            1) MODE="client" ;;
+            2) MODE="server" ;;
+            3) MODE="all" ;;
+            0) exit 0 ;;
+            *) echo "[ERROR] Opción no válida: $option" >&2; continue ;;
+        esac
+    fi
+
+    if [ "$MODE" = "all" ]; then
+        PIPER="yes"
+        break
+    fi
+
+    if [ "$PIPER" = "ask" ]; then
+        if $ASSUME_YES; then
+            PIPER="no"
+            warn "Con --yes y sin --with-piper/--without-piper se asume --without-piper."
+            break
+        fi
+        cat <<EOF
+
+¿Instalar Piper TTS?
+  1) Sí (todas las voces)
+  2) No
+  9) Atrás
+  0) Salir
+EOF
+        read -r -p "Opción [1]: " option
+        case "${option:-1}" in
+            1) PIPER="yes"; break ;;
+            2) PIPER="no"; break ;;
+            9) MODE=""; continue ;;
+            0) exit 0 ;;
+            *) echo "[ERROR] Opción no válida: $option" >&2; continue ;;
+        esac
+    fi
+    break
+done
+
+if $ASSUME_YES && [ "$RUN_CONFIG" = "ask" ]; then
+    RUN_CONFIG="no"
+    warn "Con --yes y sin --run-config/--no-run-config no se ejecutará traduia-config."
 fi
 
 # Lista de paquetes del repositorio (solo nombres).
@@ -148,31 +192,20 @@ fi
 # Selección según modo.
 SELECTED=()
 case "$MODE" in
-    server)
+    client|server)
         SELECTED=(traduia zero-lliurex-traduia zero-lliurex-piper-tts-server)
-        ;;
-    core)
-        SELECTED=(zero-lliurex-traduia zero-lliurex-piper-tts-server)
-        ;;
-    client|all)
-        SELECTED=("${LIST_PKGS[@]}")
-        ;;
-    piper)
-        for pkg in "${LIST_PKGS[@]}"; do
-            case "$pkg" in
-                traduia|zero-lliurex-traduia) ;;
-                *) SELECTED+=("$pkg") ;;
-            esac
-        done
-        if [ "${#SELECTED[@]}" -eq 0 ]; then
-            SELECTED=(
-                zero-lliurex-piper-tts-server piper-tts piper-tts-server
-                piper-tts-voices-ar piper-tts-voices-ca piper-tts-voices-de
-                piper-tts-voices-en piper-tts-voices-es piper-tts-voices-fr
-                piper-tts-voices-it piper-tts-voices-ru
-                python3-onnxruntime libonnxruntime1.23 libonnxruntime-providers
-            )
+        if [ "$PIPER" = "yes" ]; then
+            for pkg in "${LIST_PKGS[@]}"; do
+                case "$pkg" in
+                    piper-tts|piper-tts-server|piper-tts-voices-*|python3-onnxruntime|libonnxruntime1.23|libonnxruntime-providers)
+                        SELECTED+=("$pkg")
+                        ;;
+                esac
+            done
         fi
+        ;;
+    all)
+        SELECTED=("${LIST_PKGS[@]}")
         ;;
     *)
         die "Modo no válido: $MODE"
@@ -301,15 +334,29 @@ echo "[INFO] Paquetes instalados."
 echo "[INFO] No se han añadido repositorios persistentes al sistema."
 echo ""
 echo "Siguiente paso:"
-echo "  sudo traduia-config install"
+echo "  sudo traduia-config"
 echo ""
 echo "  (o abre zero-center y usa el instalador de TraduIA)"
 echo ""
 
-if $CONFIGURE; then
-    if [ -x /usr/sbin/traduia-config ]; then
-        /usr/sbin/traduia-config install
-    else
+if [ "$RUN_CONFIG" = "ask" ]; then
+    read -r -p "¿Ejecutar traduia-config ahora? [S/n]: " ans
+    case "${ans:-s}" in
+        s|S|y|Y) RUN_CONFIG="yes" ;;
+        *) RUN_CONFIG="no" ;;
+    esac
+fi
+
+if [ "$RUN_CONFIG" = "yes" ]; then
+    if [ ! -x /usr/sbin/traduia-config ]; then
         warn "traduia-config no está disponible; no se puede configurar automáticamente."
+    elif [ "$MODE" = "all" ]; then
+        /usr/sbin/traduia-config
+    else
+        mode_label="Client"
+        [ "$MODE" = "server" ] && mode_label="Server"
+        piper_flag="--no-piper"
+        [ "$PIPER" = "yes" ] && piper_flag="--piper"
+        /usr/sbin/traduia-config configure --mode "$mode_label" --source "$SCRIPT_DIR" "$piper_flag"
     fi
 fi
