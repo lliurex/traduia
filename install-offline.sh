@@ -313,6 +313,7 @@ APT_OPTS=(
     -o "Acquire::http::Timeout=5"
     -o "Acquire::https::Timeout=5"
     -o "Acquire::Retries=0"
+    -o "Acquire::Languages=none"
 )
 
 echo "[INFO] Actualizando índices apt temporales..."
