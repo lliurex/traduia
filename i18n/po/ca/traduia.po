@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 13:56+0100\n"
+"POT-Creation-Date: 2026-11-20 23:17+0100\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -473,6 +473,7 @@ msgid "OK"
 msgstr "OK"
 
 #: traduia:13 install-models-traduia:8 traduia-make-repo:12
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:41
 msgid "--"
 msgstr ""
 
@@ -1108,6 +1109,8 @@ msgstr "Wheels llests a:"
 
 #: traduia-make-repo:796 traduia-make-repo:857 traduia-make-repo:937
 #: traduia-make-repo:949 traduia-make-repo:960 traduia-make-repo:972
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1198
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1210
 msgid "Option requires a value:"
 msgstr "L'opció requereix un valor:"
 
@@ -1352,11 +1355,11 @@ msgstr "Ha fallat l'actualització d'estat de zero-center"
 msgid "Installation cancelled"
 msgstr "Instal·lació cancel·lada"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:132
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:133
 msgid "This command must be run as root"
 msgstr "Este comandament s'ha d'executar com a root"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:215
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:219
 msgid ""
 "manifest.json contains unexpected paths outside known prefixes; they will be "
 "ignored"
@@ -1364,357 +1367,511 @@ msgstr ""
 "manifest.json conté rutes inesperades fora dels prefixos coneguts; "
 "s'ignoraran"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:361
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:376
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:414
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:365
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:380
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:418
 msgid "cards file processing failed:"
 msgstr "ha fallat el processament del fitxer de targetes:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:369
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:445
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:373
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:449
 msgid "icon not found:"
 msgstr "no es troba la icona:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:378
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:416
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:382
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:420
 msgid "cards file not found:"
 msgstr "no es troba el fitxer de targetes:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:391
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:395
 msgid "Metas check skipped (TRADUIA_SKIP_METAS_CHECK=1)"
 msgstr "Validació de metes omesa (TRADUIA_SKIP_METAS_CHECK=1)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:396
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:400
 msgid "Checking LliureX meta:"
 msgstr "Comprovant meta de LliureX:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:399
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:403
 msgid "LliureX metas found:"
 msgstr "Metes de LliureX trobades:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:402
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:406
 msgid "LliureX meta not installed:"
 msgstr "Meta de LliureX no instal·lada:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:404
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:408
 msgid "Skipping web entries: no LliureX metas installed"
 msgstr "Ometent les entrades web: no hi ha metes de LliureX instal·lades"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:480
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:484
 msgid "Client"
 msgstr "Client"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:481
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:485
 msgid "Server"
 msgstr "Servidor"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:484
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:488
 msgid "Asking install mode"
 msgstr "Preguntant mode d'instal·lació"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:485
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:489
 msgid "Mode selector"
 msgstr "Selector de mode"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:485
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:489
 msgid "Install mode:"
 msgstr "Mode d'instal·lació:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:497
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:501
 msgid "Install mode selected:"
 msgstr "Mode d'instal·lació seleccionat:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:510
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:514
 msgid "Model source"
 msgstr "Origen dels models"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:511
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:515
 msgid "Where are the models taken from?"
 msgstr "D'on es prenen els models?"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:512
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:516
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:650
 msgid "Internet"
 msgstr "Internet"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:513
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:517
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:651
 msgid "USB"
 msgstr "USB"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:514
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:518
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:652
 msgid "LAN"
 msgstr "LAN"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:518
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:522
 msgid "Asking model source (Internet/USB/LAN)"
 msgstr "Preguntant origen dels models (Internet/USB/LAN)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:524
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:528
 msgid "Model source selected:"
 msgstr "Origen dels models seleccionat:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:532
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:536
 msgid "Asking models repository path (USB)"
 msgstr "Preguntant ruta del repositori de models (USB)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:533
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:537
 msgid "Select the models repository manifest (USB):"
 msgstr "Selecciona el manifest.json del repositori de models (USB):"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:545
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:560
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:871
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:877
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:549
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:564
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1108
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1114
 msgid "Valid models repository:"
 msgstr "Repositori de models vàlid:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:548
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:549
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:563
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:564
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:882
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:552
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:553
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:567
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:568
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1119
 msgid "The models repository is not valid:"
 msgstr "El repositori de models no és vàlid:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:554
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:558
 msgid "Asking models repository URL (LAN)"
 msgstr "Preguntant URL del repositori de models (LAN)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:555
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:559
 msgid "Models repository URL (LAN):"
 msgstr "URL del repositori de models (LAN):"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:602
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:606
 msgid "Model Optimization?"
 msgstr "Optimització de model?"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:603
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:607
 msgid "Optimization mode:"
 msgstr "Mode d'optimització:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:604
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:608
 msgid "Marian"
 msgstr "Marian"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:605
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:609
 msgid "Optimized (experimental)"
 msgstr "Optimitzat (experimental)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:607
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:611
 msgid "Asking optimization mode"
 msgstr "Preguntant mode d'optimització"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:613
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:617
 msgid "Optimization mode selected:"
 msgstr "Mode d'optimització seleccionat:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:637
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:648
+msgid "Installation source"
+msgstr "Origen d'instal·lació"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:649
+msgid "Where are the packages and models taken from?"
+msgstr "D'on s'instal·len els paquets i els models?"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:656
+msgid "Asking installation source (Internet/USB/LAN)"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:666
+msgid "Asking offline repository path (USB)"
+msgstr "Preguntant la ruta del repositori offline (USB)"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:667
+msgid "Select the offline repository (USB):"
+msgstr "Selecciona el repositori offline (USB):"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:675
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:676
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:690
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:691
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:867
+msgid "The repository is not valid:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:681
+msgid "Asking offline repository URL (LAN)"
+msgstr "Preguntant la URL del repositori offline (LAN)"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:682
+msgid "Offline repository URL (LAN):"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:698
+msgid "Installation source selected:"
+msgstr "Origen d'instal·lació seleccionat:"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:705
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:806
+msgid "Piper is already installed; keeping the current voices."
+msgstr "Piper ja està instal·lat; es conserven les veus actuals."
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:708
+msgid "Yes"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:709
+msgid "No"
+msgstr "No"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:710
+msgid "Asking whether to install Piper"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:711
+msgid "Piper TTS"
+msgstr "Piper TTS"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:711
+msgid "Install Piper TTS?"
+msgstr "Voleu instal·lar Piper TTS?"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:793
+msgid "Installing traduia package"
+msgstr "Instal·lant el paquet traduia"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:795
+msgid "Failed to install traduia package"
+msgstr "Ha fallat la instal·lació del paquet traduia"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:811
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:830
+msgid "Installing Piper TTS and all voices..."
+msgstr "Instal·lant Piper TTS i totes les veus..."
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:820
+msgid "Could not download the package list from:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:837
+msgid "Could not install voice:"
+msgstr ""
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:852
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1236
+msgid "Invalid mode:"
+msgstr "Mode no vàlid:"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:856
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1240
+msgid "Invalid Piper value:"
+msgstr "Valor de Piper no vàlid:"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:878
+msgid "Could not prepare the package source."
+msgstr "No s'ha pogut preparar l'origen dels paquets."
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:889
+msgid "Could not install Piper TTS or all its voices; continuing."
+msgstr "No s'ha pogut instal·lar Piper TTS o totes les veus; es continua."
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:892
 msgid "Client mode: piper-tts-server is not installed; TTS may not work."
 msgstr ""
 "Mode client: piper-tts-server no està instal·lat; la lectura en veu alta pot "
 "no funcionar."
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:654
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:770
-msgid "Using repository deb:"
-msgstr "Usant el paquet del repositori:"
-
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:656
-msgid "Failed to install repository deb:"
-msgstr "Error en instal·lar el paquet del repositori:"
-
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:666
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:898
 msgid "install-models-traduia not found; skipping model installation"
 msgstr "install-models-traduia no trobat; s'omet la instal·lació de models"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:669
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:901
 msgid "Downloading models..."
 msgstr "Descarregant models..."
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:702
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:934
 msgid "Setting server desktop"
 msgstr "Configurant l'escriptori del servidor"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:723
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:955
 msgid "Configuring lliurex-firefox-settings entry"
 msgstr "Configurant l'entrada de lliurex-firefox-settings"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:727
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:959
 msgid "Configuring Ainur (lliurex-www) entry"
 msgstr "Configurant l'entrada d'Ainur (lliurex-www)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:730
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:962
 msgid "Skipping Ainur entry: lliurex-www not installed"
 msgstr "Ometent l'entrada d'Ainur: lliurex-www no està instal·lat"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:768
-msgid "Installing traduia package"
-msgstr "Instal·lant el paquet traduia"
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:998
+msgid "configure requires --mode and --source."
+msgstr "configure requereix --mode i --source."
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:772
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:780
-msgid "Failed to install traduia package"
-msgstr "Ha fallat la instal·lació del paquet traduia"
-
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:795
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1009
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1025
 msgid "Keep"
 msgstr "Conservar"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:796
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1010
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1026
 msgid "Delete"
 msgstr "Eliminar"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:797
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1011
+msgid "Asking remove Piper"
+msgstr "Preguntant si s'elimina Piper"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1012
+msgid "Remove Piper TTS?"
+msgstr "Voleu eliminar Piper TTS?"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1012
+msgid "Do you want to remove Piper TTS and its voices?"
+msgstr "Voleu eliminar Piper TTS i les seues veus?"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1027
 msgid "Asking remove models"
 msgstr "Preguntant eliminació de models"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:798
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1028
 msgid "Remove models?"
 msgstr "¿Eliminar models?"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:798
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1028
 msgid "Do you want to delete the downloaded models?"
 msgstr "¿Voleu eliminar els models descarregats?"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:805
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1035
 msgid "Removing traduia package"
 msgstr "Eliminant el paquet traduia"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:810
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:825
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1040
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1055
 msgid "Removing lliurex-firefox-settings entry"
 msgstr "Eliminant l'entrada de lliurex-firefox-settings"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:813
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:828
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1043
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1058
 msgid "Removing Ainur (lliurex-www) entry"
 msgstr "Eliminant l'entrada d'Ainur (lliurex-www)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:816
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1046
 msgid "Failed to remove traduia package"
 msgstr "Ha fallat l'eliminació del paquet traduia"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:837
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1068
+msgid "Removing Piper TTS and voices..."
+msgstr "Eliminant Piper TTS i les veus..."
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1074
 msgid "lliurex-firefox-settings entry:"
 msgstr "Entrada de lliurex-firefox-settings:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:841
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1078
 msgid "Traduia card present:"
 msgstr "Targeta Traduia present:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:845
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1082
 msgid "Traduia card not present"
 msgstr "Targeta Traduia no present"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:848
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1085
 msgid "cards.js not found:"
 msgstr "cards.js no trobat:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:851
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1088
 msgid "Ainur (lliurex-www) entry:"
 msgstr "Entrada d'Ainur (lliurex-www):"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:853
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1090
 msgid "Entry present:"
 msgstr "Entrada present:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:856
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1093
 msgid "Entry not present:"
 msgstr "Entrada no present:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:863
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1100
 msgid "validate requires a directory or URL"
 msgstr "validate requerix un directori o una URL"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:891
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1128
 msgid "TraduIA package detected"
 msgstr "Paquet TraduIA detectat"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:893
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1130
 msgid "TraduIA package not detected"
 msgstr "Paquet TraduIA no detectat"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:896
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1133
 msgid "Install"
 msgstr "Instal·lar"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:897
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1134
 msgid "Remove"
 msgstr "Eliminar"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:898
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1135
 msgid "Asking operation"
 msgstr "Preguntant operació"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:900
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:902
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1137
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1139
 msgid "TraduIA configuration"
 msgstr "Configuració de TraduIA"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:900
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:902
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1137
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1139
 msgid "What do you want to do?"
 msgstr "Què vols fer?"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:908
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1145
 msgid "Operation selected:"
 msgstr "Operació seleccionada:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:915
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1152
 msgid "Unknown operation:"
 msgstr "Operació desconeguda:"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:921
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1158
 msgid "Usage: traduia-config [command] [--disable-meta-checks]"
 msgstr "Ús: traduia-config [comandament] [--disable-meta-checks]"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:923
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1160
 msgid "  (no parameters)  interactive: detects the traduia package and offers"
 msgstr "  (sense paràmetres)  interactiu: detecta el paquet traduia i oferix"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:924
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1161
 msgid "                    Install or Remove (only Install if not installed)"
 msgstr ""
 "                    Instal·lar o Eliminar (només Instal·lar si no està "
 "instal·lat)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:925
-msgid "  install           preinstall + apt-get install traduia + postinstall"
-msgstr "  install           preinstall + apt-get install traduia + postinstall"
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1162
+msgid "  install           preinstall + install traduia + postinstall"
+msgstr "  install           preinstall + instal·la traduia + postinstall"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:926
-msgid "  remove            ask about models + apt-get remove + cleanup"
-msgstr "  remove            pregunta de models + apt-get remove + neteja"
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1163
+msgid "  install-package   install traduia using the prepared source"
+msgstr "  install-package   instal·la traduia amb l'origen preparat"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:927
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1164
 msgid ""
-"  preinstall        Q&A (mode/source/optimization) + markers (zero-center)"
-msgstr ""
-"  preinstall        Q&A (mode/origen/optimització) + marcadors (zero-center)"
+"  configure         configure mode/source/Piper after packages are installed"
+msgstr "  configure         configura mode/origen/Piper després d'instal·lar els paquets"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:928
-msgid "  postinstall       model download + web entries (zero-center)"
-msgstr "  postinstall       descàrrega de models + entrades web (zero-center)"
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1165
+msgid "  remove            ask about models/Piper + apt-get remove + cleanup"
+msgstr "  remove            pregunta per models/Piper + apt-get remove + neteja"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:929
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1166
+msgid "  preinstall        Q&A (mode/source/Piper/optimization) + markers"
+msgstr "  preinstall        preguntes (mode/origen/Piper/optimització) + marcadors"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1167
+msgid "  postinstall       Piper/models + web entries (zero-center)"
+msgstr "  postinstall       Piper/models + entrades web (zero-center)"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1168
 msgid "  status            web entries status"
 msgstr "  status            estat de les entrades web"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:930
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1169
 msgid "  validate <dir|url>  quick models repository validation"
 msgstr "  validate <dir|url>  validació ràpida de repositori de models"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:931
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1170
+msgid "  --mode <Client|Server>  installation mode"
+msgstr "  --mode <Client|Server>  mode d'instal·lació"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1171
+msgid "  --source <internet|path|url>  packages and models source"
+msgstr "  --source <internet|path|url>  origen de paquets i models"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1172
+msgid "  --piper / --no-piper   install Piper TTS or not"
+msgstr "  --piper / --no-piper   instal·la Piper TTS o no"
+
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1173
 msgid "  --disable-meta-checks  skip the LliureX metas check (web entries)"
 msgstr ""
 "  --disable-meta-checks  omet la comprovació de metes LliureX (entrades web)"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:932
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1174
 msgid "  help              this help"
 msgstr "  help              esta ajuda"
 
-#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:953
+#: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1244
 msgid "LliureX metas check disabled (--disable-meta-checks)"
 msgstr "Comprovació de metes LliureX desactivada (--disable-meta-checks)"
+
+#~ msgid "Using repository deb:"
+#~ msgstr "Usant el paquet del repositori:"
+
+#~ msgid "Failed to install repository deb:"
+#~ msgstr "Error en instal·lar el paquet del repositori:"
+
+#~ msgid ""
+#~ "  install           preinstall + apt-get install traduia + postinstall"
+#~ msgstr ""
+#~ "  install           preinstall + apt-get install traduia + postinstall"
+
+#~ msgid "  remove            ask about models + apt-get remove + cleanup"
+#~ msgstr "  remove            pregunta de models + apt-get remove + neteja"
+
+#~ msgid ""
+#~ "  preinstall        Q&A (mode/source/optimization) + markers (zero-center)"
+#~ msgstr ""
+#~ "  preinstall        Q&A (mode/origen/optimització) + marcadors (zero-"
+#~ "center)"
+
+#~ msgid "  postinstall       model download + web entries (zero-center)"
+#~ msgstr ""
+#~ "  postinstall       descàrrega de models + entrades web (zero-center)"
 
 #~ msgid ""
 #~ "Generates a static manifest.json (with size+sha256) for a TraduIA model "
@@ -1834,9 +1991,6 @@ msgstr "Comprovació de metes LliureX desactivada (--disable-meta-checks)"
 
 #~ msgid "Supported languages: en, fr, de, ru, ar, uk, ro, it"
 #~ msgstr "Idiomes suportats: en, fr, de, ru, ar, uk, ro, it"
-
-#~ msgid "No"
-#~ msgstr "No"
 
 #~ msgid "The server will shut down due to inactivity. Do you want to extend?"
 #~ msgstr "El servidor s'apagarà per inactivitat. Voleu estendre'l?"
