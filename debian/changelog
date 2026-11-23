@@ -1,3 +1,10 @@
+traduia (0.9.9.6) jammy; urgency=medium
+
+  * Add timeouts, disable retries and translation downloads in the
+    temporary apt environment.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Mon, 23 Nov 2026 14:24:12 +0100
+
 traduia (0.9.9.5) jammy; urgency=medium
 
   * Allow selecting the manifest file or the repository folder in the
