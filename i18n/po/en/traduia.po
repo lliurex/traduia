@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-24 13:30+0100\n"
+"POT-Creation-Date: 2026-11-24 14:19+0100\n"
 "PO-Revision-Date: 2026-05-08 17:54+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -1507,11 +1507,9 @@ msgstr "Piper TTS (TextToSpeech)"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:636
 msgid ""
-"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it "
-"with all voices?"
+"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it?"
 msgstr ""
-"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it "
-"with all voices?"
+"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it?"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:677
 msgid "Updating apt indexes..."
