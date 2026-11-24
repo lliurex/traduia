@@ -627,13 +627,13 @@ ask_piper() {
     if dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
         echo "no" > "$TRADUIA_PIPER_FILE"
         chown root:root "$TRADUIA_PIPER_FILE" 2>/dev/null || true
-        echo "[INFO] $(_ "Piper is already installed; keeping the current voices.")"
+        echo "[INFO] $(_ "The Piper TTS (TextToSpeech) text-to-speech reader is already installed; keeping the current voices.")"
         return 0
     fi
     YES_LABEL=$(_ "Yes")
     NO_LABEL=$(_ "No")
-    echo "[INFO] $(_ "Asking whether to install Piper")"
-    selected=$(kdialog --title "$(_ "Piper TTS")" --combobox "$(_ "Install Piper TTS?")" "$NO_LABEL" "$YES_LABEL")
+    echo "[INFO] $(_ "Asking whether to install the Piper TTS (TextToSpeech) text-to-speech reader")"
+    selected=$(kdialog --title "$(_ "Piper TTS (TextToSpeech)")" --combobox "$(_ "Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it with all voices?")" "$YES_LABEL" "$NO_LABEL")
     ret=$?
     if [ $ret -ne 0 ]; then
         abort_install
@@ -745,12 +745,12 @@ install_piper_all_voices() {
     piper_state="$(cat "$TRADUIA_PIPER_FILE" 2>/dev/null || echo no)"
     [ "$piper_state" = "yes" ] || return 0
     if dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
-        echo "[INFO] $(_ "Piper is already installed; keeping the current voices.")"
+        echo "[INFO] $(_ "The Piper TTS (TextToSpeech) text-to-speech reader is already installed; keeping the current voices.")"
         return 0
     fi
     src="$(cat "$TRADUIA_SOURCE_FILE" 2>/dev/null || echo internet)"
     if [ "$src" = "internet" ] || [ -z "$src" ]; then
-        echo "$(_ "Installing Piper TTS and all voices...")"
+        echo "$(_ "Installing the Piper TTS (TextToSpeech) text-to-speech reader and all voices...")"
         run_apt install -y piper-tts-server || return 1
         return 0
     fi
@@ -769,7 +769,7 @@ install_piper_all_voices() {
     if [ -n "$list" ] && [ -r "$list" ]; then
         mapfile -t voices < <(grep '^piper-tts-voices-' "$list" | sed 's/[[:space:]]//g' | sed '/^$/d')
     fi
-    echo "$(_ "Installing Piper TTS and all voices...")"
+    echo "$(_ "Installing the Piper TTS (TextToSpeech) text-to-speech reader and all voices...")"
     if ! run_apt install -y --no-install-recommends piper-tts-server; then
         [ -n "$tmp_list" ] && safe_rm_f "$TMP_BASE" "$tmp_list" || true
         return 1
@@ -828,10 +828,10 @@ do_postinstall() {
     local models_failed=false
     mode=$(cat "$TRADUIA_MODE_FILE" 2>/dev/null)
 
-    install_piper_all_voices || echo "[WARN] $(_ "Could not install Piper TTS or all its voices; continuing.")" >&2
+    install_piper_all_voices || echo "[WARN] $(_ "Could not install the Piper TTS (TextToSpeech) text-to-speech reader or all its voices; continuing.")" >&2
 
     if [ "$mode" == "Client" ] && ! dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
-        echo "[WARN] $(_ "Client mode: piper-tts-server is not installed; TTS may not work.")" >&2
+        echo "[WARN] $(_ "Client mode: piper-tts-server is not installed; the TTS (TextToSpeech) reader may not work.")" >&2
     fi
 
     # ==== Exclusivo del modo Server: modelos + escritorio ====
@@ -950,8 +950,8 @@ do_remove() {
     if dpkg-query -W -f='${Status}' piper-tts-server 2>/dev/null | grep -q "install ok installed"; then
         KEEP_LABEL=$(_ "Keep")
         DELETE_LABEL=$(_ "Delete")
-        echo "[INFO] $(_ "Asking remove Piper")"
-        selected=$(kdialog --title "$(_ "Remove Piper TTS?")" --combobox "$(_ "Do you want to remove Piper TTS and its voices?")" "$KEEP_LABEL" "$DELETE_LABEL")
+        echo "[INFO] $(_ "Asking to remove the Piper TTS (TextToSpeech) text-to-speech reader")"
+        selected=$(kdialog --title "$(_ "Remove the Piper TTS (TextToSpeech) text-to-speech reader?")" --combobox "$(_ "Do you want to remove the Piper TTS (TextToSpeech) text-to-speech reader and its voices?")" "$KEEP_LABEL" "$DELETE_LABEL")
         ret=$?
         if [ $ret -eq 0 ] && [ "$selected" == "$DELETE_LABEL" ]; then
             REMOVE_PIPER=true
@@ -1007,7 +1007,7 @@ do_remove() {
     if [ "$REMOVE_PIPER" = "true" ]; then
         local voices
         voices="$(dpkg-query -W -f='${Package} ${Status}\n' 'piper-tts-voices-*' 2>/dev/null | awk '$0 ~ /install ok installed/ {print $1}')"
-        echo "$(_ "Removing Piper TTS and voices...")"
+        echo "$(_ "Removing the Piper TTS (TextToSpeech) text-to-speech reader and voices...")"
         apt-get remove -y piper-tts-server $voices || true
     fi
 }
@@ -1111,7 +1111,7 @@ show_help() {
     echo "$(_ "  validate <dir|url>  quick models repository validation")"
     echo "$(_ "  --mode <Client|Server>  installation mode")"
     echo "$(_ "  --source <internet|path|url>  packages and models source")"
-    echo "$(_ "  --piper / --no-piper   install Piper TTS or not")"
+    echo "$(_ "  --piper / --no-piper   install the Piper TTS (TextToSpeech) text-to-speech reader or not")"
     echo "$(_ "  --disable-meta-checks  skip the LliureX metas check (web entries)")"
     echo "$(_ "  help              this help")"
 }

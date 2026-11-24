@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-23 12:38+0100\n"
+"POT-Creation-Date: 2026-11-24 13:30+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1076,7 +1076,7 @@ msgstr ""
 msgid "Positional arguments are not supported; use named options (see --help)."
 msgstr ""
 
-#: traduia-make-repo:995 traduia-make-repo:1738
+#: traduia-make-repo:995 traduia-make-repo:1770
 msgid "No action specified. Use --export, --fetch, --wheels, --debs or --full."
 msgstr ""
 
@@ -1151,91 +1151,91 @@ msgstr ""
 msgid "Downloading system packages for:"
 msgstr ""
 
-#: traduia-make-repo:1386
+#: traduia-make-repo:1418
 msgid "Packages ready in:"
 msgstr ""
 
-#: traduia-make-repo:1401
+#: traduia-make-repo:1433
 msgid "Downloading models from HuggingFace..."
 msgstr ""
 
-#: traduia-make-repo:1476
+#: traduia-make-repo:1508
 msgid "Fetch finished."
 msgstr ""
 
-#: traduia-make-repo:1490 traduia-make-repo:1514 traduia-make-repo:1534
-#: traduia-make-repo:1560 traduia-make-repo:1730
+#: traduia-make-repo:1522 traduia-make-repo:1546 traduia-make-repo:1566
+#: traduia-make-repo:1592 traduia-make-repo:1762
 msgid "Repository ready:"
 msgstr ""
 
-#: traduia-make-repo:1511
+#: traduia-make-repo:1543
 msgid "Could not download the system packages (see the errors above)."
 msgstr ""
 
-#: traduia-make-repo:1521 traduia-make-repo:1546
+#: traduia-make-repo:1553 traduia-make-repo:1578
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
 msgstr ""
 
-#: traduia-make-repo:1531
+#: traduia-make-repo:1563
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
 msgstr ""
 
-#: traduia-make-repo:1541
+#: traduia-make-repo:1573
 msgid "Building a fully offline repository:"
 msgstr ""
 
-#: traduia-make-repo:1557
+#: traduia-make-repo:1589
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
 msgstr ""
 
-#: traduia-make-repo:1569
+#: traduia-make-repo:1601
 msgid "Error: models directory does not exist:"
 msgstr ""
 
-#: traduia-make-repo:1639
+#: traduia-make-repo:1671
 msgid "Error: the following required files are missing or empty:"
 msgstr ""
 
-#: traduia-make-repo:1643
+#: traduia-make-repo:1675
 msgid "Refusing to generate an incomplete repository."
 msgstr ""
 
-#: traduia-make-repo:1648
+#: traduia-make-repo:1680
 msgid "Assembling repository in:"
 msgstr ""
 
-#: traduia-make-repo:1656
+#: traduia-make-repo:1688
 msgid "Copying files (forced by --copy)..."
 msgstr ""
 
-#: traduia-make-repo:1659
+#: traduia-make-repo:1691
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 
-#: traduia-make-repo:1662
+#: traduia-make-repo:1694
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 
-#: traduia-make-repo:1676
+#: traduia-make-repo:1708
 msgid "whisper-small already present, skipping copy."
 msgstr ""
 
-#: traduia-make-repo:1716
+#: traduia-make-repo:1748
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 
-#: traduia-make-repo:1731
+#: traduia-make-repo:1763
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr ""
 
-#: traduia-make-repo:1733
+#: traduia-make-repo:1765
 msgid "Example rsync to a server:"
 msgstr ""
 
@@ -1427,7 +1427,9 @@ msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:630
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:748
-msgid "Piper is already installed; keeping the current voices."
+msgid ""
+"The Piper TTS (TextToSpeech) text-to-speech reader is already installed; "
+"keeping the current voices."
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:633
@@ -1439,15 +1441,18 @@ msgid "No"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:635
-msgid "Asking whether to install Piper"
+msgid ""
+"Asking whether to install the Piper TTS (TextToSpeech) text-to-speech reader"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:636
-msgid "Piper TTS"
+msgid "Piper TTS (TextToSpeech)"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:636
-msgid "Install Piper TTS?"
+msgid ""
+"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it "
+"with all voices?"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:677
@@ -1474,7 +1479,9 @@ msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:753
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:772
-msgid "Installing Piper TTS and all voices..."
+msgid ""
+"Installing the Piper TTS (TextToSpeech) text-to-speech reader and all "
+"voices..."
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:762
@@ -1500,11 +1507,15 @@ msgid "Could not prepare the package source."
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:831
-msgid "Could not install Piper TTS or all its voices; continuing."
+msgid ""
+"Could not install the Piper TTS (TextToSpeech) text-to-speech reader or all "
+"its voices; continuing."
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:834
-msgid "Client mode: piper-tts-server is not installed; TTS may not work."
+msgid ""
+"Client mode: piper-tts-server is not installed; the TTS (TextToSpeech) "
+"reader may not work."
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:840
@@ -1546,15 +1557,17 @@ msgid "Delete"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:953
-msgid "Asking remove Piper"
+msgid "Asking to remove the Piper TTS (TextToSpeech) text-to-speech reader"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:954
-msgid "Remove Piper TTS?"
+msgid "Remove the Piper TTS (TextToSpeech) text-to-speech reader?"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:954
-msgid "Do you want to remove Piper TTS and its voices?"
+msgid ""
+"Do you want to remove the Piper TTS (TextToSpeech) text-to-speech reader and "
+"its voices?"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:969
@@ -1588,7 +1601,8 @@ msgid "Failed to remove traduia package"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1010
-msgid "Removing Piper TTS and voices..."
+msgid ""
+"Removing the Piper TTS (TextToSpeech) text-to-speech reader and voices..."
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1016
@@ -1724,7 +1738,9 @@ msgid "  --source <internet|path|url>  packages and models source"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1114
-msgid "  --piper / --no-piper   install Piper TTS or not"
+msgid ""
+"  --piper / --no-piper   install the Piper TTS (TextToSpeech) text-to-speech "
+"reader or not"
 msgstr ""
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1115
