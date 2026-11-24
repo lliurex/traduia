@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-24 13:30+0100\n"
+"POT-Creation-Date: 2026-11-24 14:19+0100\n"
 "PO-Revision-Date: 2026-05-19 12:35+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Valencian\n"
@@ -1546,11 +1546,8 @@ msgstr "Piper TTS (TextToSpeech)"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:636
 msgid ""
-"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it "
-"with all voices?"
-msgstr ""
-"Lector de text a veu Piper TTS (TextToSpeech). Voleu instal·lar-lo amb totes"
-" les veus?"
+"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it?"
+msgstr "Lector de text a veu Piper TTS (TextToSpeech). Voleu instal·lar-lo?"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:677
 msgid "Updating apt indexes..."
