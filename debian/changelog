@@ -1,3 +1,9 @@
+traduia (0.9.9.7.1) jammy; urgency=medium
+
+  * Updated translations.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Tue, 24 Nov 2026 14:02:15 +0100
+
 traduia (0.9.9.7) jammy; urgency=medium
 
   * Keep unchanged packages when updating the offline repository.
