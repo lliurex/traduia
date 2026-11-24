@@ -633,7 +633,7 @@ ask_piper() {
     YES_LABEL=$(_ "Yes")
     NO_LABEL=$(_ "No")
     echo "[INFO] $(_ "Asking whether to install the Piper TTS (TextToSpeech) text-to-speech reader")"
-    selected=$(kdialog --title "$(_ "Piper TTS (TextToSpeech)")" --combobox "$(_ "Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it with all voices?")" "$YES_LABEL" "$NO_LABEL")
+    selected=$(kdialog --title "$(_ "Piper TTS (TextToSpeech)")" --combobox "$(_ "Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it?")" "$YES_LABEL" "$NO_LABEL")
     ret=$?
     if [ $ret -ne 0 ]; then
         abort_install
