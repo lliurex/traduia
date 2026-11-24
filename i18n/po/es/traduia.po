@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-23 12:38+0100\n"
+"POT-Creation-Date: 2026-11-24 13:30+0100\n"
 "PO-Revision-Date: 2026-05-19 12:48+0200\n"
 "Last-Translator: Gemini CLI\n"
 "Language-Team: Spanish\n"
@@ -26,8 +26,8 @@ msgstr "[INFO] Abriendo: {}"
 msgid ""
 "[ERROR] No translation models found on disk. Run install-models-traduia."
 msgstr ""
-"[ERROR] No se encontraron modelos de traducción en el disco. Ejecute install-"
-"models-traduia."
+"[ERROR] No se encontraron modelos de traducción en el disco. Ejecute "
+"install-models-traduia."
 
 #: traduia_server.py:249
 msgid "No translation models found on disk. Run install-models-traduia."
@@ -38,8 +38,8 @@ msgstr ""
 #: traduia_server.py:254
 msgid "[WARN] CT2 marker present but CT2 models are not complete on disk."
 msgstr ""
-"[WARN] El marcador CT2 está presente pero los modelos CT2 no están completos "
-"en el disco."
+"[WARN] El marcador CT2 está presente pero los modelos CT2 no están completos"
+" en el disco."
 
 #: traduia_server.py:256
 msgid "[WARN] Falling back to Marian models."
@@ -88,12 +88,13 @@ msgstr ""
 #: traduia_server.py:273
 msgid "[INFO] Translation mode: Marian (override via .use_marian marker)"
 msgstr ""
-"[INFO] Modo de traducción: Marian (override mediante el marcador .use_marian)"
+"[INFO] Modo de traducción: Marian (override mediante el marcador "
+".use_marian)"
 
 #: traduia_server.py:280
 msgid ""
-"[WARN] Both markers present but Marian models are not complete; falling back "
-"to CT2."
+"[WARN] Both markers present but Marian models are not complete; falling back"
+" to CT2."
 msgstr ""
 "[WARN] Ambos marcadores presentes pero los modelos Marian no están "
 "completos; se usará CT2."
@@ -103,7 +104,8 @@ msgid "[INFO] Translation mode: CT2 (fallback, Marian unavailable)"
 msgstr "[INFO] Modo de traducción: CT2 (fallback, Marian no disponible)"
 
 #: traduia_server.py:285
-msgid "[INFO] Translation mode: Marian (both markers present, Marian priority)"
+msgid ""
+"[INFO] Translation mode: Marian (both markers present, Marian priority)"
 msgstr ""
 "[INFO] Modo de traducción: Marian (ambos marcadores presentes, prioridad "
 "Marian)"
@@ -232,8 +234,8 @@ msgstr "No hay voces de síntesis disponibles en este equipo."
 
 #: traduia_server.py:993
 msgid ""
-"No voice is available for the selected language ({}). Install voices in your "
-"system or choose another language."
+"No voice is available for the selected language ({}). Install voices in your"
+" system or choose another language."
 msgstr ""
 "No hay ninguna voz para el idioma seleccionado ({}). Instala voces en el "
 "sistema o elige otro idioma."
@@ -485,8 +487,10 @@ msgid "Usage: traduia [options]"
 msgstr "Uso: traduia [opciones]"
 
 #: traduia:32
-msgid "  --console               ask the questions on the console (no kdialog)"
-msgstr "  --console               hace las preguntas por consola (sin kdialog)"
+msgid ""
+"  --console               ask the questions on the console (no kdialog)"
+msgstr ""
+"  --console               hace las preguntas por consola (sin kdialog)"
 
 #: traduia:33
 msgid ""
@@ -588,8 +592,7 @@ msgstr ""
 
 #: traduia:269
 msgid "'parec' not found.\\n\\nInstall: pulseaudio-utils (or equivalent)."
-msgstr ""
-"No se encuentra 'parec'.\\n\\nInstala: pulseaudio-utils (o equivalente)."
+msgstr "No se encuentra 'parec'.\\n\\nInstala: pulseaudio-utils (o equivalente)."
 
 #: traduia:279
 msgid "No sources detected via pactl."
@@ -597,12 +600,14 @@ msgstr "No se han detectado fuentes vía pactl."
 
 #: traduia:287 traduia:358
 msgid "Could not detect the default input (microphone) via pactl."
-msgstr "No se ha podido detectar la entrada (micrófono) por defecto vía pactl."
+msgstr ""
+"No se ha podido detectar la entrada (micrófono) por defecto vía pactl."
 
 #: traduia:300 traduia:368
 msgid "Could not detect the default output (speakers/monitor) via pactl."
 msgstr ""
-"No se ha podido detectar la salida (altavoces/monitor) por defecto vía pactl."
+"No se ha podido detectar la salida (altavoces/monitor) por defecto vía "
+"pactl."
 
 #: traduia:323
 msgid "Audio source not found:"
@@ -619,7 +624,8 @@ msgstr ""
 
 #: traduia:332 traduia:371
 msgid "Transcribes the output (speakers) configured as system default"
-msgstr "Transcribe la salida (altavoces) configurada por defecto en el sistema"
+msgstr ""
+"Transcribe la salida (altavoces) configurada por defecto en el sistema"
 
 #: traduia:334
 msgid "Selection"
@@ -652,7 +658,8 @@ msgstr "                    fuente configurada (por defecto: internet)"
 
 #: install-models-traduia:17
 msgid "  optimized         install the optimized (CTranslate2) model set"
-msgstr "  optimized         instala el set de modelos optimizado (CTranslate2)"
+msgstr ""
+"  optimized         instala el set de modelos optimizado (CTranslate2)"
 
 #: install-models-traduia:18
 msgid "                    (experimental); combinable with \"install\""
@@ -666,7 +673,8 @@ msgstr ""
 #: install-models-traduia:20
 msgid "                    in the same run; Marian takes priority; combinable"
 msgstr ""
-"                    en la misma ejecución; Marian tiene prioridad; combinable"
+"                    en la misma ejecución; Marian tiene prioridad; "
+"combinable"
 
 #: install-models-traduia:21
 msgid "                    with \"install\" and \"optimized\""
@@ -686,7 +694,8 @@ msgid "  --from <url|path> auto-detect: URL or local path"
 msgstr "  --from <url|ruta> autodetección: URL o ruta local"
 
 #: install-models-traduia:25
-msgid "  --detect          print model set state (complete:* / partial / none)"
+msgid ""
+"  --detect          print model set state (complete:* / partial / none)"
 msgstr ""
 "  --detect          imprime el estado del set (complete:* / partial / none)"
 
@@ -758,8 +767,8 @@ msgstr "Las dependencias Python offline están completas para Python"
 
 #: install-models-traduia:1004
 msgid ""
-"Both model sets installed. To use the optimized mode, rename the .use_marian "
-"marker to .use_ct2 manually in:"
+"Both model sets installed. To use the optimized mode, rename the .use_marian"
+" marker to .use_ct2 manually in:"
 msgstr ""
 "Ambos sets de modelos instalados. Para usar el modo optimizado, renombra a "
 "mano el marcador .use_marian por .use_ct2 en:"
@@ -996,8 +1005,8 @@ msgid ""
 "Hardlinks are used when source and destination share a filesystem; --copy "
 "forces copying."
 msgstr ""
-"Se usan hardlinks cuando origen y destino comparten sistema de ficheros; --"
-"copy fuerza la copia."
+"Se usan hardlinks cuando origen y destino comparten sistema de ficheros; "
+"--copy fuerza la copia."
 
 #: traduia-make-repo:192
 msgid "--fetch requires python3 with huggingface_hub."
@@ -1024,16 +1033,16 @@ msgid ""
 "Extra repositories use a base URL with dists/<suite>/<component>/binary-"
 "amd64/Packages.gz."
 msgstr ""
-"Los repositorios extra usan una URL base con dists/<suite>/<component>/"
-"binary-amd64/Packages.gz."
+"Los repositorios extra usan una URL base con "
+"dists/<suite>/<component>/binary-amd64/Packages.gz."
 
 #: traduia-make-repo:198
 msgid ""
-"The tool probes <distro>, <distro>-updates and <distro>-security, and main/"
-"universe."
+"The tool probes <distro>, <distro>-updates and <distro>-security, and "
+"main/universe."
 msgstr ""
-"La herramienta prueba <distro>, <distro>-updates y <distro>-security, y main/"
-"universe."
+"La herramienta prueba <distro>, <distro>-updates y <distro>-security, y "
+"main/universe."
 
 #: traduia-make-repo:199
 msgid "lliurex.net and Ubuntu are always used; the highest version wins."
@@ -1057,19 +1066,19 @@ msgstr "También se rechaza cualquier ruta dentro de estos árboles:"
 
 #: traduia-make-repo:208
 msgid ""
-"Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or /"
-"tmp/<dir> are fine."
+"Data paths such as /srv/export/traduia, /media/<user>/<usb>, /opt/<app> or "
+"/tmp/<dir> are fine."
 msgstr ""
-"Las rutas de datos como /srv/export/traduia, /media/<usuario>/<usb>, /opt/"
-"<app> o /tmp/<dir> son válidas."
+"Las rutas de datos como /srv/export/traduia, /media/<usuario>/<usb>, "
+"/opt/<app> o /tmp/<dir> son válidas."
 
 #: traduia-make-repo:210
 msgid ""
 "The repository includes debs/<distro>/Packages and Packages.gz, install-"
 "offline.sh and the package lists."
 msgstr ""
-"El repositorio incluye debs/<distro>/Packages y Packages.gz, install-offline."
-"sh y las listas de paquetes."
+"El repositorio incluye debs/<distro>/Packages y Packages.gz, install-"
+"offline.sh y las listas de paquetes."
 
 #: traduia-make-repo:229
 msgid "Skipping cleanup outside the output directory:"
@@ -1104,8 +1113,8 @@ msgid ""
 "The Python 3.10 wheels repository is incomplete: exceptiongroup wheel is "
 "missing."
 msgstr ""
-"El repositorio de wheels para Python 3.10 está incompleto: falta el wheel de "
-"exceptiongroup."
+"El repositorio de wheels para Python 3.10 está incompleto: falta el wheel de"
+" exceptiongroup."
 
 #: traduia-make-repo:788
 msgid "Wheels ready in:"
@@ -1129,7 +1138,8 @@ msgstr "Solo se puede indicar una acción."
 
 #: traduia-make-repo:982
 msgid "--debs-dir has been replaced by --debs-dir-jammy and --debs-dir-noble."
-msgstr "--debs-dir ha sido sustituido por --debs-dir-jammy y --debs-dir-noble."
+msgstr ""
+"--debs-dir ha sido sustituido por --debs-dir-jammy y --debs-dir-noble."
 
 #: traduia-make-repo:985
 msgid "Unknown option:"
@@ -1140,12 +1150,14 @@ msgid "Unexpected argument:"
 msgstr "Argumento inesperado:"
 
 #: traduia-make-repo:989
-msgid "Positional arguments are not supported; use named options (see --help)."
+msgid ""
+"Positional arguments are not supported; use named options (see --help)."
 msgstr ""
 "No se admiten argumentos posicionales; usa opciones con nombre (ver --help)."
 
-#: traduia-make-repo:995 traduia-make-repo:1738
-msgid "No action specified. Use --export, --fetch, --wheels, --debs or --full."
+#: traduia-make-repo:995 traduia-make-repo:1770
+msgid ""
+"No action specified. Use --export, --fetch, --wheels, --debs or --full."
 msgstr ""
 "No se ha indicado ninguna acción. Usa --export, --fetch, --wheels, --debs o "
 "--full."
@@ -1221,30 +1233,30 @@ msgstr "Lista de paquetes vacía para:"
 msgid "Downloading system packages for:"
 msgstr "Descargando los paquetes del sistema para:"
 
-#: traduia-make-repo:1386
+#: traduia-make-repo:1418
 msgid "Packages ready in:"
 msgstr "Paquetes listos en:"
 
-#: traduia-make-repo:1401
+#: traduia-make-repo:1433
 msgid "Downloading models from HuggingFace..."
 msgstr "Descargando modelos desde HuggingFace..."
 
-#: traduia-make-repo:1476
+#: traduia-make-repo:1508
 msgid "Fetch finished."
 msgstr "Descarga finalizada."
 
-#: traduia-make-repo:1490 traduia-make-repo:1514 traduia-make-repo:1534
-#: traduia-make-repo:1560 traduia-make-repo:1730
+#: traduia-make-repo:1522 traduia-make-repo:1546 traduia-make-repo:1566
+#: traduia-make-repo:1592 traduia-make-repo:1762
 msgid "Repository ready:"
 msgstr "Repositorio listo:"
 
-#: traduia-make-repo:1511
+#: traduia-make-repo:1543
 msgid "Could not download the system packages (see the errors above)."
 msgstr ""
 "No se pudieron descargar los paquetes del sistema (ver los errores "
 "anteriores)."
 
-#: traduia-make-repo:1521 traduia-make-repo:1546
+#: traduia-make-repo:1553 traduia-make-repo:1578
 msgid ""
 "This command requires the 'huggingface_hub' Python package (pip install "
 "huggingface_hub)."
@@ -1252,7 +1264,7 @@ msgstr ""
 "Este comando requiere el paquete Python 'huggingface_hub' (pip install "
 "huggingface_hub)."
 
-#: traduia-make-repo:1531
+#: traduia-make-repo:1563
 msgid ""
 "Fetch finished with errors: some models may be missing. Re-run the same "
 "fetch command to retry."
@@ -1260,11 +1272,11 @@ msgstr ""
 "La descarga terminó con errores: puede que falten algunos modelos. Re-"
 "ejecute el mismo comando fetch para reintentarlos."
 
-#: traduia-make-repo:1541
+#: traduia-make-repo:1573
 msgid "Building a fully offline repository:"
 msgstr "Generando un repositorio totalmente offline:"
 
-#: traduia-make-repo:1557
+#: traduia-make-repo:1589
 msgid ""
 "Offline repository built with errors; re-run the same command to retry what "
 "is missing."
@@ -1272,52 +1284,52 @@ msgstr ""
 "Repositorio offline generado con errores; re-ejecutar el mismo comando para "
 "reintentar lo que falta."
 
-#: traduia-make-repo:1569
+#: traduia-make-repo:1601
 msgid "Error: models directory does not exist:"
 msgstr "Error: el directorio de modelos no existe:"
 
-#: traduia-make-repo:1639
+#: traduia-make-repo:1671
 msgid "Error: the following required files are missing or empty:"
 msgstr "Error: faltan los siguientes ficheros requeridos o están vacíos:"
 
-#: traduia-make-repo:1643
+#: traduia-make-repo:1675
 msgid "Refusing to generate an incomplete repository."
 msgstr "Se rechaza generar un repositorio incompleto."
 
-#: traduia-make-repo:1648
+#: traduia-make-repo:1680
 msgid "Assembling repository in:"
 msgstr "Ensamblando el repositorio en:"
 
-#: traduia-make-repo:1656
+#: traduia-make-repo:1688
 msgid "Copying files (forced by --copy)..."
 msgstr "Copiando ficheros (forzado con --copy)..."
 
-#: traduia-make-repo:1659
+#: traduia-make-repo:1691
 msgid "Source and destination are on the same filesystem: using hardlinks."
 msgstr ""
 "Origen y destino están en el mismo sistema de ficheros: se usan hardlinks."
 
-#: traduia-make-repo:1662
+#: traduia-make-repo:1694
 msgid "Source and destination are on different filesystems: copying files."
 msgstr ""
 "Origen y destino están en sistemas de ficheros distintos: se copian los "
 "ficheros."
 
-#: traduia-make-repo:1676
+#: traduia-make-repo:1708
 msgid "whisper-small already present, skipping copy."
 msgstr "whisper-small ya presente, se omite la copia."
 
-#: traduia-make-repo:1716
+#: traduia-make-repo:1748
 msgid ""
 "The {} set in the output directory seems incomplete (missing some pairs)."
 msgstr ""
 "El set {} del directorio de salida parece incompleto (faltan algunos pares)."
 
-#: traduia-make-repo:1731
+#: traduia-make-repo:1763
 msgid "Publish it statically over HTTP or copy it to a USB drive."
 msgstr "Publíquelo estáticamente por HTTP o cópielo a un disco USB."
 
-#: traduia-make-repo:1733
+#: traduia-make-repo:1765
 msgid "Example rsync to a server:"
 msgstr "Ejemplo de rsync a un servidor:"
 
@@ -1365,11 +1377,11 @@ msgstr "Este comando debe ejecutarse como root"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:219
 msgid ""
-"manifest.json contains unexpected paths outside known prefixes; they will be "
-"ignored"
+"manifest.json contains unexpected paths outside known prefixes; they will be"
+" ignored"
 msgstr ""
-"manifest.json contiene rutas inesperadas fuera de los prefijos conocidos; se "
-"ignorarán"
+"manifest.json contiene rutas inesperadas fuera de los prefijos conocidos; se"
+" ignorarán"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:360
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:375
@@ -1477,7 +1489,7 @@ msgstr "LAN"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:575
 msgid "Asking installation source (Internet/USB/LAN)"
-msgstr ""
+msgstr "Preguntando el origen de instalación (Internet/USB/LAN)"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:585
 msgid "Select manifest.json or the repository folder (USB):"
@@ -1497,7 +1509,7 @@ msgstr "Preguntando la ruta del repositorio offline (USB)"
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:616
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:809
 msgid "The repository is not valid:"
-msgstr ""
+msgstr "El repositorio no es válido:"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:606
 msgid "Asking offline repository URL (LAN)"
@@ -1505,7 +1517,7 @@ msgstr "Preguntando la URL del repositorio offline (LAN)"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:607
 msgid "Offline repository URL (LAN):"
-msgstr ""
+msgstr "URL del repositorio offline (LAN):"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:623
 msgid "Installation source selected:"
@@ -1513,28 +1525,38 @@ msgstr "Origen de instalación seleccionado:"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:630
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:748
-msgid "Piper is already installed; keeping the current voices."
-msgstr "Piper ya está instalado; se conservan las voces actuales."
+msgid ""
+"The Piper TTS (TextToSpeech) text-to-speech reader is already installed; "
+"keeping the current voices."
+msgstr ""
+"El lector de texto a voz Piper TTS (TextToSpeech) ya está instalado; se "
+"conservan las voces actuales."
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:633
 msgid "Yes"
-msgstr ""
+msgstr "Sí"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:634
 msgid "No"
 msgstr "No"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:635
-msgid "Asking whether to install Piper"
+msgid ""
+"Asking whether to install the Piper TTS (TextToSpeech) text-to-speech reader"
 msgstr ""
+"Preguntando si se instala el lector de texto a voz Piper TTS (TextToSpeech)"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:636
-msgid "Piper TTS"
-msgstr "Piper TTS"
+msgid "Piper TTS (TextToSpeech)"
+msgstr "Piper TTS (TextToSpeech)"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:636
-msgid "Install Piper TTS?"
-msgstr "¿Quieres instalar Piper TTS?"
+msgid ""
+"Piper TTS (TextToSpeech) text-to-speech reader. Do you want to install it "
+"with all voices?"
+msgstr ""
+"Lector de texto a voz Piper TTS (TextToSpeech). ¿Quieres instalarlo con "
+"todas las voces?"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:677
 msgid "Updating apt indexes..."
@@ -1562,16 +1584,20 @@ msgstr "Falló la instalación del paquete traduia"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:753
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:772
-msgid "Installing Piper TTS and all voices..."
-msgstr "Instalando Piper TTS y todas las voces..."
+msgid ""
+"Installing the Piper TTS (TextToSpeech) text-to-speech reader and all "
+"voices..."
+msgstr ""
+"Instalando el lector de texto a voz Piper TTS (TextToSpeech) y todas las "
+"voces..."
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:762
 msgid "Could not download the package list from:"
-msgstr ""
+msgstr "No se ha podido descargar la lista de paquetes de:"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:779
 msgid "Could not install voice:"
-msgstr ""
+msgstr "No se ha podido instalar la voz:"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:794
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1178
@@ -1588,14 +1614,20 @@ msgid "Could not prepare the package source."
 msgstr "No se ha podido preparar el origen de los paquetes."
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:831
-msgid "Could not install Piper TTS or all its voices; continuing."
-msgstr "No se ha podido instalar Piper TTS o todas las voces; se continúa."
+msgid ""
+"Could not install the Piper TTS (TextToSpeech) text-to-speech reader or all "
+"its voices; continuing."
+msgstr ""
+"No se ha podido instalar el lector de texto a voz Piper TTS (TextToSpeech) o"
+" todas sus voces; se continúa."
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:834
-msgid "Client mode: piper-tts-server is not installed; TTS may not work."
+msgid ""
+"Client mode: piper-tts-server is not installed; the TTS (TextToSpeech) "
+"reader may not work."
 msgstr ""
-"Modo cliente: piper-tts-server no está instalado; la lectura en voz alta "
-"puede no funcionar."
+"Modo Cliente: piper-tts-server no está instalado; el lector de texto a voz "
+"TTS (TextToSpeech) puede no funcionar."
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:840
 msgid "install-models-traduia not found; skipping model installation"
@@ -1637,16 +1669,21 @@ msgid "Delete"
 msgstr "Eliminar"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:953
-msgid "Asking remove Piper"
-msgstr "Preguntando si se elimina Piper"
+msgid "Asking to remove the Piper TTS (TextToSpeech) text-to-speech reader"
+msgstr ""
+"Preguntando si se elimina el lector de texto a voz Piper TTS (TextToSpeech)"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:954
-msgid "Remove Piper TTS?"
-msgstr "¿Eliminar Piper TTS?"
+msgid "Remove the Piper TTS (TextToSpeech) text-to-speech reader?"
+msgstr "¿Eliminar el lector de texto a voz Piper TTS (TextToSpeech)?"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:954
-msgid "Do you want to remove Piper TTS and its voices?"
-msgstr "¿Quieres eliminar Piper TTS y sus voces?"
+msgid ""
+"Do you want to remove the Piper TTS (TextToSpeech) text-to-speech reader and"
+" its voices?"
+msgstr ""
+"¿Quieres eliminar el lector de texto a voz Piper TTS (TextToSpeech) y sus "
+"voces?"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:969
 msgid "Asking remove models"
@@ -1679,8 +1716,10 @@ msgid "Failed to remove traduia package"
 msgstr "Falló la eliminación del paquete traduia"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1010
-msgid "Removing Piper TTS and voices..."
-msgstr "Eliminando Piper TTS y las voces..."
+msgid ""
+"Removing the Piper TTS (TextToSpeech) text-to-speech reader and voices..."
+msgstr ""
+"Eliminando el lector de texto a voz Piper TTS (TextToSpeech) y las voces..."
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1016
 msgid "lliurex-firefox-settings entry:"
@@ -1820,8 +1859,12 @@ msgid "  --source <internet|path|url>  packages and models source"
 msgstr "  --source <internet|path|url>  origen de paquetes y modelos"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1114
-msgid "  --piper / --no-piper   install Piper TTS or not"
-msgstr "  --piper / --no-piper   instala Piper TTS o no"
+msgid ""
+"  --piper / --no-piper   install the Piper TTS (TextToSpeech) text-to-speech"
+" reader or not"
+msgstr ""
+"  --piper / --no-piper   instala el lector de texto a voz Piper TTS "
+"(TextToSpeech) o no"
 
 #: zero-lliurex-traduia.install-files/usr/sbin/traduia-config:1115
 msgid "  --disable-meta-checks  skip the LliureX metas check (web entries)"
@@ -1837,14 +1880,48 @@ msgstr "  help              esta ayuda"
 msgid "LliureX metas check disabled (--disable-meta-checks)"
 msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 
+#~ msgid "Piper is already installed; keeping the current voices."
+#~ msgstr "Piper ya está instalado; se conservan las voces actuales."
+
+#~ msgid "Piper TTS"
+#~ msgstr "Piper TTS"
+
+#~ msgid "Install Piper TTS?"
+#~ msgstr "¿Quieres instalar Piper TTS?"
+
+#~ msgid "Installing Piper TTS and all voices..."
+#~ msgstr "Instalando Piper TTS y todas las voces..."
+
+#~ msgid "Could not install Piper TTS or all its voices; continuing."
+#~ msgstr "No se ha podido instalar Piper TTS o todas las voces; se continúa."
+
+#~ msgid "Client mode: piper-tts-server is not installed; TTS may not work."
+#~ msgstr ""
+#~ "Modo cliente: piper-tts-server no está instalado; la lectura en voz alta "
+#~ "puede no funcionar."
+
+#~ msgid "Asking remove Piper"
+#~ msgstr "Preguntando si se elimina Piper"
+
+#~ msgid "Remove Piper TTS?"
+#~ msgstr "¿Eliminar Piper TTS?"
+
+#~ msgid "Do you want to remove Piper TTS and its voices?"
+#~ msgstr "¿Quieres eliminar Piper TTS y sus voces?"
+
+#~ msgid "Removing Piper TTS and voices..."
+#~ msgstr "Eliminando Piper TTS y las voces..."
+
+#~ msgid "  --piper / --no-piper   install Piper TTS or not"
+#~ msgstr "  --piper / --no-piper   instala Piper TTS o no"
+
 #~ msgid "Using repository deb:"
 #~ msgstr "Usando el paquete del repositorio:"
 
 #~ msgid "Failed to install repository deb:"
 #~ msgstr "Error al instalar el paquete del repositorio:"
 
-#~ msgid ""
-#~ "  install           preinstall + apt-get install traduia + postinstall"
+#~ msgid "  install           preinstall + apt-get install traduia + postinstall"
 #~ msgstr ""
 #~ "  install           preinstall + apt-get install traduia + postinstall"
 
@@ -1858,8 +1935,7 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ "center)"
 
 #~ msgid "  postinstall       model download + web entries (zero-center)"
-#~ msgstr ""
-#~ "  postinstall       descarga de modelos + entradas web (zero-center)"
+#~ msgstr "  postinstall       descarga de modelos + entradas web (zero-center)"
 
 #~ msgid ""
 #~ "Generates a static manifest.json (with size+sha256) for a TraduIA model "
@@ -1872,8 +1948,8 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ "The output directory is shared: whisper-small/ + one or both model sets + "
 #~ "manifest.json"
 #~ msgstr ""
-#~ "El directorio de salida es compartido: whisper-small/ + uno o ambos sets "
-#~ "de modelos + manifest.json"
+#~ "El directorio de salida es compartido: whisper-small/ + uno o ambos sets de "
+#~ "modelos + manifest.json"
 
 #~ msgid "It can be served statically over HTTP or copied to a USB drive."
 #~ msgstr "Puede servirse estáticamente por HTTP o copiarse a un disco USB."
@@ -1881,11 +1957,10 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ msgid "Mode 'all' assembles both model sets (marian and ct2)."
 #~ msgstr "El modo 'all' ensambla ambos sets de modelos (marian y ct2)."
 
-#~ msgid ""
-#~ "The tool is additive: run it once per set you want in the same output"
+#~ msgid "The tool is additive: run it once per set you want in the same output"
 #~ msgstr ""
-#~ "La herramienta es aditiva: ejecútela una vez por cada set que quiera en "
-#~ "el mismo directorio de salida"
+#~ "La herramienta es aditiva: ejecútela una vez por cada set que quiera en el "
+#~ "mismo directorio de salida"
 
 #~ msgid ""
 #~ "Hardlinks are used when source and destination are on the same filesystem;"
@@ -1903,14 +1978,12 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ msgid ""
 #~ "Force copying instead of hardlinking (optional; auto-detected by default)"
 #~ msgstr ""
-#~ "Forzar la copia en lugar del hardlink (opcional; se autodetecta por "
-#~ "defecto)"
+#~ "Forzar la copia en lugar del hardlink (opcional; se autodetecta por defecto)"
 
 #~ msgid ""
 #~ "Or download the models directly from HuggingFace (additive, par a par):"
 #~ msgstr ""
-#~ "O descargar los modelos directamente desde HuggingFace (aditivo, par a "
-#~ "par):"
+#~ "O descargar los modelos directamente desde HuggingFace (aditivo, par a par):"
 
 #~ msgid "Or export the Python wheels for fully offline installs (additive):"
 #~ msgstr ""
@@ -1921,20 +1994,19 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ "Or build a fully offline repository in one command (all models from "
 #~ "HuggingFace + Python wheels + system debs for jammy and noble):"
 #~ msgstr ""
-#~ "O generar un repositorio totalmente offline con un solo comando (todos "
-#~ "los modelos desde HuggingFace + wheels Python + debs del sistema para "
-#~ "jammy y noble):"
+#~ "O generar un repositorio totalmente offline con un solo comando (todos los "
+#~ "modelos desde HuggingFace + wheels Python + debs del sistema para jammy y "
+#~ "noble):"
 
 #~ msgid ""
-#~ "If some .deb is missing from the configured repositories, --debs-dir-"
-#~ "jammy or --debs-dir-noble can point to a flat directory with those files."
+#~ "If some .deb is missing from the configured repositories, --debs-dir-jammy "
+#~ "or --debs-dir-noble can point to a flat directory with those files."
 #~ msgstr ""
 #~ "Si falta algún .deb en los repositorios configurados, --debs-dir-jammy o "
 #~ "--debs-dir-noble pueden apuntar a un directorio plano con esos ficheros."
 
 #~ msgid ""
-#~ "Use one directory per distribution to avoid mixing jammy and noble "
-#~ "packages."
+#~ "Use one directory per distribution to avoid mixing jammy and noble packages."
 #~ msgstr ""
 #~ "Usa un directorio por distribución para no mezclar paquetes de jammy y "
 #~ "noble."
@@ -1943,8 +2015,8 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ "Use --extra-repo-jammy or --extra-repo-noble to add apt repositories with "
 #~ "unpublished packages."
 #~ msgstr ""
-#~ "Usa --extra-repo-jammy o --extra-repo-noble para añadir repositorios apt "
-#~ "con paquetes aún no publicados."
+#~ "Usa --extra-repo-jammy o --extra-repo-noble para añadir repositorios apt con"
+#~ " paquetes aún no publicados."
 
 #~ msgid "These options are only valid with the debs and full subcommands."
 #~ msgstr "Estas opciones solo son válidas con los subcomandos debs y full."
@@ -1965,11 +2037,11 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ msgstr "--debs-dir requiere un valor: --debs-dir <dir>"
 
 #~ msgid ""
-#~ "Or download the system packages (traduia, zero-lliurex-traduia) from an "
-#~ "apt repository over HTTP, for one or both distributions:"
+#~ "Or download the system packages (traduia, zero-lliurex-traduia) from an apt "
+#~ "repository over HTTP, for one or both distributions:"
 #~ msgstr ""
-#~ "O descargar los paquetes del sistema (traduia, zero-lliurex-traduia) "
-#~ "desde un repositorio apt por HTTP, para una o ambas distribuciones:"
+#~ "O descargar los paquetes del sistema (traduia, zero-lliurex-traduia) desde "
+#~ "un repositorio apt por HTTP, para una o ambas distribuciones:"
 
 #~ msgid "--url-jammy requires a value: --url-jammy <url>"
 #~ msgstr "--url-jammy requiere un valor: --url-jammy <url>"
@@ -1999,8 +2071,8 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ "  -console, --console     hace las preguntas por consola (sin kdialog)"
 
 #~ msgid ""
-#~ "Or export the system .deb packages (traduia, zero-lliurex-traduia) for "
-#~ "fully offline installs (additive):"
+#~ "Or export the system .deb packages (traduia, zero-lliurex-traduia) for fully"
+#~ " offline installs (additive):"
 #~ msgstr ""
 #~ "O exportar los paquetes .deb del sistema (traduia, zero-lliurex-traduia) "
 #~ "para instalaciones totalmente offline (aditivo):"
@@ -2020,15 +2092,14 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ msgid ""
 #~ "The Python 3.10 wheelhouse is incomplete: exceptiongroup wheel is missing."
 #~ msgstr ""
-#~ "El wheelhouse de Python 3.10 está incompleto: falta la wheel "
-#~ "exceptiongroup."
+#~ "El wheelhouse de Python 3.10 está incompleto: falta la wheel exceptiongroup."
 
 #~ msgid ""
 #~ "Failed to fetch repository wheels; Python dependencies will be downloaded "
 #~ "from the internet."
 #~ msgstr ""
-#~ "Falló la descarga de los wheels del repositorio; las dependencias Python "
-#~ "se descargarán de internet."
+#~ "Falló la descarga de los wheels del repositorio; las dependencias Python se "
+#~ "descargarán de internet."
 
 #~ msgid "Failed to install Python dependencies from repository wheels."
 #~ msgstr ""
@@ -2045,11 +2116,11 @@ msgstr "Comprobación de metas LliureX desactivada (--disable-meta-checks)"
 #~ msgstr "Creando venv"
 
 #~ msgid ""
-#~ "Fetch finished with errors: the ct2 set is incomplete. Re-run the same "
-#~ "fetch command to retry the missing pairs."
+#~ "Fetch finished with errors: the ct2 set is incomplete. Re-run the same fetch"
+#~ " command to retry the missing pairs."
 #~ msgstr ""
-#~ "La descarga terminó con errores: el set de ct2 está incompleto. Re-"
-#~ "ejecute el mismo comando fetch para reintentar los pares que faltan."
+#~ "La descarga terminó con errores: el set de ct2 está incompleto. Re-ejecute "
+#~ "el mismo comando fetch para reintentar los pares que faltan."
 
 #~ msgid "Error: mode must be 'ct2' or 'marian'."
 #~ msgstr "Error: el modo debe ser 'ct2' o 'marian'."
