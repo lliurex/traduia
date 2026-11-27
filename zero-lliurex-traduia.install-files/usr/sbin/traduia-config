@@ -483,7 +483,7 @@ ask_mode() {
         echo "[INFO] $(_ "Asking install mode")"
         selected=$(kdialog --title "$(_ "Mode selector")" --combobox "$(_ "Install mode:")" "$CLIENT_LABEL" "$SERVER_LABEL")
         ret=$?
-        if [ $ret -eq 1 ]; then
+        if [ $ret -ne 0 ]; then
             abort_install
         fi
 
@@ -953,13 +953,13 @@ do_remove() {
         echo "[INFO] $(_ "Asking to remove the Piper TTS (TextToSpeech) text-to-speech reader")"
         selected=$(kdialog --title "$(_ "Remove the Piper TTS (TextToSpeech) text-to-speech reader?")" --combobox "$(_ "Do you want to remove the Piper TTS (TextToSpeech) text-to-speech reader and its voices?")" "$KEEP_LABEL" "$DELETE_LABEL")
         ret=$?
-        if [ $ret -eq 0 ] && [ "$selected" == "$DELETE_LABEL" ]; then
+        if [ $ret -ne 0 ]; then
+            abort_install
+        fi
+        if [ "$selected" == "$DELETE_LABEL" ]; then
             REMOVE_PIPER=true
         fi
     fi
-    cleanup_apt_env || true
-    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_PIPER_FILE" "$TRADUIA_APT_ENV" || true
-    safe_rm_f "$TRADUIA_DATA_BASE" "$TRADUIA_MODE_FLAG" || true
 
     # Solo se pregunta sobre los modelos si existen en disco.
     REMOVE_MODELS=false
@@ -969,10 +969,16 @@ do_remove() {
         echo "[INFO] $(_ "Asking remove models")"
         selected=$(kdialog --title "$(_ "Remove models?")" --combobox "$(_ "Do you want to delete the downloaded models?")" "$KEEP_LABEL" "$DELETE_LABEL")
         ret=$?
-        if [ $ret -eq 0 ] && [ "$selected" == "$DELETE_LABEL" ]; then
+        if [ $ret -ne 0 ]; then
+            abort_install
+        fi
+        if [ "$selected" == "$DELETE_LABEL" ]; then
             REMOVE_MODELS=true
         fi
     fi
+
+    cleanup_apt_env || true
+    safe_rm_f "$TMP_BASE" "$TRADUIA_MODE_FILE" "$TRADUIA_SOURCE_FILE" "$TRADUIA_OPTIMIZE_FILE" "$TRADUIA_PIPER_FILE" "$TRADUIA_APT_ENV" || true
 
     echo "$(_ "Removing traduia package")"
     apt-get remove -y traduia
@@ -994,6 +1000,7 @@ do_remove() {
         # El venv (regenerable) y el código se limpian siempre.
         remove_venv
         remove_execcode
+        safe_rm_f "$TRADUIA_DATA_BASE" "$TRADUIA_MODE_FLAG" || true
         echo "[INFO] $(_ "Removing lliurex-firefox-settings entry")"
         remove_llxffoxsettings_conf
         if check_www_package; then
