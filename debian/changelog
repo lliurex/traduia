@@ -1,3 +1,9 @@
+traduia (0.9.9.7.3) jammy; urgency=medium
+
+  * Fix questions flow when cancel is selected aborting further processing.
+
+ -- M.Angel Juan <m.angel.juan@gmail.com>  Fri, 27 Nov 2026 10:57:03 +0100
+
 traduia (0.9.9.7.2) jammy; urgency=medium
 
   * Updated translations.
